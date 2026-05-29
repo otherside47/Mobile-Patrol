@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Mobile Patrol — Guard App</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:#0d0f12;color:#e8eaf0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:15px;overflow:hidden}
+#root{display:flex;flex-direction:column;height:100vh;max-width:480px;margin:0 auto;background:#0d0f12;position:relative}
+.screen{display:none;flex:1;flex-direction:column;overflow:hidden}
+.screen.active{display:flex}
+.login-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;padding:24px}
+.logo{font-family:monospace;font-size:20px;font-weight:700;color:#00e5a0;letter-spacing:2px;margin-bottom:4px}
+.logo-sub{font-size:11px;color:#555a6a;margin-bottom:28px;letter-spacing:1px;font-family:monospace}
+.lcard{background:#151820;border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:24px 20px;width:100%;max-width:340px}
+.lcard h2{font-size:15px;font-weight:600;margin-bottom:16px}
+.fl{font-family:monospace;font-size:10px;color:#555a6a;letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:5px;margin-top:2px}
+select,input{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:11px 13px;font-size:14px;color:#e8eaf0;outline:none;margin-bottom:14px;-webkit-appearance:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+select:focus,input:focus{border-color:#00e5a0}
+.login-btn{width:100%;padding:13px;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;border:none;background:#00e5a0;color:#000;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.err{background:rgba(255,77,77,0.12);border:1px solid rgba(255,77,77,0.3);border-radius:8px;padding:9px 13px;font-size:13px;color:#ff6b6b;margin-bottom:14px;display:none}
+.topbar{padding:13px 16px 11px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(255,255,255,0.08);background:#151820;flex-shrink:0}
+.topbar h1{font-size:16px;font-weight:600;flex:1}
+.statusbar{padding:7px 16px;display:flex;justify-content:space-between;font-family:monospace;font-size:11px;color:#555a6a;border-bottom:1px solid rgba(255,255,255,0.08);background:#151820;flex-shrink:0}
+.content{flex:1;overflow-y:auto;padding:14px 16px;-webkit-overflow-scrolling:touch}
+.card{background:#151820;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px;margin-bottom:12px}
+.clabel{font-family:monospace;font-size:10px;color:#555a6a;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px}
+.badge{display:inline-flex;align-items:center;font-family:monospace;font-size:10px;padding:2px 7px;border-radius:4px;font-weight:500}
+.bg{background:rgba(0,229,160,0.12);color:#00e5a0;border:1px solid rgba(0,229,160,0.25)}
+.bb{background:rgba(0,119,255,0.12);color:#4da3ff;border:1px solid rgba(0,119,255,0.2)}
+.bgr{background:rgba(255,255,255,0.06);color:#8b90a0;border:1px solid rgba(255,255,255,0.08)}
+.br{background:rgba(255,77,77,0.12);color:#ff6b6b;border:1px solid rgba(255,77,77,0.25)}
+.bw{background:rgba(255,176,32,0.12);color:#ffb020;border:1px solid rgba(255,176,32,0.25)}
+.btn{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;padding:12px;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;border:1px solid rgba(255,255,255,0.14);background:#1c2030;color:#e8eaf0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;-webkit-appearance:none;margin-bottom:8px}
+.btn-p{background:#00e5a0;color:#000;border-color:#00e5a0;font-weight:700}
+.btn-d{background:#ff4d4d;color:#fff;border-color:#ff4d4d;font-weight:600}
+.btn-back{width:auto;padding:6px 12px;margin-bottom:0;font-size:13px}
+.btn-row{display:flex;gap:8px;padding:0 16px 12px;flex-shrink:0}
+.progress-track{height:4px;background:#1c2030;border-radius:2px;margin-top:8px}
+.progress-fill{height:100%;background:#00e5a0;border-radius:2px;transition:width 0.3s}
+.cp-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.08)}
+.cp-item:last-child{border-bottom:none}
+.cp-dot{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;font-weight:700}
+.cp-done{background:rgba(0,229,160,0.12);border:1px solid rgba(0,229,160,0.3);color:#00e5a0}
+.cp-next{background:rgba(0,119,255,0.12);border:1px solid rgba(0,119,255,0.3);color:#4da3ff}
+.cp-pending{background:#1c2030;border:1px solid rgba(255,255,255,0.08);color:#555a6a}
+.scan-area{border:1px solid rgba(255,255,255,0.14);border-radius:12px;overflow:hidden;margin-bottom:12px;background:#000;position:relative;min-height:260px;display:flex;align-items:center;justify-content:center}
+#qr-reader{width:100%}
+.scan-corner{position:absolute;width:22px;height:22px;border-color:#00e5a0;border-style:solid;border-width:0}
+.sc-tl{top:12px;left:12px;border-top-width:2px;border-left-width:2px}
+.sc-tr{top:12px;right:12px;border-top-width:2px;border-right-width:2px}
+.sc-bl{bottom:12px;left:12px;border-bottom-width:2px;border-left-width:2px}
+.sc-br{bottom:12px;right:12px;border-bottom-width:2px;border-right-width:2px}
+.scan-idle{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;text-align:center}
+.scan-result{background:rgba(0,229,160,0.08);border:1px solid rgba(0,229,160,0.3);border-radius:10px;padding:14px;margin-bottom:12px;display:none}
+.scan-err{background:rgba(255,77,77,0.08);border:1px solid rgba(255,77,77,0.3);border-radius:10px;padding:14px;margin-bottom:12px;display:none;font-size:13px;color:#ff6b6b}
+textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px 13px;font-size:14px;color:#e8eaf0;outline:none;margin-bottom:12px;resize:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;line-height:1.6}
+.photo-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.photo-slot{aspect-ratio:1;border:1px dashed rgba(255,255,255,0.14);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:22px;color:#555a6a}
+.photo-slot.filled{border-style:solid;border-color:rgba(0,119,255,0.4);background:rgba(0,119,255,0.08)}
+.tl-item{display:flex;gap:12px;padding-bottom:16px}
+.tl-dot{width:9px;height:9px;border-radius:50%;background:#00e5a0;flex-shrink:0;margin-top:4px}
+.tl-dot.red{background:#ff4d4d}.tl-dot.gray{background:#555a6a}.tl-dot.blue{background:#4da3ff}
+.metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.metric{background:#151820;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px}
+.metric-val{font-family:monospace;font-size:24px;font-weight:500;color:#00e5a0}
+.metric-lbl{font-family:monospace;font-size:10px;color:#555a6a;text-transform:uppercase;margin-top:3px}
+.rep-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.08)}
+.rep-row:last-child{border-bottom:none}
+.offline-bar{background:rgba(255,176,32,0.1);border:1px solid rgba(255,176,32,0.25);border-radius:8px;padding:8px 12px;display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:12px;color:#ffb020;font-family:monospace}
+.bottom-nav{display:flex;border-top:1px solid rgba(255,255,255,0.08);background:#151820;flex-shrink:0}
+.nav-btn{flex:1;background:none;border:none;cursor:pointer;padding:9px 4px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:9px;font-family:monospace;color:#555a6a;letter-spacing:0.5px}
+.nav-btn.active{color:#00e5a0}
+.gps-bar{font-family:monospace;font-size:11px;color:#555a6a;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.gps-dot{width:7px;height:7px;border-radius:50%;background:#00e5a0;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+
+/* ALERT MODAL */
+.alert-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:500;align-items:center;justify-content:center;padding:20px}
+.alert-modal.open{display:flex}
+.alert-box{background:#151820;border:2px solid #ff4d4d;border-radius:16px;padding:22px 20px;width:100%;max-width:360px;animation:alertPulse 0.5s ease}
+@keyframes alertPulse{0%{transform:scale(0.9);opacity:0}100%{transform:scale(1);opacity:1}}
+.alert-title{font-size:18px;font-weight:700;color:#ff4d4d;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.alert-badge{font-family:monospace;font-size:10px;padding:2px 7px;border-radius:4px;background:rgba(255,77,77,0.2);color:#ff6b6b;border:1px solid rgba(255,77,77,0.3)}
+.alert-row{display:flex;gap:8px;margin-top:14px}
+.alert-row button{flex:1;padding:11px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.alert-ack{background:#ff4d4d;color:#fff}
+.alert-dismiss{background:#1c2030;color:#8b90a0;border:1px solid rgba(255,255,255,0.08) !important}
+.alert-info{font-family:monospace;font-size:11px;color:#8b90a0;margin-top:10px;line-height:1.7}
+.alert-info span{color:#e8eaf0}
+
+/* HELP REQUESTS TAB */
+.req-item{background:#151820;border:1px solid rgba(255,77,77,0.25);border-radius:10px;padding:12px;margin-bottom:10px}
+.req-item.acked{border-color:rgba(255,255,255,0.08);opacity:0.6}
+.req-title{font-size:14px;font-weight:600;color:#ff6b6b;margin-bottom:4px}
+.req-meta{font-family:monospace;font-size:11px;color:#555a6a;line-height:1.7}
+
+#toast{display:none;position:fixed;bottom:75px;left:50%;transform:translateX(-50%);background:#151820;border:1px solid rgba(255,255,255,0.14);border-radius:8px;padding:9px 16px;font-family:monospace;font-size:12px;color:#00e5a0;white-space:nowrap;z-index:300;max-width:90vw;text-align:center}
+</style>
+</head>
+<body>
+<div id="root">
+
+<!-- LOGIN -->
+<div class="screen active" id="screen-login">
+  <div class="login-wrap">
+    <div class="logo">MOBILE PATROL</div>
+    <div class="logo-sub">GUARD APP</div>
+    <div class="lcard">
+      <h2>Sign in</h2>
+      <div class="err" id="login-err">Incorrect password. Try again.</div>
+      <label class="fl">Select account</label>
+      <select id="acct-select" onchange="onAcctChange()">
+        <option value="guard1">Guard 1 — A. Weber</option>
+        <option value="guard2">Guard 2 — M. Kowalski</option>
+        <option value="guard3">Guard 3 — J. Schmidt</option>
+        <option value="guard4">Guard 4 — T. Bauer</option>
+        <option value="guard5">Guard 5 — Replacement (Vacant)</option>
+      </select>
+      <div id="name-fields" style="display:none">
+        <label class="fl">First name</label>
+        <input type="text" id="input-fn" placeholder="First name" autocomplete="given-name">
+        <label class="fl">Last name</label>
+        <input type="text" id="input-ln" placeholder="Last name" autocomplete="family-name">
+      </div>
+      <label class="fl">Password</label>
+      <input type="text" id="login-pw" placeholder="Enter password" autocomplete="off" style="-webkit-text-security:disc">
+      <button type="button" class="login-btn" onclick="doLogin()">Sign in</button>
+      <div style="margin-top:12px;background:rgba(255,176,32,0.1);border:1px solid rgba(255,176,32,0.25);border-radius:8px;padding:10px 12px;font-size:12px;color:#ffb020;font-family:monospace;text-align:center">⚠ After signing in, tap "Enable Alert Sound" to receive loud alerts</div>
+    </div>
+  </div>
+</div>
+
+<!-- GUARD APP -->
+<div class="screen" id="screen-app">
+  <div class="statusbar">
+    <span id="status-name">● On duty</span>
+    <span id="status-sync">● Synced</span>
+  </div>
+  <div id="sound-banner" style="background:rgba(255,176,32,0.12);border-bottom:1px solid rgba(255,176,32,0.25);padding:8px 16px;display:flex;align-items:center;justify-content:space-between;font-size:12px;color:#ffb020;font-family:monospace;flex-shrink:0">
+    <span>⚠ Tap to enable alerts</span>
+    <button type="button" onclick="enableSound()" style="background:#ffb020;color:#000;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:monospace">🔔 Enable Alerts</button>
+  </div>
+  <div id="screen-flash" style="display:none;position:fixed;inset:0;background:rgba(255,0,0,0.4);z-index:999;pointer-events:none"></div>
+
+  <!-- PATROL HOME -->
+  <div class="screen active" id="s-home" style="min-height:unset;flex:1">
+    <div class="topbar">
+      <span style="font-family:monospace;font-size:12px;font-weight:700;color:#00e5a0">MOBILE PATROL</span>
+      <span style="flex:1"></span>
+      <span class="badge bg">● On duty</span>
+    </div>
+    <div class="content">
+      <div id="offline-bar" class="offline-bar" style="display:none">⚡ Offline — data saved locally</div>
+      <div class="card">
+        <div class="clabel">Tonight's patrol</div>
+        <div style="font-size:15px;font-weight:600;margin-bottom:7px">Night Round — Site A</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
+          <span class="badge bb">22:00–06:00</span>
+          <span class="badge bgr" id="cp-total-badge">6 checkpoints</span>
+          <span class="badge bw" id="cp-remain-badge">3 remaining</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-family:monospace;font-size:11px;color:#555a6a;margin-top:6px">
+          <span>Progress</span><span id="progress-text">3 / 6</span>
+        </div>
+        <div class="progress-track"><div class="progress-fill" id="progress-bar" style="width:50%"></div></div>
+      </div>
+      <div class="card">
+        <div class="clabel">Checkpoints</div>
+        <div id="cp-list">
+          <div class="cp-item"><div class="cp-dot cp-done">✓</div><div><div style="font-size:13px;font-weight:500">Main Entrance</div><div style="font-family:monospace;font-size:11px;color:#555a6a">22:14 · scanned</div></div></div>
+          <div class="cp-item"><div class="cp-dot cp-done">✓</div><div><div style="font-size:13px;font-weight:500">Parking Lot A</div><div style="font-family:monospace;font-size:11px;color:#555a6a">22:31 · scanned</div></div></div>
+          <div class="cp-item"><div class="cp-dot cp-done">✓</div><div><div style="font-size:13px;font-weight:500">Warehouse Gate</div><div style="font-family:monospace;font-size:11px;color:#555a6a">22:48 · scanned</div></div></div>
+          <div class="cp-item"><div class="cp-dot cp-next">◎</div><div><div style="font-size:13px;font-weight:500">Server Room</div><div style="font-family:monospace;font-size:11px;color:#555a6a">Next checkpoint</div></div></div>
+          <div class="cp-item"><div class="cp-dot cp-pending">·</div><div><div style="font-size:13px;font-weight:500">Roof Access</div><div style="font-family:monospace;font-size:11px;color:#555a6a">Pending</div></div></div>
+          <div class="cp-item"><div class="cp-dot cp-pending">·</div><div><div style="font-size:13px;font-weight:500">Exit Gate B</div><div style="font-family:monospace;font-size:11px;color:#555a6a">Pending</div></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button type="button" class="btn btn-p" style="flex:1.4;margin-bottom:0" onclick="navApp('s-scan');setNav('nav-scan')">📷 Scan checkpoint</button>
+      <button type="button" class="btn" style="flex:1;margin-bottom:0;color:#ff4d4d;border-color:rgba(255,77,77,0.3)" onclick="navApp('s-incident');setNav('nav-reports')">⚠ Incident</button>
+    </div>
+    <div style="height:6px;flex-shrink:0"></div>
+  </div>
+
+  <!-- SCAN -->
+  <div class="screen" id="s-scan" style="min-height:unset;flex:1">
+    <div class="topbar">
+      <button type="button" class="btn btn-back" onclick="stopScanner();navApp('s-home');setNav('nav-home')">← Back</button>
+      <h1>Scan Checkpoint</h1>
+    </div>
+    <div class="content">
+      <div class="gps-bar"><div class="gps-dot"></div><span id="gps-status">Acquiring GPS...</span></div>
+      <div class="scan-area">
+        <div id="qr-reader"></div>
+        <div style="position:absolute;inset:0;pointer-events:none">
+          <div class="scan-corner sc-tl"></div><div class="scan-corner sc-tr"></div>
+          <div class="scan-corner sc-bl"></div><div class="scan-corner sc-br"></div>
+        </div>
+        <div id="scan-idle" class="scan-idle">
+          <div style="font-size:48px;margin-bottom:10px">📷</div>
+          <p style="font-size:13px;color:#8b90a0">Tap Start Scanner to open camera</p>
+        </div>
+      </div>
+      <div class="scan-result" id="scan-result">
+        <div style="font-size:15px;font-weight:600;color:#00e5a0" id="scan-result-title">✓ Checkpoint scanned</div>
+        <div style="font-family:monospace;font-size:11px;color:#555a6a;margin-top:4px" id="scan-result-meta"></div>
+      </div>
+      <div class="scan-err" id="scan-err"></div>
+      <button type="button" class="btn btn-p" id="btn-start-scan" onclick="startScanner()">📷 Start Scanner</button>
+      <button type="button" class="btn" id="btn-stop-scan" onclick="stopScanner()" style="display:none">■ Stop Scanner</button>
+    </div>
+  </div>
+
+  <!-- INCIDENT -->
+  <div class="screen" id="s-incident" style="min-height:unset;flex:1">
+    <div class="topbar">
+      <button type="button" class="btn btn-back" onclick="navApp('s-home');setNav('nav-home')">← Back</button>
+      <h1>Log Incident</h1>
+    </div>
+    <div class="content">
+      <label class="fl">Incident type</label>
+      <select><option>Suspicious activity</option><option>Damaged property</option><option>Unauthorized access</option><option>Medical emergency</option><option>Fire / safety hazard</option><option>Other</option></select>
+      <label class="fl">Severity</label>
+      <select><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select>
+      <label class="fl">Location</label>
+      <input type="text" placeholder="Describe location">
+      <label class="fl">Notes</label>
+      <textarea rows="4" placeholder="Describe what you observed..."></textarea>
+      <label class="fl">Photos</label>
+      <div class="photo-grid">
+        <div class="photo-slot" onclick="this.classList.toggle('filled');this.textContent=this.classList.contains('filled')?'📷':'+'">+</div>
+        <div class="photo-slot" onclick="this.classList.toggle('filled');this.textContent=this.classList.contains('filled')?'📷':'+'">+</div>
+        <div class="photo-slot" onclick="this.classList.toggle('filled');this.textContent=this.classList.contains('filled')?'📷':'+'">+</div>
+        <div class="photo-slot" onclick="this.classList.toggle('filled');this.textContent=this.classList.contains('filled')?'📷':'+'">+</div>
+      </div>
+      <div class="gps-bar"><div class="gps-dot"></div><span id="incident-gps">Acquiring GPS...</span></div>
+      <button type="button" class="btn btn-d" onclick="submitIncident()">📤 Submit incident report</button>
+    </div>
+  </div>
+
+  <!-- TIMELINE -->
+  <div class="screen" id="s-timeline" style="min-height:unset;flex:1">
+    <div class="topbar"><h1>Activity Timeline</h1></div>
+    <div class="content">
+      <div style="font-family:monospace;font-size:11px;color:#555a6a;margin-bottom:14px" id="tl-header">Tonight · Night Round · Site A</div>
+      <div id="timeline-list">
+        <div class="tl-item"><div class="tl-dot blue"></div><div><div style="font-size:13px;font-weight:500">Patrol started</div><div style="font-family:monospace;font-size:11px;color:#555a6a">22:00 · GPS acquired</div></div></div>
+        <div class="tl-item"><div class="tl-dot"></div><div><div style="font-size:13px;font-weight:500">Main Entrance scanned</div><div style="font-family:monospace;font-size:11px;color:#555a6a">22:14 · Checkpoint #1 · GPS verified</div></div></div>
+        <div class="tl-item"><div class="tl-dot"></div><div><div style="font-size:13px;font-weight:500">Parking Lot A scanned</div><div style="font-family:monospace;font-size:11px;color:#555a6a">22:31 · Checkpoint #2 · GPS verified</div></div></div>
+        <div class="tl-item"><div class="tl-dot blue"></div><div><div style="font-size:13px;font-weight:500">Server Room — next checkpoint</div><div style="font-family:monospace;font-size:11px;color:#555a6a">In progress</div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- REPORTS + HELP REQUESTS -->
+  <div class="screen" id="s-reports" style="min-height:unset;flex:1">
+    <div class="topbar">
+      <h1>Reports</h1>
+      <button type="button" class="btn btn-back" style="margin-left:auto" onclick="doLogout()">Sign out</button>
+    </div>
+    <div class="content">
+      <!-- HELP REQUESTS -->
+      <div class="card" style="border-color:rgba(255,77,77,0.3);background:rgba(255,77,77,0.04)">
+        <div class="clabel" style="color:#ff6b6b;margin-bottom:10px">🚨 Help requests received</div>
+        <div id="help-requests-list">
+          <div style="font-size:13px;color:#555a6a;font-family:monospace">No help requests yet.</div>
+        </div>
+      </div>
+      <div class="metrics">
+        <div class="metric"><div class="metric-val">14</div><div class="metric-lbl">Patrols/month</div></div>
+        <div class="metric"><div class="metric-val" style="color:#ff4d4d">3</div><div class="metric-lbl">Incidents</div></div>
+        <div class="metric"><div class="metric-val">98%</div><div class="metric-lbl">Checkpoint rate</div></div>
+        <div class="metric"><div class="metric-val">0</div><div class="metric-lbl">Missed rounds</div></div>
+      </div>
+      <div class="card">
+        <div class="clabel" style="margin-bottom:10px">Recent patrols</div>
+        <div class="rep-row"><div><div style="font-size:13px;font-weight:500">Night Round — Site A</div><div style="font-family:monospace;font-size:11px;color:#555a6a">Today, 22:00</div></div><span class="badge bb">In progress</span></div>
+        <div class="rep-row"><div><div style="font-size:13px;font-weight:500">Day Round — Site B</div><div style="font-family:monospace;font-size:11px;color:#555a6a">Yesterday, 08:00</div></div><span class="badge bg">Complete</span></div>
+      </div>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <button type="button" class="nav-btn active" id="nav-home" onclick="navApp('s-home');setNav('nav-home')">🏠<br>PATROL</button>
+    <button type="button" class="nav-btn" id="nav-scan" onclick="navApp('s-scan');setNav('nav-scan')">📷<br>SCAN</button>
+    <button type="button" class="nav-btn" id="nav-timeline" onclick="navApp('s-timeline');setNav('nav-timeline')">📋<br>LOG</button>
+    <button type="button" class="nav-btn" id="nav-reports" onclick="navApp('s-reports');setNav('nav-reports');renderHelpRequests()">📊<br>REPORTS</button>
+  </nav>
+</div>
+
+<!-- ALERT MODAL -->
+<div class="alert-modal" id="alert-modal">
+  <div class="alert-box">
+    <div class="alert-title">🚨 HELP REQUEST <span class="alert-badge" id="alert-urgency">CRITICAL</span></div>
+    <div class="alert-info" id="alert-info"></div>
+    <div class="alert-row">
+      <button type="button" class="alert-dismiss" onclick="dismissAlert()">Dismiss</button>
+      <button type="button" class="alert-ack" onclick="acknowledgeAlert()">✓ Responding</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const ACCOUNTS = {
+  guard1:{name:'A. Weber',pass:'guard1pass'},
+  guard2:{name:'M. Kowalski',pass:'guard2pass'},
+  guard3:{name:'J. Schmidt',pass:'guard3pass'},
+  guard4:{name:'T. Bauer',pass:'guard4pass'},
+  guard5:{name:null,pass:'guardpass'}
+};
+
+let checkpoints = JSON.parse(localStorage.getItem('mp_checkpoints') || 'null') || [
+  {id:'CP-001',name:'Main Entrance',route:'Night Round — Site A',gps:null,anchored:false},
+  {id:'CP-002',name:'Parking Lot A',route:'Night Round — Site A',gps:null,anchored:false},
+  {id:'CP-003',name:'Warehouse Gate',route:'Night Round — Site A',gps:null,anchored:false},
+  {id:'CP-004',name:'Server Room',route:'Night Round — Site A',gps:null,anchored:false},
+  {id:'CP-005',name:'Roof Access',route:'Night Round — Site A',gps:null,anchored:false},
+  {id:'CP-006',name:'Exit Gate B',route:'Night Round — Site A',gps:null,anchored:false}
+];
+
+let html5QrCode = null;
+let currentGPS = null;
+let scannerRunning = false;
+let lastSeenRequestId = localStorage.getItem('mp_last_seen_req') || null;
+let currentAlertId = null;
+let alertSound = null;
+
+// ── AUDIO + VIBRATION + VISUAL ALERT ──
+let alertAudio = null;
+let audioReady = false;
+
+function enableSound() {
+  document.getElementById('sound-banner').style.display = 'none';
+  // Create audio using Web Audio API, unlocked by user tap
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    const ctx = new AudioCtx();
+    // Generate alert sound buffer
+    const sampleRate = ctx.sampleRate;
+    const duration = 0.3;
+    const buffer = ctx.createBuffer(1, sampleRate * duration, sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) {
+      // Mix two frequencies for a sharp alert tone
+      data[i] = 0.5 * Math.sin(2 * Math.PI * 880 * i / sampleRate) +
+                0.5 * Math.sin(2 * Math.PI * 1320 * i / sampleRate);
+      // Fade out at end
+      if (i > data.length * 0.7) data[i] *= (data.length - i) / (data.length * 0.3);
+    }
+    // Play once to unlock
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    src.connect(ctx.destination);
+    src.start(0);
+    // Store for later use
+    window._alertCtx = ctx;
+    window._alertBuffer = buffer;
+    audioReady = true;
+    showToast('✓ Alerts enabled — stay on this page');
+  } catch(e) {
+    showToast('✓ Visual alerts enabled');
+  }
+  // Test vibration on Android
+  if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+}
+
+function playAlertSound() {
+  // Vibration — Android
+  if (navigator.vibrate) {
+    navigator.vibrate([500, 200, 500, 200, 500, 200, 800, 200, 800, 200, 800]);
+  }
+  // Audio
+  if (audioReady && window._alertCtx && window._alertBuffer) {
+    try {
+      let delay = 0;
+      for (let i = 0; i < 5; i++) {
+        const src = window._alertCtx.createBufferSource();
+        src.buffer = window._alertBuffer;
+        src.connect(window._alertCtx.destination);
+        src.start(window._alertCtx.currentTime + delay);
+        delay += 0.4;
+      }
+    } catch(e) {}
+  }
+  // Visual flash
+  flashScreen();
+}
+
+function flashScreen() {
+  const flash = document.getElementById('screen-flash');
+  if (!flash) return;
+  let count = 0;
+  const interval = setInterval(() => {
+    flash.style.display = count % 2 === 0 ? 'block' : 'none';
+    count++;
+    if (count > 10) { clearInterval(interval); flash.style.display = 'none'; }
+  }, 300);
+}
+
+// ── POLL FOR HELP REQUESTS ──
+function pollHelpRequests() {
+  const requests = JSON.parse(localStorage.getItem('mp_help_requests') || '[]');
+  if (requests.length === 0) return;
+  const latest = requests[0];
+  if (latest.id !== lastSeenRequestId && !latest.acked) {
+    lastSeenRequestId = latest.id;
+    localStorage.setItem('mp_last_seen_req', lastSeenRequestId);
+    showHelpAlert(latest);
+  }
+}
+
+function showHelpAlert(req) {
+  currentAlertId = req.id;
+  const urgencyLabel = req.urgency === 'critical' ? 'CRITICAL' : req.urgency === 'high' ? 'HIGH' : 'MEDIUM';
+  document.getElementById('alert-urgency').textContent = urgencyLabel;
+  const gpsText = req.gps ? req.gps.lat.toFixed(5)+'° N, '+req.gps.lng.toFixed(5)+'° E' : 'GPS unavailable';
+  document.getElementById('alert-info').innerHTML =
+    '<span>From:</span> ' + req.name + '<br>' +
+    '<span>Type:</span> ' + req.type + '<br>' +
+    '<span>Location:</span> ' + req.locDesc + '<br>' +
+    '<span>GPS:</span> ' + gpsText + '<br>' +
+    (req.notes ? '<span>Notes:</span> ' + req.notes + '<br>' : '') +
+    '<span>Time:</span> ' + new Date(req.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('alert-modal').classList.add('open');
+  playAlertSound();
+}
+
+function acknowledgeAlert() {
+  markRequestAcked(currentAlertId);
+  document.getElementById('alert-modal').classList.remove('open');
+  addTimelineEntry('Help request acknowledged', 'Responding to: ' + currentAlertId);
+  showToast('✓ Acknowledged — en route');
+  renderHelpRequests();
+}
+
+function dismissAlert() {
+  document.getElementById('alert-modal').classList.remove('open');
+}
+
+function markRequestAcked(id) {
+  const requests = JSON.parse(localStorage.getItem('mp_help_requests') || '[]');
+  const req = requests.find(r => r.id === id);
+  if (req) { req.acked = true; req.ackedBy = document.getElementById('status-name').textContent.replace('● ',''); }
+  localStorage.setItem('mp_help_requests', JSON.stringify(requests));
+}
+
+function renderHelpRequests() {
+  const requests = JSON.parse(localStorage.getItem('mp_help_requests') || '[]');
+  const el = document.getElementById('help-requests-list');
+  if (requests.length === 0) {
+    el.innerHTML = '<div style="font-size:13px;color:#555a6a;font-family:monospace">No help requests yet.</div>';
+    return;
+  }
+  el.innerHTML = requests.slice(0, 10).map(req => {
+    const gpsText = req.gps ? req.gps.lat.toFixed(4)+'° N, '+req.gps.lng.toFixed(4)+'° E' : 'GPS unavailable';
+    const time = new Date(req.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    return `<div class="req-item ${req.acked?'acked':''}">
+      <div class="req-title">${req.acked?'✓ ':'🚨 '}${req.type}</div>
+      <div class="req-meta">
+        From: ${req.name}<br>
+        Location: ${req.locDesc}<br>
+        GPS: ${gpsText}<br>
+        Time: ${time} ${req.acked?'· <span style="color:#00e5a0">Acknowledged</span>':''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// Poll every 5 seconds
+setInterval(pollHelpRequests, 5000);
+
+// ── GPS ──
+function getGPS(callback) {
+  if (!navigator.geolocation) { callback(null); return; }
+  navigator.geolocation.getCurrentPosition(
+    p => { currentGPS = {lat:p.coords.latitude,lng:p.coords.longitude,acc:p.coords.accuracy}; callback(currentGPS); },
+    () => callback(null),
+    {enableHighAccuracy:true,timeout:10000}
+  );
+}
+function updateGPSStatus() {
+  getGPS(gps => {
+    const el = document.getElementById('gps-status');
+    const el2 = document.getElementById('incident-gps');
+    const txt = gps ? gps.lat.toFixed(4)+'° N, '+gps.lng.toFixed(4)+'° E · ±'+Math.round(gps.acc)+'m' : 'GPS unavailable';
+    if(el) el.textContent = txt;
+    if(el2) el2.textContent = txt;
+  });
+}
+
+// ── LOGIN ──
+function onAcctChange() {
+  document.getElementById('name-fields').style.display = document.getElementById('acct-select').value === 'guard5' ? 'block' : 'none';
+}
+function doLogin() {
+  const k = document.getElementById('acct-select').value;
+  const p = document.getElementById('login-pw').value;
+  const acc = ACCOUNTS[k];
+  const err = document.getElementById('login-err');
+  if (p !== acc.pass) { err.style.display='block'; return; }
+  err.style.display = 'none';
+  let name = acc.name;
+  if (!name) {
+    const fn = document.getElementById('input-fn').value.trim();
+    const ln = document.getElementById('input-ln').value.trim();
+    if (!fn||!ln) { err.textContent='Please enter your name.'; err.style.display='block'; return; }
+    name = fn+' '+ln;
+  }
+  document.getElementById('status-name').textContent = '● '+name;
+  document.getElementById('tl-header').textContent = 'Tonight · Night Round · Site A · '+name;
+  document.getElementById('screen-login').classList.remove('active');
+  document.getElementById('screen-app').classList.add('active');
+  updateGPSStatus();
+  showToast('Welcome, '+name);
+  pollHelpRequests();
+}
+function doLogout() {
+  stopScanner();
+  document.getElementById('login-pw').value = '';
+  document.getElementById('screen-app').classList.remove('active');
+  document.getElementById('screen-login').classList.add('active');
+  navApp('s-home');
+}
+
+// ── SCANNER ──
+function startScanner() {
+  document.getElementById('scan-idle').style.display = 'none';
+  document.getElementById('scan-result').style.display = 'none';
+  document.getElementById('scan-err').style.display = 'none';
+  document.getElementById('btn-start-scan').style.display = 'none';
+  document.getElementById('btn-stop-scan').style.display = 'flex';
+  updateGPSStatus();
+  html5QrCode = new Html5Qrcode('qr-reader');
+  Html5Qrcode.getCameras().then(cameras => {
+    if (!cameras||cameras.length===0) { showScanErr('No camera found.'); return; }
+    html5QrCode.start(
+      {facingMode:'environment'},
+      {fps:10,qrbox:{width:220,height:220}},
+      onScanSuccess, ()=>{}
+    ).catch(() => showScanErr('Camera access denied. Please allow camera access.'));
+    scannerRunning = true;
+  }).catch(() => showScanErr('Camera access denied. Please allow camera access.'));
+}
+function stopScanner() {
+  if (html5QrCode && scannerRunning) {
+    html5QrCode.stop().then(() => {
+      html5QrCode.clear(); scannerRunning = false;
+      document.getElementById('scan-idle').style.display = 'flex';
+      document.getElementById('btn-start-scan').style.display = 'flex';
+      document.getElementById('btn-stop-scan').style.display = 'none';
+    }).catch(()=>{});
+  }
+}
+function onScanSuccess(decodedText) {
+  stopScanner();
+  const cp = checkpoints.find(c => c.id === decodedText);
+  if (!cp) { showScanErr('Unknown QR code: '+decodedText); return; }
+  const now = new Date();
+  const timeStr = now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+  getGPS(gps => {
+    if (!cp.anchored) {
+      if (gps) { cp.gps={lat:gps.lat,lng:gps.lng}; cp.anchored=true; localStorage.setItem('mp_checkpoints',JSON.stringify(checkpoints)); showScanSuccess(cp.name,timeStr,'⚓ GPS locked · '+gps.lat.toFixed(4)+'° N, '+gps.lng.toFixed(4)+'° E'); }
+      else { cp.anchored=true; localStorage.setItem('mp_checkpoints',JSON.stringify(checkpoints)); showScanSuccess(cp.name,timeStr,'⚠ GPS unavailable — logged without GPS'); }
+    } else {
+      if (gps && cp.gps) {
+        const dist = getDistance(gps.lat,gps.lng,cp.gps.lat,cp.gps.lng);
+        if (dist > 20) { showScanErr('⚠ GPS mismatch — you are '+Math.round(dist)+'m away. Must be within 20m.'); return; }
+        showScanSuccess(cp.name,timeStr,'GPS verified · '+Math.round(dist)+'m from anchor');
+      } else { showScanSuccess(cp.name,timeStr,'GPS unavailable — checkpoint logged'); }
+    }
+    addTimelineEntry(cp.name+' scanned', timeStr+' · '+cp.id);
+  });
+}
+function getDistance(lat1,lon1,lat2,lon2) {
+  const R=6371000,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180;
+  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+function showScanSuccess(name,time,meta) {
+  document.getElementById('scan-result-title').textContent = '✓ '+name+' — scanned at '+time;
+  document.getElementById('scan-result-meta').textContent = meta;
+  document.getElementById('scan-result').style.display = 'block';
+  showToast('✓ '+name+' scanned');
+  setTimeout(()=>{ navApp('s-home');setNav('nav-home');document.getElementById('scan-result').style.display='none'; },2500);
+}
+function showScanErr(msg) {
+  document.getElementById('scan-err').textContent = msg;
+  document.getElementById('scan-err').style.display = 'block';
+  document.getElementById('btn-start-scan').style.display = 'flex';
+  document.getElementById('btn-stop-scan').style.display = 'none';
+  document.getElementById('scan-idle').style.display = 'flex';
+}
+
+// ── TIMELINE ──
+function addTimelineEntry(title, meta) {
+  const list = document.getElementById('timeline-list');
+  const item = document.createElement('div');
+  item.className = 'tl-item';
+  item.innerHTML = '<div class="tl-dot"></div><div><div style="font-size:13px;font-weight:500">'+title+'</div><div style="font-family:monospace;font-size:11px;color:#555a6a">'+meta+'</div></div>';
+  list.appendChild(item);
+}
+
+// ── INCIDENT ──
+function submitIncident() {
+  showToast('✓ Incident report submitted');
+  addTimelineEntry('Incident logged', new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+' · Saved');
+  setTimeout(()=>{ navApp('s-home');setNav('nav-home'); },1200);
+}
+
+// ── NAV ──
+function navApp(id) {
+  document.querySelectorAll('#screen-app .screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if(id==='s-scan') updateGPSStatus();
+}
+function setNav(id) {
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ── TOAST ──
+function showToast(msg) {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.style.display='block';
+  clearTimeout(window._tt);
+  window._tt=setTimeout(()=>t.style.display='none',2500);
+}
+
+// ── OFFLINE ──
+window.addEventListener('offline',()=>{ document.getElementById('offline-bar').style.display='flex'; document.getElementById('status-sync').textContent='⚡ Offline'; });
+window.addEventListener('online',()=>{ document.getElementById('offline-bar').style.display='none'; document.getElementById('status-sync').textContent='● Synced'; showToast('✓ Back online'); });
+</script>
+</body>
+</html>
