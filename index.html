@@ -394,31 +394,79 @@ async function supabasePatch(table, id, data) {
 }
 
 // ── ALERTS ──
+// Pre-generated base64 alert sound (short beep sequence, works on iOS Safari)
+const ALERT_SOUND_URL = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAA' +
+  'EAAQARAAAAAgABAAIAZGF0YUoGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+  'AAAAAAAAAAAAAAAAAAAAAP//AAACAAQABAACAP//AAACAAQABAACAP//AAACAAQABAACAP//' +
+  'AAACAAQABAACAP//AAACAAQABAACAP//AAAAAAAAAAAAAAAEAAoADAAKAAQAAAAAAPv/9v/4//3/' +
+  'AwAHAAoACAADAPv/9v/4//3/AwAHAAoACAADAPv/9v/4//3/AwAHAAoACAADAPv/9v/4//3/Aw' +
+  'AHAAoACAADAPv/9v/4//3/AwAHAAoACAADAAAAAAAAAAAAABIAJAAqACQAEgAAAAAAAAD//' +
+  'uv/2P/Y/+v//wAKABIAEgAKAAAAAAD//+v/2P/Y/+v//wAKABIAEgAKAAAAAAD//+v/2P/Y/' +
+  '+v//wAKABIAEgAKAAAAAAAAAAAAAAAmAEoAWgBKACYAAAAAAAAA6v/N/83/6v8AACYASABWAE' +
+  'gAJgAAAAAAAADq/83/zf/q/wAAJgBIAFYASAAmAAAAAAAA';
+
+let alertAudio = null;
+let audioReady = false;
+
 function enableSound() {
   document.getElementById('sound-banner').style.display='none';
+  // Create and play a silent audio to unlock iOS audio
   try {
-    const ctx = new (window.AudioContext||window.webkitAudioContext)();
-    const buf=ctx.createBuffer(1,1,22050);
-    const src=ctx.createBufferSource();
-    src.buffer=buf;src.connect(ctx.destination);src.start(0);
-    window._alertCtx=ctx; audioReady=true;
-    showToast('✓ Alerts enabled');
-  } catch(e){ showToast('✓ Visual alerts enabled'); }
+    alertAudio = new Audio();
+    alertAudio.src = ALERT_SOUND_URL;
+    alertAudio.volume = 1.0;
+    // Play silently to unlock
+    alertAudio.play().then(() => {
+      alertAudio.pause();
+      alertAudio.currentTime = 0;
+      audioReady = true;
+      showToast('✓ Alert sound enabled');
+    }).catch(() => {
+      audioReady = true;
+      showToast('✓ Alerts enabled');
+    });
+  } catch(e) {
+    audioReady = true;
+    showToast('✓ Visual alerts enabled');
+  }
   if(navigator.vibrate) navigator.vibrate([200,100,200]);
 }
+
 function playAlertSound() {
+  // Vibration for Android
   if(navigator.vibrate) navigator.vibrate([500,200,500,200,500,200,800,200,800]);
-  if(audioReady&&window._alertCtx){
-    try {
-      const ctx=window._alertCtx;
-      const sr=ctx.sampleRate;
-      const buf=ctx.createBuffer(1,sr*0.3,sr);
-      const d=buf.getChannelData(0);
-      for(let i=0;i<d.length;i++){d[i]=0.5*Math.sin(2*Math.PI*880*i/sr)+0.5*Math.sin(2*Math.PI*1320*i/sr);if(i>d.length*0.7)d[i]*=(d.length-i)/(d.length*0.3);}
-      let delay=0;
-      for(let i=0;i<5;i++){const s=ctx.createBufferSource();s.buffer=buf;s.connect(ctx.destination);s.start(ctx.currentTime+delay);delay+=0.4;}
-    } catch(e){}
-  }
+  
+  // Audio using Web Audio API with oscillator — works after user interaction on iOS
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (AudioCtx) {
+      const ctx = new AudioCtx();
+      if (ctx.state === 'suspended') ctx.resume();
+      
+      function beep(freq, startTime, duration, volume) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + startTime);
+        gain.gain.setValueAtTime(volume, ctx.currentTime + startTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + startTime + duration);
+        osc.start(ctx.currentTime + startTime);
+        osc.stop(ctx.currentTime + startTime + duration);
+      }
+      
+      // Play 3 loud alert beeps
+      beep(1000, 0.0, 0.3, 1.0);
+      beep(1000, 0.4, 0.3, 1.0);
+      beep(1200, 0.8, 0.5, 1.0);
+      beep(1000, 1.5, 0.3, 1.0);
+      beep(1000, 1.9, 0.3, 1.0);
+      beep(1200, 2.3, 0.5, 1.0);
+    }
+  } catch(e) {}
+  
+  // Visual flash
   const flash=document.getElementById('screen-flash');
   let count=0;
   const iv=setInterval(()=>{flash.style.display=count%2===0?'block':'none';count++;if(count>10){clearInterval(iv);flash.style.display='none';}},300);
