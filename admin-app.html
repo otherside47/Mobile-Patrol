@@ -424,7 +424,7 @@ function showTab(id,btn){
 
 // ── LIVE DATA ──
 async function loadLiveData(){
-  const scans=await sbGet('patrol_scans','order=timestamp.desc&limit=5');
+  const scans=await sbGet('patrol_scans','order=timestamp.desc&limit=20');
   const requests=await sbGet('help_requests','order=timestamp.desc&limit=20');
   const notes=await sbGet('surveillance_notes','order=timestamp.desc&limit=20');
   const unacked=Array.isArray(requests)?requests.filter(r=>!r.acked).length:0;
@@ -436,12 +436,49 @@ async function loadLiveData(){
   document.getElementById('rep-total-req').textContent=Array.isArray(requests)?requests.length:'0';
   document.getElementById('rep-total-notes').textContent=Array.isArray(notes)?notes.length:'0';
   document.getElementById('rep-acked').textContent=Array.isArray(requests)?requests.filter(r=>r.acked).length:'0';
+
+  // Build guard shift map from latest scans
+  var guardShifts = {};
+  if (Array.isArray(scans)) {
+    scans.forEach(function(s) {
+      if (s.guard_name && s.shift_label && !guardShifts[s.guard_name]) {
+        guardShifts[s.guard_name] = {label: s.shift_label, type: s.shift_type};
+      }
+    });
+  }
+
+  // Update live guard list with shift info
+  var liveEl = document.getElementById('live-guard-list');
+  var statuses = [
+    {key:'guard1',site:'Site A',done:0,total:24,status:'On duty',badge:'bg'},
+    {key:'guard2',site:'Site B',done:0,total:24,status:'On duty',badge:'bg'},
+    {key:'guard3',site:'—',done:0,total:0,status:'Off duty',badge:'bgr'},
+    {key:'guard4',site:'Site C',done:0,total:24,status:'On duty',badge:'bw'},
+    {key:'guard5',site:'Site D',done:0,total:0,status:'Standby',badge:'bgr'},
+  ];
+  // Count scans per guard
+  if (Array.isArray(scans)) {
+    statuses.forEach(function(s) {
+      var name = guardProfiles[s.key] ? guardProfiles[s.key].name : '';
+      s.done = scans.filter(function(sc) { return sc.guard_name === name; }).length;
+    });
+  }
+  liveEl.innerHTML = statuses.map(function(s) {
+    var name = guardProfiles[s.key] ? guardProfiles[s.key].name : 'Unknown';
+    var initials = name.split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase();
+    var pct = s.total > 0 ? Math.round(s.done/s.total*100) : 0;
+    var shiftInfo = guardShifts[name];
+    var shiftBadge = shiftInfo ? '<div style="font-family:monospace;font-size:10px;color:' + (shiftInfo.type==='night'?'#4da3ff':'#ffb020') + ';margin-top:2px">' + (shiftInfo.type==='night'?'🌙':'☀️') + ' ' + shiftInfo.label + '</div>' : '';
+    return '<div class="live-row"><div class="avatar">' + initials + '</div><div style="flex:1"><div style="display:flex;align-items:center;justify-content:space-between"><div style="font-size:13px;font-weight:500">' + name + '</div><span class="badge ' + s.badge + '">' + s.status + '</span></div><div style="font-family:monospace;font-size:10px;color:#555a6a;margin-top:2px">' + s.site + (s.total>0?' · '+s.done+' scans':'') + '</div>' + shiftBadge + (s.total>0?'<div class="progress-track"><div class="progress-fill" style="width:'+pct+'%"></div></div>':'') + '</div></div>';
+  }).join('');
+
   // Recent activity
   const el=document.getElementById('live-activity-list');
   if(!Array.isArray(scans)||scans.length===0){el.innerHTML='<div style="font-size:13px;color:#555a6a;font-family:monospace">No activity yet.</div>';return;}
-  el.innerHTML=scans.map(s=>{
+  el.innerHTML=scans.slice(0,5).map(function(s){
     const time=new Date(s.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-    return `<div class="rep-row"><div><div style="font-size:13px;font-weight:500">${s.checkpoint_name}</div><div style="font-family:monospace;font-size:11px;color:#555a6a">${time} · ${s.guard_name} · ${s.checkpoint_type}</div></div><span style="font-family:monospace;font-size:10px;padding:2px 7px;border-radius:4px;background:rgba(0,229,160,0.12);color:#00e5a0;border:1px solid rgba(0,229,160,0.25)">✓</span></div>`;
+    const shiftTxt = s.shift_label ? ' · ' + (s.shift_type==='night'?'🌙':'☀️') + ' ' + s.shift_label : '';
+    return '<div class="rep-row"><div><div style="font-size:13px;font-weight:500">'+s.checkpoint_name+'</div><div style="font-family:monospace;font-size:11px;color:#555a6a">'+time+' · '+s.guard_name+shiftTxt+'</div></div><span style="font-family:monospace;font-size:10px;padding:2px 7px;border-radius:4px;background:rgba(0,229,160,0.12);color:#00e5a0;border:1px solid rgba(0,229,160,0.25)">OK</span></div>';
   }).join('');
 }
 setInterval(loadLiveData,10000);

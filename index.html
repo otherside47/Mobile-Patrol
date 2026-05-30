@@ -129,6 +129,31 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
   </div>
 </div>
 
+
+<div class="screen" id="screen-shift">
+  <div class="login-wrap">
+    <div class="logo">MOBILE PATROL</div>
+    <div class="logo-sub">SELECT SHIFT</div>
+    <div class="lcard">
+      <h2 id="shift-greeting">Good evening</h2>
+      <div style="font-family:monospace;font-size:11px;color:#555a6a;margin-bottom:16px" id="shift-guard-name"></div>
+      <label class="fl">Shift type</label>
+      <select id="shift-type" onchange="onShiftTypeChange()">
+        <option value="night">Night Shift (19:00 - 07:00)</option>
+        <option value="day">Day Shift (07:00 - 19:00)</option>
+      </select>
+      <label class="fl">Start date</label>
+      <input type="date" id="shift-start-date">
+      <div id="shift-end-date-wrap">
+        <label class="fl">End date</label>
+        <input type="date" id="shift-end-date">
+      </div>
+      <div style="background:rgba(0,229,160,0.08);border:1px solid rgba(0,229,160,0.2);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-family:monospace;font-size:12px;color:#00e5a0" id="shift-preview"></div>
+      <button type="button" class="login-btn" id="btn-start-shift">Start Shift</button>
+    </div>
+  </div>
+</div>
+
 <div class="screen" id="screen-app">
   <div class="statusbar">
     <span id="status-name">On duty</span>
@@ -146,6 +171,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
       <span class="badge bg">On duty</span>
     </div>
     <div class="content">
+      <div id="shift-banner" style="background:rgba(0,119,255,0.1);border:1px solid rgba(0,119,255,0.2);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-family:monospace;font-size:11px;color:#4da3ff;display:none" id="shift-info-banner"></div>
       <div id="offline-bar" class="offline-bar" style="display:none">Offline — data saved locally</div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
         <div style="background:#151820;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px;text-align:center">
@@ -342,6 +368,101 @@ var lastSeenRequestId = null;
 var seenRequestIds = {};
 var currentAlertId = null;
 var currentGuardName = '';
+var currentShift = {type:'', startDate:'', endDate:'', label:''};
+
+
+// SHIFT SELECTION
+function onShiftTypeChange() {
+  var type = document.getElementById('shift-type').value;
+  var endWrap = document.getElementById('shift-end-date-wrap');
+  endWrap.style.display = type === 'night' ? 'block' : 'none';
+  updateShiftPreview();
+}
+
+function updateShiftPreview() {
+  var type = document.getElementById('shift-type').value;
+  var startDate = document.getElementById('shift-start-date').value;
+  var endDate = document.getElementById('shift-end-date').value;
+  var preview = document.getElementById('shift-preview');
+  if (!startDate) { preview.textContent = 'Please select dates'; return; }
+  if (type === 'night') {
+    var label = startDate + ' 19:00 → ' + (endDate || '...') + ' 07:00';
+    preview.textContent = 'Night Shift: ' + label;
+  } else {
+    preview.textContent = 'Day Shift: ' + startDate + ' 07:00 → 19:00';
+  }
+}
+
+function setDefaultDates() {
+  var today = new Date();
+  var yyyy = today.getFullYear();
+  var mm = String(today.getMonth()+1).padStart(2,'0');
+  var dd = String(today.getDate()).padStart(2,'0');
+  var todayStr = yyyy + '-' + mm + '-' + dd;
+  document.getElementById('shift-start-date').value = todayStr;
+  // For night shift end date = tomorrow
+  var tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate()+1);
+  var yy2 = tomorrow.getFullYear();
+  var mm2 = String(tomorrow.getMonth()+1).padStart(2,'0');
+  var dd2 = String(tomorrow.getDate()).padStart(2,'0');
+  document.getElementById('shift-end-date').value = yy2 + '-' + mm2 + '-' + dd2;
+  // Set greeting
+  var hour = today.getHours();
+  var greeting = hour >= 5 && hour < 12 ? 'Good morning' : hour >= 12 && hour < 17 ? 'Good afternoon' : 'Good evening';
+  document.getElementById('shift-greeting').textContent = greeting;
+  // Auto select shift type based on time
+  if (hour >= 7 && hour < 19) {
+    document.getElementById('shift-type').value = 'day';
+    document.getElementById('shift-end-date-wrap').style.display = 'none';
+  } else {
+    document.getElementById('shift-type').value = 'night';
+    document.getElementById('shift-end-date-wrap').style.display = 'block';
+  }
+  updateShiftPreview();
+}
+
+document.getElementById('shift-start-date').addEventListener('change', updateShiftPreview);
+document.getElementById('shift-end-date').addEventListener('change', updateShiftPreview);
+
+document.getElementById('btn-start-shift').addEventListener('click', function() {
+  var type = document.getElementById('shift-type').value;
+  var startDate = document.getElementById('shift-start-date').value;
+  var endDate = document.getElementById('shift-end-date').value;
+  if (!startDate) { alert('Please select a start date'); return; }
+  if (type === 'night' && !endDate) { alert('Please select an end date for night shift'); return; }
+  var label = type === 'night'
+    ? 'Night Shift: ' + startDate + ' 19:00 → ' + endDate + ' 07:00'
+    : 'Day Shift: ' + startDate + ' 07:00 → 19:00';
+  currentShift = {type: type, startDate: startDate, endDate: endDate || startDate, label: label};
+  // Show shift banner in patrol screen
+  var banner = document.getElementById('shift-info-banner');
+  banner.style.display = 'block';
+  banner.textContent = (type === 'night' ? '🌙 ' : '☀️ ') + label;
+  // Update timeline header
+  document.getElementById('tl-header').textContent = label + ' · ' + currentGuardName;
+  // Show app
+  document.getElementById('screen-shift').classList.remove('active');
+  document.getElementById('screen-app').classList.add('active');
+  renderLists();
+  updateGPS();
+  showToast('Shift started');
+  // Mark all existing requests as seen
+  sbGet('help_requests', 'order=timestamp.desc&limit=50', function(data) {
+    if (data && data.length) {
+      for (var i = 0; i < data.length; i++) {
+        seenRequestIds[data[i].id] = true;
+        lastSeenRequestId = data[i].id;
+      }
+    }
+    setTimeout(function() {
+      pollRequests();
+      if (!window._pollInterval) {
+        window._pollInterval = setInterval(pollRequests, 5000);
+      }
+    }, 2000);
+  });
+});
 
 // SUPABASE
 function sbGet(table, query, cb) {
@@ -550,30 +671,11 @@ document.getElementById('login-button').addEventListener('click', function() {
   }
   currentGuardName = name;
   document.getElementById('status-name').textContent = name;
-  document.getElementById('tl-header').textContent = 'Shift · ' + name;
+  document.getElementById('shift-guard-name').textContent = 'Welcome, ' + name;
   document.getElementById('screen-login').classList.remove('active');
-  document.getElementById('screen-app').classList.add('active');
-  renderLists();
-  updateGPS();
+  document.getElementById('screen-shift').classList.add('active');
+  setDefaultDates();
   showToast('Welcome, ' + name);
-  // Mark ALL existing requests as seen so login never triggers old alerts
-  sbGet('help_requests', 'order=timestamp.desc&limit=50', function(data) {
-    if (data && data.length) {
-      for (var i = 0; i < data.length; i++) {
-        lastSeenRequestId = data[i].id;
-        // Store all seen IDs so none trigger on login
-        seenRequestIds[data[i].id] = true;
-      }
-    }
-    // Only start polling AFTER we've marked all existing as seen
-    setTimeout(function() {
-      pollRequests();
-      // Now start the interval
-      if (!window._pollInterval) {
-        window._pollInterval = setInterval(pollRequests, 5000);
-      }
-    }, 2000);
-  });
 });
 
 // LOGOUT
@@ -581,14 +683,13 @@ document.getElementById('btn-logout').addEventListener('click', function() {
   stopScanner();
   document.getElementById('login-pw').value = '';
   document.getElementById('screen-app').classList.remove('active');
+  document.getElementById('screen-shift').classList.remove('active');
   document.getElementById('screen-login').classList.add('active');
-  // Stop polling on logout
-  if (window._pollInterval) {
-    clearInterval(window._pollInterval);
-    window._pollInterval = null;
-  }
+  if (window._pollInterval) { clearInterval(window._pollInterval); window._pollInterval = null; }
   seenRequestIds = {};
   lastSeenRequestId = null;
+  currentShift = {type:'', startDate:'', endDate:'', label:''};
+  document.getElementById('shift-info-banner').style.display = 'none';
   navApp('s-home'); setNav('nav-home');
 });
 
@@ -654,7 +755,7 @@ function onScanSuccess(decodedText) {
     sessionScanned[cp.id] = timeStr;
     sessionStorage.setItem('mp_scanned', JSON.stringify(sessionScanned));
     currentScanCP = cp;
-    sbPost('patrol_scans', {id:'SCAN-'+Date.now(), guard_name:currentGuardName, checkpoint_id:cp.id, checkpoint_name:cp.name, checkpoint_type:cp.type, gps_lat:gps?gps.lat:null, gps_lng:gps?gps.lng:null, gps_verified:!!(gps&&cp.gps)}, null);
+    sbPost('patrol_scans', {id:'SCAN-'+Date.now(), guard_name:currentGuardName, checkpoint_id:cp.id, checkpoint_name:cp.name, checkpoint_type:cp.type, gps_lat:gps?gps.lat:null, gps_lng:gps?gps.lng:null, gps_verified:!!(gps&&cp.gps), shift_type:currentShift.type, shift_label:currentShift.label}, null);
     document.getElementById('scan-result-title').textContent = cp.name + ' scanned at ' + timeStr;
     document.getElementById('scan-result-meta').textContent = cp.type + (gps&&cp.gps ? ' · GPS verified' : ' · GPS logged');
     document.getElementById('scan-result').style.display = 'block';
