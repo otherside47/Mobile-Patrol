@@ -554,7 +554,13 @@ document.getElementById('login-button').addEventListener('click', function() {
   renderLists();
   updateGPS();
   showToast('Welcome, ' + name);
-  pollRequests();
+  // Get latest request ID first so we don't alert on old requests
+  sbGet('help_requests', 'order=timestamp.desc&limit=1', function(data) {
+    if (data && data.length) {
+      lastSeenRequestId = data[0].id;
+    }
+    pollRequests();
+  });
 });
 
 // LOGOUT
