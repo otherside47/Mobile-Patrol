@@ -11,16 +11,17 @@ html,body{height:100%;background:#0d0f12;color:#e8eaf0;font-family:-apple-system
 #root{display:flex;flex-direction:column;height:100vh;max-width:480px;margin:0 auto;background:#0d0f12}
 .screen{display:none;flex:1;flex-direction:column;overflow:hidden}
 .screen.active{display:flex}
-.login-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;padding:24px}
+.login-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;padding:24px;overflow-y:auto}
 .logo{font-family:monospace;font-size:20px;font-weight:700;color:#00e5a0;letter-spacing:2px;margin-bottom:4px}
 .logo-sub{font-size:11px;color:#555a6a;margin-bottom:28px;letter-spacing:1px;font-family:monospace}
 .lcard{background:#151820;border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:24px 20px;width:100%;max-width:340px}
 .lcard h2{font-size:15px;font-weight:600;margin-bottom:16px}
 .fl{font-family:monospace;font-size:10px;color:#555a6a;letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:5px;margin-top:2px}
-select,input{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:11px 13px;font-size:14px;color:#e8eaf0;outline:none;margin-bottom:14px;-webkit-appearance:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+select,input[type=text],input[type=date]{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:11px 13px;font-size:14px;color:#e8eaf0;outline:none;margin-bottom:14px;-webkit-appearance:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
 select:focus,input:focus{border-color:#00e5a0}
-.login-btn{width:100%;padding:14px;border-radius:8px;font-size:16px;font-weight:700;cursor:pointer;border:none;background:#00e5a0;color:#000;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;-webkit-appearance:none;display:block;margin-top:4px}
+.big-btn{width:100%;padding:14px;border-radius:8px;font-size:16px;font-weight:700;cursor:pointer;border:none;background:#00e5a0;color:#000;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;-webkit-appearance:none;display:block;margin-top:4px;text-align:center}
 .err{background:rgba(255,77,77,0.12);border:1px solid rgba(255,77,77,0.3);border-radius:8px;padding:9px 13px;font-size:13px;color:#ff6b6b;margin-bottom:14px;display:none}
+.shift-preview{background:rgba(0,229,160,0.08);border:1px solid rgba(0,229,160,0.2);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-family:monospace;font-size:12px;color:#00e5a0;min-height:36px}
 .topbar{padding:13px 16px 11px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(255,255,255,0.08);background:#151820;flex-shrink:0}
 .topbar h1{font-size:16px;font-weight:600;flex:1}
 .statusbar{padding:7px 16px;display:flex;justify-content:space-between;font-family:monospace;font-size:11px;color:#555a6a;border-bottom:1px solid rgba(255,255,255,0.08);background:#151820;flex-shrink:0}
@@ -101,6 +102,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
 <body>
 <div id="root">
 
+<!-- ── LOGIN ── -->
 <div class="screen active" id="screen-login">
   <div class="login-wrap">
     <div class="logo">MOBILE PATROL</div>
@@ -124,36 +126,37 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
       </div>
       <label class="fl">Password</label>
       <input type="text" id="login-pw" placeholder="Password" style="-webkit-text-security:disc">
-      <button type="button" class="login-btn" id="login-button">Sign in</button>
+      <button type="button" class="big-btn" id="login-button">Sign in</button>
     </div>
   </div>
 </div>
 
-
+<!-- ── SHIFT SELECTION ── -->
 <div class="screen" id="screen-shift">
   <div class="login-wrap">
     <div class="logo">MOBILE PATROL</div>
     <div class="logo-sub">SELECT SHIFT</div>
     <div class="lcard">
-      <h2 id="shift-greeting">Good evening</h2>
-      <div style="font-family:monospace;font-size:11px;color:#555a6a;margin-bottom:16px" id="shift-guard-name"></div>
+      <h2 id="shift-greeting">Select your shift</h2>
+      <div style="font-family:monospace;font-size:12px;color:#4da3ff;margin-bottom:16px" id="shift-guard-display"></div>
       <label class="fl">Shift type</label>
-      <select id="shift-type" onchange="onShiftTypeChange()">
+      <select id="shift-type">
         <option value="night">Night Shift (19:00 - 07:00)</option>
         <option value="day">Day Shift (07:00 - 19:00)</option>
       </select>
       <label class="fl">Start date</label>
       <input type="date" id="shift-start-date">
-      <div id="shift-end-date-wrap">
+      <div id="end-date-wrap">
         <label class="fl">End date</label>
         <input type="date" id="shift-end-date">
       </div>
-      <div style="background:rgba(0,229,160,0.08);border:1px solid rgba(0,229,160,0.2);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-family:monospace;font-size:12px;color:#00e5a0" id="shift-preview"></div>
-      <button type="button" class="login-btn" id="btn-start-shift">Start Shift</button>
+      <div class="shift-preview" id="shift-preview">Select dates to preview shift</div>
+      <button type="button" class="big-btn" id="start-shift-btn">Start Shift</button>
     </div>
   </div>
 </div>
 
+<!-- ── GUARD APP ── -->
 <div class="screen" id="screen-app">
   <div class="statusbar">
     <span id="status-name">On duty</span>
@@ -164,6 +167,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
     <button type="button" id="enable-alerts-btn" style="background:#ffb020;color:#000;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer">Enable Alerts</button>
   </div>
 
+  <!-- PATROL HOME -->
   <div class="screen active" id="s-home" style="min-height:unset;flex:1">
     <div class="topbar">
       <span style="font-family:monospace;font-size:12px;font-weight:700;color:#00e5a0">MOBILE PATROL</span>
@@ -171,7 +175,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
       <span class="badge bg">On duty</span>
     </div>
     <div class="content">
-      <div id="shift-banner" style="background:rgba(0,119,255,0.1);border:1px solid rgba(0,119,255,0.2);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-family:monospace;font-size:11px;color:#4da3ff;display:none" id="shift-info-banner"></div>
+      <div id="shift-banner" style="background:rgba(0,119,255,0.1);border:1px solid rgba(0,119,255,0.2);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-family:monospace;font-size:11px;color:#4da3ff;display:none"></div>
       <div id="offline-bar" class="offline-bar" style="display:none">Offline — data saved locally</div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
         <div style="background:#151820;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px;text-align:center">
@@ -218,6 +222,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
     <div style="height:6px;flex-shrink:0"></div>
   </div>
 
+  <!-- SCAN -->
   <div class="screen" id="s-scan" style="min-height:unset;flex:1">
     <div class="topbar">
       <button type="button" class="btn btn-back" id="btn-scan-back">Back</button>
@@ -265,6 +270,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
     </div>
   </div>
 
+  <!-- INCIDENT -->
   <div class="screen" id="s-incident" style="min-height:unset;flex:1">
     <div class="topbar">
       <button type="button" class="btn btn-back" id="btn-incident-back">Back</button>
@@ -284,6 +290,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
     </div>
   </div>
 
+  <!-- TIMELINE -->
   <div class="screen" id="s-timeline" style="min-height:unset;flex:1">
     <div class="topbar"><h1>Activity Timeline</h1></div>
     <div class="content">
@@ -294,6 +301,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
     </div>
   </div>
 
+  <!-- REPORTS -->
   <div class="screen" id="s-reports" style="min-height:unset;flex:1">
     <div class="topbar">
       <h1>Reports</h1>
@@ -322,6 +330,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
   </nav>
 </div>
 
+<!-- ALERT MODAL -->
 <div class="alert-modal" id="alert-modal">
   <div class="alert-box">
     <div class="alert-title">HELP REQUEST <span id="alert-urgency" style="font-family:monospace;font-size:11px;padding:2px 7px;border-radius:4px;background:rgba(255,77,77,0.2);color:#ff6b6b;border:1px solid rgba(255,77,77,0.3)">CRITICAL</span></div>
@@ -341,18 +350,19 @@ var SUPABASE_URL = 'https://hzvegzkjogcjqzogxvvm.supabase.co';
 var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh6dmVnemtqb2djanF6b2d4dnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwOTA3NjgsImV4cCI6MjA5NTY2Njc2OH0.jDvCtntJjFd0tp9h5vFHm3xKa6s5HOGAschU-QrnmAE';
 
 var guardProfiles = JSON.parse(localStorage.getItem('mp_guard_profiles') || 'null') || {
-  guard1: {name:'A. Weber', pass:'guard1pass'},
-  guard2: {name:'M. Kowalski', pass:'guard2pass'},
-  guard3: {name:'J. Schmidt', pass:'guard3pass'},
-  guard4: {name:'T. Bauer', pass:'guard4pass'},
-  guard5: {name:'Replacement', pass:'guardpass', vacant:true}
+  guard1:{name:'A. Weber',pass:'guard1pass'},
+  guard2:{name:'M. Kowalski',pass:'guard2pass'},
+  guard3:{name:'J. Schmidt',pass:'guard3pass'},
+  guard4:{name:'T. Bauer',pass:'guard4pass'},
+  guard5:{name:'Replacement',pass:'guardpass',vacant:true}
 };
 
 var checkpoints = JSON.parse(localStorage.getItem('mp_checkpoints') || 'null') || [];
 if (checkpoints.length === 0) {
-  for (var i = 1; i <= 24; i++) checkpoints.push({id:'CP-'+('00'+i).slice(-3), name:'Checkpoint '+i, type:'checkpoint', gps:null, anchored:false});
-  for (var i = 1; i <= 3; i++) checkpoints.push({id:'SD-00'+i, name:'Surveillance Point '+i, type:'surveillance', gps:null, anchored:false});
-  checkpoints.push({id:'RC-001', name:'Radio Check — Base', type:'radio', gps:null, anchored:false});
+  var i;
+  for (i = 1; i <= 24; i++) checkpoints.push({id:'CP-'+('00'+i).slice(-3),name:'Checkpoint '+i,type:'checkpoint',gps:null,anchored:false});
+  for (i = 1; i <= 3; i++) checkpoints.push({id:'SD-00'+i,name:'Surveillance Point '+i,type:'surveillance',gps:null,anchored:false});
+  checkpoints.push({id:'RC-001',name:'Radio Check — Base',type:'radio',gps:null,anchored:false});
   localStorage.setItem('mp_checkpoints', JSON.stringify(checkpoints));
 }
 
@@ -368,144 +378,47 @@ var lastSeenRequestId = null;
 var seenRequestIds = {};
 var currentAlertId = null;
 var currentGuardName = '';
-var currentShift = {type:'', startDate:'', endDate:'', label:''};
-
-
-// SHIFT SELECTION
-function onShiftTypeChange() {
-  var type = document.getElementById('shift-type').value;
-  var endWrap = document.getElementById('shift-end-date-wrap');
-  endWrap.style.display = type === 'night' ? 'block' : 'none';
-  updateShiftPreview();
-}
-
-function updateShiftPreview() {
-  var type = document.getElementById('shift-type').value;
-  var startDate = document.getElementById('shift-start-date').value;
-  var endDate = document.getElementById('shift-end-date').value;
-  var preview = document.getElementById('shift-preview');
-  if (!startDate) { preview.textContent = 'Please select dates'; return; }
-  if (type === 'night') {
-    var label = startDate + ' 19:00 → ' + (endDate || '...') + ' 07:00';
-    preview.textContent = 'Night Shift: ' + label;
-  } else {
-    preview.textContent = 'Day Shift: ' + startDate + ' 07:00 → 19:00';
-  }
-}
-
-function setDefaultDates() {
-  var today = new Date();
-  var yyyy = today.getFullYear();
-  var mm = String(today.getMonth()+1).padStart(2,'0');
-  var dd = String(today.getDate()).padStart(2,'0');
-  var todayStr = yyyy + '-' + mm + '-' + dd;
-  document.getElementById('shift-start-date').value = todayStr;
-  // For night shift end date = tomorrow
-  var tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate()+1);
-  var yy2 = tomorrow.getFullYear();
-  var mm2 = String(tomorrow.getMonth()+1).padStart(2,'0');
-  var dd2 = String(tomorrow.getDate()).padStart(2,'0');
-  document.getElementById('shift-end-date').value = yy2 + '-' + mm2 + '-' + dd2;
-  // Set greeting
-  var hour = today.getHours();
-  var greeting = hour >= 5 && hour < 12 ? 'Good morning' : hour >= 12 && hour < 17 ? 'Good afternoon' : 'Good evening';
-  document.getElementById('shift-greeting').textContent = greeting;
-  // Auto select shift type based on time
-  if (hour >= 7 && hour < 19) {
-    document.getElementById('shift-type').value = 'day';
-    document.getElementById('shift-end-date-wrap').style.display = 'none';
-  } else {
-    document.getElementById('shift-type').value = 'night';
-    document.getElementById('shift-end-date-wrap').style.display = 'block';
-  }
-  updateShiftPreview();
-}
-
-document.getElementById('shift-start-date').addEventListener('change', updateShiftPreview);
-document.getElementById('shift-end-date').addEventListener('change', updateShiftPreview);
-
-document.getElementById('btn-start-shift').addEventListener('click', function() {
-  var type = document.getElementById('shift-type').value;
-  var startDate = document.getElementById('shift-start-date').value;
-  var endDate = document.getElementById('shift-end-date').value;
-  if (!startDate) { alert('Please select a start date'); return; }
-  if (type === 'night' && !endDate) { alert('Please select an end date for night shift'); return; }
-  var label = type === 'night'
-    ? 'Night Shift: ' + startDate + ' 19:00 → ' + endDate + ' 07:00'
-    : 'Day Shift: ' + startDate + ' 07:00 → 19:00';
-  currentShift = {type: type, startDate: startDate, endDate: endDate || startDate, label: label};
-  // Show shift banner in patrol screen
-  var banner = document.getElementById('shift-info-banner');
-  banner.style.display = 'block';
-  banner.textContent = (type === 'night' ? '🌙 ' : '☀️ ') + label;
-  // Update timeline header
-  document.getElementById('tl-header').textContent = label + ' · ' + currentGuardName;
-  // Show app
-  document.getElementById('screen-shift').classList.remove('active');
-  document.getElementById('screen-app').classList.add('active');
-  renderLists();
-  updateGPS();
-  showToast('Shift started');
-  // Mark all existing requests as seen
-  sbGet('help_requests', 'order=timestamp.desc&limit=50', function(data) {
-    if (data && data.length) {
-      for (var i = 0; i < data.length; i++) {
-        seenRequestIds[data[i].id] = true;
-        lastSeenRequestId = data[i].id;
-      }
-    }
-    setTimeout(function() {
-      pollRequests();
-      if (!window._pollInterval) {
-        window._pollInterval = setInterval(pollRequests, 5000);
-      }
-    }, 2000);
-  });
-});
+var currentShift = {type:'', label:'', startDate:'', endDate:''};
 
 // SUPABASE
 function sbGet(table, query, cb) {
-  fetch(SUPABASE_URL + '/rest/v1/' + table + '?' + (query || ''), {
-    headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY}
-  }).then(function(r) { return r.json(); }).then(cb).catch(function() { cb([]); });
+  fetch(SUPABASE_URL+'/rest/v1/'+table+'?'+(query||''), {
+    headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+  }).then(function(r){return r.json();}).then(cb).catch(function(){cb([]);});
 }
 function sbPost(table, data, cb) {
-  fetch(SUPABASE_URL + '/rest/v1/' + table, {
-    method: 'POST',
-    headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal'},
-    body: JSON.stringify(data)
-  }).then(function(r) { if (cb) cb(r.ok || r.status === 201); }).catch(function() { if (cb) cb(false); });
+  fetch(SUPABASE_URL+'/rest/v1/'+table, {
+    method:'POST',
+    headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+    body:JSON.stringify(data)
+  }).then(function(r){if(cb)cb(r.ok||r.status===201);}).catch(function(){if(cb)cb(false);});
 }
 function sbPatch(table, id, data) {
-  fetch(SUPABASE_URL + '/rest/v1/' + table + '?id=eq.' + id, {
-    method: 'PATCH',
-    headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json'},
-    body: JSON.stringify(data)
-  }).catch(function() {});
+  fetch(SUPABASE_URL+'/rest/v1/'+table+'?id=eq.'+id, {
+    method:'PATCH',
+    headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},
+    body:JSON.stringify(data)
+  }).catch(function(){});
 }
 
 // ALERTS
 document.getElementById('enable-alerts-btn').addEventListener('click', function() {
-  document.getElementById('sound-banner').style.display = 'none';
+  document.getElementById('sound-banner').style.display='none';
   try {
     var AC = window.AudioContext || window.webkitAudioContext;
     if (AC) { audioCtx = new AC(); audioReady = true; }
   } catch(e) {}
-  if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+  if (navigator.vibrate) navigator.vibrate([200,100,200]);
   showToast('Alerts enabled');
 });
 
 function playAlert() {
-  if (navigator.vibrate) navigator.vibrate([800, 200, 800, 200, 800, 200, 800, 200, 800, 200, 800, 200, 800]);
+  if (navigator.vibrate) navigator.vibrate([800,200,800,200,800,200,800,200,800,200,800,200,800]);
   if (audioReady && audioCtx) {
     try {
       if (audioCtx.state === 'suspended') audioCtx.resume();
       var now = audioCtx.currentTime;
-      // Create a repeating alarm sound - rising tone pattern like emergency siren
-      var totalDuration = 6.0;
-      var cycleDuration = 0.8;
-      var numCycles = Math.floor(totalDuration / cycleDuration);
+      var numCycles = 8;
       for (var c = 0; c < numCycles; c++) {
         (function(cycleStart) {
           var osc = audioCtx.createOscillator();
@@ -513,33 +426,32 @@ function playAlert() {
           osc.connect(gain);
           gain.connect(audioCtx.destination);
           osc.type = 'square';
-          // Rising frequency sweep from 600Hz to 1200Hz
-          osc.frequency.setValueAtTime(600, now + cycleStart);
-          osc.frequency.linearRampToValueAtTime(1200, now + cycleStart + 0.4);
-          osc.frequency.linearRampToValueAtTime(600, now + cycleStart + 0.8);
-          gain.gain.setValueAtTime(0, now + cycleStart);
-          gain.gain.linearRampToValueAtTime(1.0, now + cycleStart + 0.05);
-          gain.gain.setValueAtTime(1.0, now + cycleStart + 0.75);
-          gain.gain.linearRampToValueAtTime(0, now + cycleStart + 0.8);
-          osc.start(now + cycleStart);
-          osc.stop(now + cycleStart + 0.8);
-        })(c * cycleDuration);
+          osc.frequency.setValueAtTime(600, now+cycleStart);
+          osc.frequency.linearRampToValueAtTime(1200, now+cycleStart+0.4);
+          osc.frequency.linearRampToValueAtTime(600, now+cycleStart+0.8);
+          gain.gain.setValueAtTime(0, now+cycleStart);
+          gain.gain.linearRampToValueAtTime(1.0, now+cycleStart+0.05);
+          gain.gain.setValueAtTime(1.0, now+cycleStart+0.75);
+          gain.gain.linearRampToValueAtTime(0, now+cycleStart+0.8);
+          osc.start(now+cycleStart);
+          osc.stop(now+cycleStart+0.8);
+        })(c * 0.8);
       }
     } catch(e) {}
   }
   var flash = document.getElementById('screen-flash');
   var count = 0;
   var iv = setInterval(function() {
-    flash.style.display = (count % 2 === 0) ? 'block' : 'none';
+    flash.style.display = (count%2===0)?'block':'none';
     count++;
-    if (count > 20) { clearInterval(iv); flash.style.display = 'none'; }
+    if (count > 20) { clearInterval(iv); flash.style.display='none'; }
   }, 200);
 }
 
-// POLL HELP REQUESTS
+// POLL
 function pollRequests() {
-  sbGet('help_requests', 'order=timestamp.desc&limit=1', function(data) {
-    if (!data || !data.length) return;
+  sbGet('help_requests','order=timestamp.desc&limit=1',function(data) {
+    if (!data||!data.length) return;
     var latest = data[0];
     if (!seenRequestIds[latest.id] && !latest.acked) {
       lastSeenRequestId = latest.id;
@@ -551,25 +463,25 @@ function pollRequests() {
 
 function showHelpAlert(req) {
   currentAlertId = req.id;
-  var urgLabel = req.urgency === 'critical' ? 'CRITICAL' : req.urgency === 'high' ? 'HIGH' : 'MEDIUM';
+  var urgLabel = req.urgency==='critical'?'CRITICAL':req.urgency==='high'?'HIGH':'MEDIUM';
   document.getElementById('alert-urgency').textContent = urgLabel;
-  var gpsText = (req.gps_lat && req.gps_lng) ? req.gps_lat.toFixed(5) + ' N, ' + req.gps_lng.toFixed(5) + ' E' : 'GPS unavailable';
-  var time = new Date(req.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  var gpsText = (req.gps_lat&&req.gps_lng) ? req.gps_lat.toFixed(5)+' N, '+req.gps_lng.toFixed(5)+' E' : 'GPS unavailable';
+  var time = new Date(req.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
   document.getElementById('alert-info').innerHTML =
-    '<span>From:</span> ' + req.name + '<br>' +
-    '<span>Type:</span> ' + req.type + '<br>' +
-    '<span>Location:</span> ' + req.loc_desc + '<br>' +
-    '<span>GPS:</span> ' + gpsText + '<br>' +
-    (req.notes ? '<span>Notes:</span> ' + req.notes + '<br>' : '') +
-    '<span>Time:</span> ' + time;
+    '<span>From:</span> '+req.name+'<br>'+
+    '<span>Type:</span> '+req.type+'<br>'+
+    '<span>Location:</span> '+req.loc_desc+'<br>'+
+    '<span>GPS:</span> '+gpsText+'<br>'+
+    (req.notes?'<span>Notes:</span> '+req.notes+'<br>':'')+
+    '<span>Time:</span> '+time;
   document.getElementById('alert-modal').classList.add('open');
   playAlert();
 }
 
 document.getElementById('btn-ack-alert').addEventListener('click', function() {
-  sbPatch('help_requests', currentAlertId, {acked: true, acked_by: currentGuardName});
+  sbPatch('help_requests',currentAlertId,{acked:true,acked_by:currentGuardName});
   document.getElementById('alert-modal').classList.remove('open');
-  addTL('Help request acknowledged', 'Responding');
+  addTL('Help request acknowledged','Responding');
   showToast('Acknowledged');
   loadHelpRequests();
 });
@@ -578,268 +490,351 @@ document.getElementById('btn-dismiss-alert').addEventListener('click', function(
 });
 
 function loadHelpRequests() {
-  sbGet('help_requests', 'order=timestamp.desc&limit=10', function(data) {
+  sbGet('help_requests','order=timestamp.desc&limit=10',function(data) {
     var el = document.getElementById('help-list');
-    if (!data || !data.length) { el.innerHTML = '<div style="font-size:13px;color:#555a6a;font-family:monospace">No requests yet.</div>'; return; }
+    if (!data||!data.length) { el.innerHTML='<div style="font-size:13px;color:#555a6a;font-family:monospace">No requests yet.</div>'; return; }
     el.innerHTML = data.map(function(req) {
-      var gpsText = (req.gps_lat && req.gps_lng) ? req.gps_lat.toFixed(4) + ' N, ' + req.gps_lng.toFixed(4) + ' E' : 'GPS unavailable';
-      var time = new Date(req.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-      return '<div class="req-item ' + (req.acked ? 'acked' : '') + '">' +
-        '<div style="font-size:14px;font-weight:600;color:' + (req.acked ? '#00e5a0' : '#ff6b6b') + ';margin-bottom:4px">' + (req.acked ? 'DONE ' : 'ALERT ') + req.type + '</div>' +
-        '<div style="font-family:monospace;font-size:11px;color:#555a6a;line-height:1.7">From: ' + req.name + '<br>Location: ' + req.loc_desc + '<br>GPS: ' + gpsText + '<br>Time: ' + time + (req.acked ? ' · <span style="color:#00e5a0">Acked by ' + req.acked_by + '</span>' : '') + '</div></div>';
+      var gpsText = (req.gps_lat&&req.gps_lng)?req.gps_lat.toFixed(4)+' N, '+req.gps_lng.toFixed(4)+' E':'GPS unavailable';
+      var time = new Date(req.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+      return '<div class="req-item '+(req.acked?'acked':'')+'">'+
+        '<div style="font-size:14px;font-weight:600;color:'+(req.acked?'#00e5a0':'#ff6b6b')+';margin-bottom:4px">'+(req.acked?'DONE ':'ALERT ')+req.type+'</div>'+
+        '<div style="font-family:monospace;font-size:11px;color:#555a6a;line-height:1.7">From: '+req.name+'<br>Location: '+req.loc_desc+'<br>GPS: '+gpsText+'<br>Time: '+time+(req.acked?' · <span style="color:#00e5a0">Acked by '+req.acked_by+'</span>':'')+'</div></div>';
     }).join('');
   });
 }
-
-// Polling started only after login
 
 // GPS
 function getGPS(cb) {
   if (!navigator.geolocation) { cb(null); return; }
   navigator.geolocation.getCurrentPosition(
-    function(p) { currentGPS = {lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy}; cb(currentGPS); },
+    function(p) { currentGPS={lat:p.coords.latitude,lng:p.coords.longitude,acc:p.coords.accuracy}; cb(currentGPS); },
     function() { cb(null); },
-    {enableHighAccuracy: true, timeout: 10000}
+    {enableHighAccuracy:true,timeout:10000}
   );
 }
 function updateGPS() {
   getGPS(function(gps) {
-    var txt = gps ? gps.lat.toFixed(4) + ' N, ' + gps.lng.toFixed(4) + ' E' : 'GPS unavailable';
-    var el1 = document.getElementById('gps-status');
-    var el2 = document.getElementById('incident-gps');
-    if (el1) el1.textContent = txt;
-    if (el2) el2.textContent = txt;
+    var txt = gps?gps.lat.toFixed(4)+' N, '+gps.lng.toFixed(4)+' E':'GPS unavailable';
+    var el1=document.getElementById('gps-status');
+    var el2=document.getElementById('incident-gps');
+    if(el1)el1.textContent=txt;
+    if(el2)el2.textContent=txt;
   });
 }
-function getDist(lat1, lon1, lat2, lon2) {
-  var R = 6371000, dLat = (lat2-lat1)*Math.PI/180, dLon = (lon2-lon1)*Math.PI/180;
-  var a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
-  return R*2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+function getDist(lat1,lon1,lat2,lon2) {
+  var R=6371000,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180;
+  var a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
 
-// RENDER
+// RENDER LISTS
 function renderLists() {
-  var cps = checkpoints.filter(function(c) { return c.type === 'checkpoint'; });
-  var survs = checkpoints.filter(function(c) { return c.type === 'surveillance'; });
-  var radios = checkpoints.filter(function(c) { return c.type === 'radio'; });
-  var cpDone = cps.filter(function(c) { return sessionScanned[c.id]; }).length;
-  var survDone = survs.filter(function(c) { return sessionScanned[c.id]; }).length;
-  var radioDone = radios.filter(function(c) { return sessionScanned[c.id]; }).length;
-  document.getElementById('stat-cp').textContent = cpDone + '/24';
-  document.getElementById('stat-surv').textContent = survDone + '/3';
-  document.getElementById('stat-radio').textContent = radioDone + '/1';
-  document.getElementById('stat-inc').textContent = incidentCount;
-  document.getElementById('cp-badge').textContent = cpDone + ' / 24';
-  document.getElementById('surv-badge').textContent = survDone + ' / 3';
-  document.getElementById('rep-cp').textContent = cpDone + '/24';
-  document.getElementById('rep-surv').textContent = survDone + '/3';
-  document.getElementById('rep-radio').textContent = radioDone + '/1';
-  document.getElementById('rep-inc').textContent = incidentCount;
-  document.getElementById('cp-list').innerHTML = cps.map(function(cp) {
-    var done = !!sessionScanned[cp.id];
-    return '<div class="cp-item"><div class="cp-dot ' + (done ? 'cp-done' : 'cp-pending') + '">' + (done ? 'OK' : cp.id.replace('CP-','')) + '</div><div style="flex:1"><div style="font-size:13px;font-weight:500">' + cp.name + '</div><div style="font-family:monospace;font-size:10px;color:' + (done ? '#00e5a0' : '#555a6a') + '">' + (done ? sessionScanned[cp.id] + ' scanned' : 'Pending') + '</div></div>' + (done ? '<span class="badge bg">OK</span>' : '') + '</div>';
+  var cps=checkpoints.filter(function(c){return c.type==='checkpoint';});
+  var survs=checkpoints.filter(function(c){return c.type==='surveillance';});
+  var radios=checkpoints.filter(function(c){return c.type==='radio';});
+  var cpDone=cps.filter(function(c){return sessionScanned[c.id];}).length;
+  var survDone=survs.filter(function(c){return sessionScanned[c.id];}).length;
+  var radioDone=radios.filter(function(c){return sessionScanned[c.id];}).length;
+  document.getElementById('stat-cp').textContent=cpDone+'/24';
+  document.getElementById('stat-surv').textContent=survDone+'/3';
+  document.getElementById('stat-radio').textContent=radioDone+'/1';
+  document.getElementById('stat-inc').textContent=incidentCount;
+  document.getElementById('cp-badge').textContent=cpDone+' / 24';
+  document.getElementById('surv-badge').textContent=survDone+' / 3';
+  document.getElementById('rep-cp').textContent=cpDone+'/24';
+  document.getElementById('rep-surv').textContent=survDone+'/3';
+  document.getElementById('rep-radio').textContent=radioDone+'/1';
+  document.getElementById('rep-inc').textContent=incidentCount;
+  document.getElementById('cp-list').innerHTML=cps.map(function(cp){
+    var done=!!sessionScanned[cp.id];
+    return '<div class="cp-item"><div class="cp-dot '+(done?'cp-done':'cp-pending')+'">'+(done?'OK':cp.id.replace('CP-',''))+'</div><div style="flex:1"><div style="font-size:13px;font-weight:500">'+cp.name+'</div><div style="font-family:monospace;font-size:10px;color:'+(done?'#00e5a0':'#555a6a')+'">'+(done?sessionScanned[cp.id]+' scanned':'Pending')+'</div></div>'+(done?'<span class="badge bg">OK</span>':'')+'</div>';
   }).join('');
-  document.getElementById('surv-list').innerHTML = survs.map(function(cp) {
-    var done = !!sessionScanned[cp.id];
-    return '<div class="cp-item"><div class="cp-dot ' + (done ? 'cp-surv-done' : 'cp-surv') + '">SD</div><div style="flex:1"><div style="font-size:13px;font-weight:500">' + cp.name + '</div><div style="font-family:monospace;font-size:10px;color:' + (done ? '#cc66ff' : '#555a6a') + '">' + (done ? sessionScanned[cp.id] + ' noted' : '500m range') + '</div></div>' + (done ? '<span class="badge bp">OK</span>' : '') + '</div>';
+  document.getElementById('surv-list').innerHTML=survs.map(function(cp){
+    var done=!!sessionScanned[cp.id];
+    return '<div class="cp-item"><div class="cp-dot '+(done?'cp-surv-done':'cp-surv')+'">SD</div><div style="flex:1"><div style="font-size:13px;font-weight:500">'+cp.name+'</div><div style="font-family:monospace;font-size:10px;color:'+(done?'#cc66ff':'#555a6a')+'">'+(done?sessionScanned[cp.id]+' noted':'500m range')+'</div></div>'+(done?'<span class="badge bp">OK</span>':'')+'</div>';
   }).join('');
-  document.getElementById('radio-list').innerHTML = radios.map(function(cp) {
-    var done = !!sessionScanned[cp.id];
-    return '<div class="cp-item"><div class="cp-dot ' + (done ? 'cp-radio-done' : 'cp-radio') + '">RC</div><div style="flex:1"><div style="font-size:13px;font-weight:500">' + cp.name + '</div><div style="font-family:monospace;font-size:10px;color:' + (done ? '#4da3ff' : '#555a6a') + '">' + (done ? sessionScanned[cp.id] + ' checked' : 'Scan QR') + '</div></div>' + (done ? '<span class="badge bb">OK</span>' : '') + '</div>';
+  document.getElementById('radio-list').innerHTML=radios.map(function(cp){
+    var done=!!sessionScanned[cp.id];
+    return '<div class="cp-item"><div class="cp-dot '+(done?'cp-radio-done':'cp-radio')+'">RC</div><div style="flex:1"><div style="font-size:13px;font-weight:500">'+cp.name+'</div><div style="font-family:monospace;font-size:10px;color:'+(done?'#4da3ff':'#555a6a')+'">'+(done?sessionScanned[cp.id]+' checked':'Scan QR')+'</div></div>'+(done?'<span class="badge bb">OK</span>':'')+'</div>';
   }).join('');
 }
+
+// SHIFT SELECTION
+function getToday() {
+  var d=new Date();
+  return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
+}
+function getTomorrow() {
+  var d=new Date(); d.setDate(d.getDate()+1);
+  return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
+}
+function updateShiftPreview() {
+  var type=document.getElementById('shift-type').value;
+  var start=document.getElementById('shift-start-date').value;
+  var end=document.getElementById('shift-end-date').value;
+  var preview=document.getElementById('shift-preview');
+  if (!start) { preview.textContent='Select dates to preview shift'; return; }
+  if (type==='night') {
+    preview.textContent=(end?'Night Shift: '+start+' 19:00 → '+end+' 07:00':'Night Shift: '+start+' 19:00 → (select end date)');
+  } else {
+    preview.textContent='Day Shift: '+start+' 07:00 → 19:00';
+  }
+}
+function setupShiftScreen() {
+  var hour=new Date().getHours();
+  var greeting=hour>=5&&hour<12?'Good morning':hour>=12&&hour<17?'Good afternoon':'Good evening';
+  document.getElementById('shift-greeting').textContent=greeting+', '+currentGuardName;
+  document.getElementById('shift-guard-display').textContent='';
+  var today=getToday();
+  var tomorrow=getTomorrow();
+  document.getElementById('shift-start-date').value=today;
+  document.getElementById('shift-end-date').value=tomorrow;
+  // Auto-select based on time
+  if (hour>=7&&hour<19) {
+    document.getElementById('shift-type').value='day';
+    document.getElementById('end-date-wrap').style.display='none';
+  } else {
+    document.getElementById('shift-type').value='night';
+    document.getElementById('end-date-wrap').style.display='block';
+  }
+  updateShiftPreview();
+}
+
+document.getElementById('shift-type').addEventListener('change', function() {
+  document.getElementById('end-date-wrap').style.display=(this.value==='night')?'block':'none';
+  updateShiftPreview();
+});
+document.getElementById('shift-start-date').addEventListener('change', updateShiftPreview);
+document.getElementById('shift-end-date').addEventListener('change', updateShiftPreview);
+
+document.getElementById('start-shift-btn').addEventListener('click', function() {
+  var type=document.getElementById('shift-type').value;
+  var startDate=document.getElementById('shift-start-date').value;
+  var endDate=document.getElementById('shift-end-date').value;
+  if (!startDate) { showToast('Please select a start date'); return; }
+  if (type==='night'&&!endDate) { showToast('Please select an end date'); return; }
+  var label;
+  if (type==='night') {
+    label='Night Shift: '+startDate+' 19:00 → '+endDate+' 07:00';
+  } else {
+    label='Day Shift: '+startDate+' 07:00 → 19:00';
+  }
+  currentShift={type:type,label:label,startDate:startDate,endDate:endDate||startDate};
+  // Show shift banner
+  var banner=document.getElementById('shift-banner');
+  banner.style.display='block';
+  banner.textContent=(type==='night'?'🌙 ':'☀️ ')+label;
+  // Update timeline
+  document.getElementById('tl-header').textContent=label+' · '+currentGuardName;
+  // Go to app
+  document.getElementById('screen-shift').classList.remove('active');
+  document.getElementById('screen-app').classList.add('active');
+  renderLists();
+  updateGPS();
+  showToast('Shift started');
+  // Mark all existing requests as seen
+  sbGet('help_requests','order=timestamp.desc&limit=50',function(data) {
+    if (data&&data.length) {
+      for (var i=0;i<data.length;i++) {
+        seenRequestIds[data[i].id]=true;
+        lastSeenRequestId=data[i].id;
+      }
+    }
+    setTimeout(function() {
+      pollRequests();
+      if (!window._pollInterval) {
+        window._pollInterval=setInterval(pollRequests,5000);
+      }
+    }, 2000);
+  });
+});
 
 // LOGIN
 document.getElementById('acct-select').addEventListener('change', function() {
-  document.getElementById('name-fields').style.display = this.value === 'guard5' ? 'block' : 'none';
+  document.getElementById('name-fields').style.display=(this.value==='guard5')?'block':'none';
 });
-
 document.getElementById('login-button').addEventListener('click', function() {
-  var k = document.getElementById('acct-select').value;
-  var p = document.getElementById('login-pw').value;
-  var profiles = JSON.parse(localStorage.getItem('mp_guard_profiles') || 'null') || guardProfiles;
-  var acc = profiles[k];
-  var err = document.getElementById('login-err');
-  if (!acc || p !== acc.pass) { err.style.display = 'block'; return; }
-  err.style.display = 'none';
-  var name = acc.name;
-  if (!name || name === 'Replacement') {
-    var fn = document.getElementById('input-fn').value.trim();
-    var ln = document.getElementById('input-ln').value.trim();
-    if (!fn || !ln) { err.textContent = 'Please enter your name.'; err.style.display = 'block'; return; }
-    name = fn + ' ' + ln;
+  var k=document.getElementById('acct-select').value;
+  var p=document.getElementById('login-pw').value;
+  var profiles=JSON.parse(localStorage.getItem('mp_guard_profiles')||'null')||guardProfiles;
+  var acc=profiles[k];
+  var err=document.getElementById('login-err');
+  if (!acc||p!==acc.pass) { err.style.display='block'; return; }
+  err.style.display='none';
+  var name=acc.name;
+  if (!name||name==='Replacement') {
+    var fn=document.getElementById('input-fn').value.trim();
+    var ln=document.getElementById('input-ln').value.trim();
+    if (!fn||!ln) { err.textContent='Please enter your name.'; err.style.display='block'; return; }
+    name=fn+' '+ln;
   }
-  currentGuardName = name;
-  document.getElementById('status-name').textContent = name;
-  document.getElementById('shift-guard-name').textContent = 'Welcome, ' + name;
+  currentGuardName=name;
+  document.getElementById('status-name').textContent=name;
   document.getElementById('screen-login').classList.remove('active');
   document.getElementById('screen-shift').classList.add('active');
-  setDefaultDates();
-  showToast('Welcome, ' + name);
+  setupShiftScreen();
+  showToast('Welcome, '+name);
 });
 
 // LOGOUT
 document.getElementById('btn-logout').addEventListener('click', function() {
   stopScanner();
-  document.getElementById('login-pw').value = '';
+  document.getElementById('login-pw').value='';
   document.getElementById('screen-app').classList.remove('active');
   document.getElementById('screen-shift').classList.remove('active');
   document.getElementById('screen-login').classList.add('active');
-  if (window._pollInterval) { clearInterval(window._pollInterval); window._pollInterval = null; }
-  seenRequestIds = {};
-  lastSeenRequestId = null;
-  currentShift = {type:'', startDate:'', endDate:'', label:''};
-  document.getElementById('shift-info-banner').style.display = 'none';
+  if (window._pollInterval) { clearInterval(window._pollInterval); window._pollInterval=null; }
+  seenRequestIds={};
+  lastSeenRequestId=null;
+  currentShift={type:'',label:'',startDate:'',endDate:''};
+  document.getElementById('shift-banner').style.display='none';
   navApp('s-home'); setNav('nav-home');
 });
 
-// NAV BUTTONS
-document.getElementById('btn-scan').addEventListener('click', function() { navApp('s-scan'); setNav('nav-scan'); updateGPS(); });
-document.getElementById('btn-incident').addEventListener('click', function() { navApp('s-incident'); setNav('nav-incident'); updateGPS(); });
-document.getElementById('btn-scan-back').addEventListener('click', function() { stopScanner(); navApp('s-home'); setNav('nav-home'); });
-document.getElementById('btn-incident-back').addEventListener('click', function() { navApp('s-home'); setNav('nav-home'); });
-document.getElementById('nav-home').addEventListener('click', function() { navApp('s-home'); setNav('nav-home'); });
-document.getElementById('nav-scan').addEventListener('click', function() { navApp('s-scan'); setNav('nav-scan'); updateGPS(); });
-document.getElementById('nav-incident').addEventListener('click', function() { navApp('s-incident'); setNav('nav-incident'); updateGPS(); });
-document.getElementById('nav-timeline').addEventListener('click', function() { navApp('s-timeline'); setNav('nav-timeline'); });
-document.getElementById('nav-reports').addEventListener('click', function() { navApp('s-reports'); setNav('nav-reports'); loadHelpRequests(); });
+// NAV
+document.getElementById('btn-scan').addEventListener('click', function(){navApp('s-scan');setNav('nav-scan');updateGPS();});
+document.getElementById('btn-incident').addEventListener('click', function(){navApp('s-incident');setNav('nav-incident');updateGPS();});
+document.getElementById('btn-scan-back').addEventListener('click', function(){stopScanner();navApp('s-home');setNav('nav-home');});
+document.getElementById('btn-incident-back').addEventListener('click', function(){navApp('s-home');setNav('nav-home');});
+document.getElementById('nav-home').addEventListener('click', function(){navApp('s-home');setNav('nav-home');});
+document.getElementById('nav-scan').addEventListener('click', function(){navApp('s-scan');setNav('nav-scan');updateGPS();});
+document.getElementById('nav-incident').addEventListener('click', function(){navApp('s-incident');setNav('nav-incident');updateGPS();});
+document.getElementById('nav-timeline').addEventListener('click', function(){navApp('s-timeline');setNav('nav-timeline');});
+document.getElementById('nav-reports').addEventListener('click', function(){navApp('s-reports');setNav('nav-reports');loadHelpRequests();});
 
 // SCANNER
-document.getElementById('btn-start-scan').addEventListener('click', function() { startScanner(); });
-document.getElementById('btn-stop-scan').addEventListener('click', function() { stopScanner(); });
+document.getElementById('btn-start-scan').addEventListener('click', function(){startScanner();});
+document.getElementById('btn-stop-scan').addEventListener('click', function(){stopScanner();});
 
 function startScanner() {
-  document.getElementById('scan-idle').style.display = 'none';
-  document.getElementById('scan-result').style.display = 'none';
-  document.getElementById('scan-err').style.display = 'none';
-  document.getElementById('surv-form').style.display = 'none';
-  document.getElementById('btn-start-scan').style.display = 'none';
-  document.getElementById('btn-stop-scan').style.display = 'flex';
+  document.getElementById('scan-idle').style.display='none';
+  document.getElementById('scan-result').style.display='none';
+  document.getElementById('scan-err').style.display='none';
+  document.getElementById('surv-form').style.display='none';
+  document.getElementById('btn-start-scan').style.display='none';
+  document.getElementById('btn-stop-scan').style.display='flex';
   updateGPS();
-  html5QrCode = new Html5Qrcode('qr-reader');
-  Html5Qrcode.getCameras().then(function(cameras) {
-    if (!cameras || cameras.length === 0) { showScanErr('No camera found.'); return; }
-    html5QrCode.start({facingMode:'environment'}, {fps:10, qrbox:{width:220, height:220}}, onScanSuccess, function() {}).catch(function() { showScanErr('Camera access denied.'); });
-    scannerRunning = true;
-  }).catch(function() { showScanErr('Camera access denied.'); });
+  html5QrCode=new Html5Qrcode('qr-reader');
+  Html5Qrcode.getCameras().then(function(cameras){
+    if(!cameras||cameras.length===0){showScanErr('No camera found.');return;}
+    html5QrCode.start({facingMode:'environment'},{fps:10,qrbox:{width:220,height:220}},onScanSuccess,function(){}).catch(function(){showScanErr('Camera access denied.');});
+    scannerRunning=true;
+  }).catch(function(){showScanErr('Camera access denied.');});
 }
-
 function stopScanner() {
-  if (html5QrCode && scannerRunning) {
-    html5QrCode.stop().then(function() {
-      html5QrCode.clear(); scannerRunning = false;
-      document.getElementById('scan-idle').style.display = 'flex';
-      document.getElementById('btn-start-scan').style.display = 'flex';
-      document.getElementById('btn-stop-scan').style.display = 'none';
-    }).catch(function() {});
+  if(html5QrCode&&scannerRunning){
+    html5QrCode.stop().then(function(){
+      html5QrCode.clear();scannerRunning=false;
+      document.getElementById('scan-idle').style.display='flex';
+      document.getElementById('btn-start-scan').style.display='flex';
+      document.getElementById('btn-stop-scan').style.display='none';
+    }).catch(function(){});
   }
 }
-
 function onScanSuccess(decodedText) {
   stopScanner();
-  var cp = null;
-  for (var i = 0; i < checkpoints.length; i++) { if (checkpoints[i].id === decodedText) { cp = checkpoints[i]; break; } }
-  if (!cp) { showScanErr('Unknown QR code: ' + decodedText); return; }
-  var now = new Date();
-  var timeStr = ('0'+now.getHours()).slice(-2) + ':' + ('0'+now.getMinutes()).slice(-2);
-  var gpsRange = cp.type === 'checkpoint' ? 20 : 500;
-  getGPS(function(gps) {
-    if (!cp.anchored) {
-      if (gps) cp.gps = {lat: gps.lat, lng: gps.lng};
-      cp.anchored = true;
-      localStorage.setItem('mp_checkpoints', JSON.stringify(checkpoints));
-    } else if (gps && cp.gps) {
-      var dist = getDist(gps.lat, gps.lng, cp.gps.lat, cp.gps.lng);
-      if (dist > gpsRange) { showScanErr('GPS mismatch — ' + Math.round(dist) + 'm away. Must be within ' + gpsRange + 'm.'); return; }
+  var cp=null;
+  for(var i=0;i<checkpoints.length;i++){if(checkpoints[i].id===decodedText){cp=checkpoints[i];break;}}
+  if(!cp){showScanErr('Unknown QR code: '+decodedText);return;}
+  var now=new Date();
+  var timeStr=('0'+now.getHours()).slice(-2)+':'+('0'+now.getMinutes()).slice(-2);
+  var gpsRange=cp.type==='checkpoint'?20:500;
+  getGPS(function(gps){
+    if(!cp.anchored){
+      if(gps)cp.gps={lat:gps.lat,lng:gps.lng};
+      cp.anchored=true;
+      localStorage.setItem('mp_checkpoints',JSON.stringify(checkpoints));
+    } else if(gps&&cp.gps){
+      var dist=getDist(gps.lat,gps.lng,cp.gps.lat,cp.gps.lng);
+      if(dist>gpsRange){showScanErr('GPS mismatch — '+Math.round(dist)+'m away. Must be within '+gpsRange+'m.');return;}
     }
-    sessionScanned[cp.id] = timeStr;
-    sessionStorage.setItem('mp_scanned', JSON.stringify(sessionScanned));
-    currentScanCP = cp;
-    sbPost('patrol_scans', {id:'SCAN-'+Date.now(), guard_name:currentGuardName, checkpoint_id:cp.id, checkpoint_name:cp.name, checkpoint_type:cp.type, gps_lat:gps?gps.lat:null, gps_lng:gps?gps.lng:null, gps_verified:!!(gps&&cp.gps), shift_type:currentShift.type, shift_label:currentShift.label}, null);
-    document.getElementById('scan-result-title').textContent = cp.name + ' scanned at ' + timeStr;
-    document.getElementById('scan-result-meta').textContent = cp.type + (gps&&cp.gps ? ' · GPS verified' : ' · GPS logged');
-    document.getElementById('scan-result').style.display = 'block';
-    addTL(cp.name + ' scanned', timeStr + ' · ' + cp.id);
+    sessionScanned[cp.id]=timeStr;
+    sessionStorage.setItem('mp_scanned',JSON.stringify(sessionScanned));
+    currentScanCP=cp;
+    sbPost('patrol_scans',{id:'SCAN-'+Date.now(),guard_name:currentGuardName,checkpoint_id:cp.id,checkpoint_name:cp.name,checkpoint_type:cp.type,gps_lat:gps?gps.lat:null,gps_lng:gps?gps.lng:null,gps_verified:!!(gps&&cp.gps),shift_type:currentShift.type,shift_label:currentShift.label},null);
+    document.getElementById('scan-result-title').textContent=cp.name+' scanned at '+timeStr;
+    document.getElementById('scan-result-meta').textContent=cp.type+(gps&&cp.gps?' · GPS verified':' · GPS logged');
+    document.getElementById('scan-result').style.display='block';
+    addTL(cp.name+' scanned',timeStr+' · '+cp.id);
     renderLists();
-    showToast(cp.name + ' scanned');
-    if (cp.type === 'surveillance') {
-      document.getElementById('surv-title').value = '';
-      document.getElementById('surv-body').value = '';
-      document.getElementById('surv-form').style.display = 'block';
+    showToast(cp.name+' scanned');
+    if(cp.type==='surveillance'){
+      document.getElementById('surv-title').value='';
+      document.getElementById('surv-body').value='';
+      document.getElementById('surv-form').style.display='block';
     } else {
-      setTimeout(function() { navApp('s-home'); setNav('nav-home'); document.getElementById('scan-result').style.display = 'none'; }, 2000);
+      setTimeout(function(){navApp('s-home');setNav('nav-home');document.getElementById('scan-result').style.display='none';},2000);
     }
   });
 }
-
-function showScanErr(msg) {
-  document.getElementById('scan-err').textContent = msg;
-  document.getElementById('scan-err').style.display = 'block';
-  document.getElementById('btn-start-scan').style.display = 'flex';
-  document.getElementById('btn-stop-scan').style.display = 'none';
-  document.getElementById('scan-idle').style.display = 'flex';
+function showScanErr(msg){
+  document.getElementById('scan-err').textContent=msg;
+  document.getElementById('scan-err').style.display='block';
+  document.getElementById('btn-start-scan').style.display='flex';
+  document.getElementById('btn-stop-scan').style.display='none';
+  document.getElementById('scan-idle').style.display='flex';
 }
 
 // SURVEILLANCE NOTE
-document.getElementById('btn-submit-surv').addEventListener('click', function() {
-  var title = document.getElementById('surv-title').value.trim();
-  var body = document.getElementById('surv-body').value.trim();
-  if (!title || !body) { showToast('Please enter subject and observations'); return; }
-  var category = document.getElementById('surv-category').value;
-  var now = new Date();
-  sbPost('surveillance_notes', {id:'NOTE-'+Date.now(), guard_name:currentGuardName, checkpoint:currentScanCP?currentScanCP.name:'Unknown', title:title, body:body, category:category, photos:0, gps_lat:currentGPS?currentGPS.lat:null, gps_lng:currentGPS?currentGPS.lng:null}, null);
-  addTL('Surveillance note submitted', now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) + ' · ' + category);
-  document.getElementById('surv-form').style.display = 'none';
+document.getElementById('btn-submit-surv').addEventListener('click', function(){
+  var title=document.getElementById('surv-title').value.trim();
+  var body=document.getElementById('surv-body').value.trim();
+  if(!title||!body){showToast('Please enter subject and observations');return;}
+  var category=document.getElementById('surv-category').value;
+  var now=new Date();
+  sbPost('surveillance_notes',{id:'NOTE-'+Date.now(),guard_name:currentGuardName,checkpoint:currentScanCP?currentScanCP.name:'Unknown',title:title,body:body,category:category,photos:0,gps_lat:currentGPS?currentGPS.lat:null,gps_lng:currentGPS?currentGPS.lng:null,shift_type:currentShift.type,shift_label:currentShift.label},null);
+  addTL('Surveillance note submitted',now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+' · '+category);
+  document.getElementById('surv-form').style.display='none';
   showToast('Observation note submitted');
-  setTimeout(function() { navApp('s-home'); setNav('nav-home'); document.getElementById('scan-result').style.display = 'none'; }, 1500);
+  setTimeout(function(){navApp('s-home');setNav('nav-home');document.getElementById('scan-result').style.display='none';},1500);
 });
-document.getElementById('btn-skip-surv').addEventListener('click', function() {
-  document.getElementById('surv-form').style.display = 'none';
-  setTimeout(function() { navApp('s-home'); setNav('nav-home'); document.getElementById('scan-result').style.display = 'none'; }, 500);
+document.getElementById('btn-skip-surv').addEventListener('click', function(){
+  document.getElementById('surv-form').style.display='none';
+  setTimeout(function(){navApp('s-home');setNav('nav-home');document.getElementById('scan-result').style.display='none';},500);
 });
 
 // INCIDENT
-document.getElementById('btn-submit-incident').addEventListener('click', function() {
+document.getElementById('btn-submit-incident').addEventListener('click', function(){
   incidentCount++;
-  sessionStorage.setItem('mp_incidents', incidentCount);
+  sessionStorage.setItem('mp_incidents',incidentCount);
   renderLists();
   showToast('Incident report submitted');
-  addTL('Incident logged', new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}));
-  setTimeout(function() { navApp('s-home'); setNav('nav-home'); }, 1200);
+  addTL('Incident logged',new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}));
+  setTimeout(function(){navApp('s-home');setNav('nav-home');},1200);
 });
 
 // TIMELINE
 function addTL(title, meta) {
-  var list = document.getElementById('timeline-list');
-  var item = document.createElement('div');
-  item.className = 'tl-item';
-  item.innerHTML = '<div class="tl-dot"></div><div><div style="font-size:13px;font-weight:500">' + title + '</div><div style="font-family:monospace;font-size:11px;color:#555a6a">' + meta + '</div></div>';
+  var list=document.getElementById('timeline-list');
+  var item=document.createElement('div');
+  item.className='tl-item';
+  item.innerHTML='<div class="tl-dot"></div><div><div style="font-size:13px;font-weight:500">'+title+'</div><div style="font-family:monospace;font-size:11px;color:#555a6a">'+meta+'</div></div>';
   list.appendChild(item);
 }
 
-// NAV
-function navApp(id) {
-  var screens = document.querySelectorAll('#screen-app .screen');
-  for (var i = 0; i < screens.length; i++) screens[i].classList.remove('active');
+// NAV HELPERS
+function navApp(id){
+  var screens=document.querySelectorAll('#screen-app .screen');
+  for(var i=0;i<screens.length;i++)screens[i].classList.remove('active');
   document.getElementById(id).classList.add('active');
 }
-function setNav(id) {
-  var btns = document.querySelectorAll('.nav-btn');
-  for (var i = 0; i < btns.length; i++) btns[i].classList.remove('active');
+function setNav(id){
+  var btns=document.querySelectorAll('.nav-btn');
+  for(var i=0;i<btns.length;i++)btns[i].classList.remove('active');
   document.getElementById(id).classList.add('active');
 }
 
 // TOAST
-function showToast(msg) {
-  var t = document.getElementById('toast');
-  t.textContent = msg; t.style.display = 'block';
+function showToast(msg){
+  var t=document.getElementById('toast');
+  t.textContent=msg;t.style.display='block';
   clearTimeout(window._tt);
-  window._tt = setTimeout(function() { t.style.display = 'none'; }, 2500);
+  window._tt=setTimeout(function(){t.style.display='none';},2500);
 }
 
 // OFFLINE
-window.addEventListener('offline', function() { document.getElementById('offline-bar').style.display = 'flex'; document.getElementById('status-sync').textContent = 'Offline'; });
-window.addEventListener('online', function() { document.getElementById('offline-bar').style.display = 'none'; document.getElementById('status-sync').textContent = 'Live'; showToast('Back online'); });
+window.addEventListener('offline',function(){document.getElementById('offline-bar').style.display='flex';document.getElementById('status-sync').textContent='Offline';});
+window.addEventListener('online',function(){document.getElementById('offline-bar').style.display='none';document.getElementById('status-sync').textContent='Live';showToast('Back online');});
 </script>
 </body>
 </html>
