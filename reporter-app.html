@@ -4,24 +4,27 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Mobile Patrol — Incident Reporter</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{min-height:100%;background:#0d0f12;color:#e8eaf0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:15px}
 #root{display:flex;flex-direction:column;min-height:100vh;max-width:480px;margin:0 auto;background:#0d0f12}
+.topbar{padding:14px 16px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,0.08);background:#151820}
 .logo{font-family:monospace;font-size:18px;font-weight:700;color:#ff4d4d;letter-spacing:2px}
 .logo-sub{font-size:11px;color:#555a6a;font-family:monospace;letter-spacing:1px}
-.topbar{padding:14px 16px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,0.08);background:#151820}
 .content{flex:1;padding:16px}
 .card{background:#151820;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px;margin-bottom:12px}
 .fl{font-family:monospace;font-size:10px;color:#555a6a;letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:5px;margin-top:2px}
 select,input{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:11px 13px;font-size:14px;color:#e8eaf0;outline:none;margin-bottom:14px;-webkit-appearance:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+select:focus,input:focus{border-color:#ff4d4d}
 textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:11px 13px;font-size:14px;color:#e8eaf0;outline:none;margin-bottom:14px;resize:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;line-height:1.6}
-.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;border:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin-bottom:10px}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;border:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;-webkit-appearance:none;margin-bottom:10px}
 .btn-red{background:#ff4d4d;color:#fff}
 .btn-gray{background:#1c2030;color:#8b90a0;border:1px solid rgba(255,255,255,0.08)}
-.gps-bar{font-family:monospace;font-size:12px;color:#555a6a;margin-bottom:14px;display:flex;align-items:center;gap:8px;background:#1c2030;border-radius:8px;padding:10px 12px}
-.gps-dot{width:8px;height:8px;border-radius:50%;background:#00e5a0;animation:pulse 2s infinite;flex-shrink:0}
+.gps-bar{font-family:monospace;font-size:12px;margin-bottom:14px;display:flex;align-items:center;gap:8px;background:#1c2030;border-radius:8px;padding:10px 12px}
+.gps-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;animation:pulse 2s infinite}
+.gps-dot.acquiring{background:#ffb020}
+.gps-dot.found{background:#00e5a0}
+.gps-dot.failed{background:#ff4d4d}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
 .success-screen{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;padding:24px}
 .badge{display:inline-flex;align-items:center;font-family:monospace;font-size:10px;padding:2px 7px;border-radius:4px;font-weight:500}
@@ -32,16 +35,22 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
 <body>
 <div id="root">
   <div class="topbar">
-    <div><div class="logo">MOBILE PATROL</div><div class="logo-sub">INCIDENT REPORTER</div></div>
+    <div>
+      <div class="logo">MOBILE PATROL</div>
+      <div class="logo-sub">INCIDENT REPORTER</div>
+    </div>
     <span class="badge br">HELP REQUEST</span>
   </div>
+
   <div class="content">
     <div id="form-section">
       <div class="card" style="border-color:rgba(255,77,77,0.2);background:rgba(255,77,77,0.04);margin-bottom:16px">
         <div style="font-size:13px;color:#ff6b6b;line-height:1.6">Use this form to request immediate assistance from the mobile patrol team. Your GPS location will be automatically included.</div>
       </div>
+
       <label class="fl">Your name</label>
       <input type="text" id="reporter-name" placeholder="First and last name" autocomplete="name">
+
       <label class="fl">Type of assistance needed</label>
       <select id="incident-type">
         <option>Security assistance</option>
@@ -52,20 +61,29 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
         <option>Accident</option>
         <option>Other</option>
       </select>
+
       <label class="fl">Urgency level</label>
       <select id="urgency">
         <option value="critical">🔴 Critical — immediate response needed</option>
         <option value="high">🟠 High — respond as soon as possible</option>
         <option value="medium">🟡 Medium — non-urgent assistance</option>
       </select>
+
       <label class="fl">Your location (describe)</label>
       <input type="text" id="location-desc" placeholder="e.g. 2nd floor corridor, near Room 204">
+
       <label class="fl">Additional details</label>
       <textarea rows="4" id="incident-notes" placeholder="Describe the situation..."></textarea>
-      <div class="gps-bar"><div class="gps-dot"></div><span id="gps-status">Acquiring your GPS location...</span></div>
+
+      <div class="gps-bar" id="gps-bar">
+        <div class="gps-dot acquiring" id="gps-dot"></div>
+        <span id="gps-status">Requesting GPS location...</span>
+      </div>
+
       <button type="button" class="btn btn-red" onclick="submitRequest()">🚨 Send Help Request</button>
       <button type="button" class="btn btn-gray" onclick="clearForm()">Clear form</button>
     </div>
+
     <div class="success-screen" id="success-section">
       <div style="font-size:64px;margin-bottom:16px">✅</div>
       <div style="font-size:20px;font-weight:700;color:#00e5a0;margin-bottom:8px">Help request sent!</div>
@@ -75,18 +93,55 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
   </div>
 </div>
 <div id="toast"></div>
+
 <script>
 const SUPABASE_URL = 'https://hzvegzkjogcjqzogxvvm.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh6dmVnemtqb2djanF6b2d4dnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwOTA3NjgsImV4cCI6MjA5NTY2Njc2OH0.jDvCtntJjFd0tp9h5vFHm3xKa6s5HOGAschU-QrnmAE';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let currentGPS = null;
 
-navigator.geolocation && navigator.geolocation.watchPosition(
-  p => { currentGPS = {lat:p.coords.latitude, lng:p.coords.longitude, acc:Math.round(p.coords.accuracy)}; document.getElementById('gps-status').textContent = currentGPS.lat.toFixed(5)+'° N, '+currentGPS.lng.toFixed(5)+'° E · ±'+currentGPS.acc+'m'; },
-  () => { document.getElementById('gps-status').textContent = 'GPS unavailable — describe your location above'; },
-  {enableHighAccuracy:true, timeout:15000}
-);
+// ── REQUEST GPS IMMEDIATELY ON LOAD ──
+function initGPS() {
+  const dot = document.getElementById('gps-dot');
+  const status = document.getElementById('gps-status');
+
+  if (!navigator.geolocation) {
+    dot.className = 'gps-dot failed';
+    status.textContent = 'GPS not available — please describe your location above';
+    return;
+  }
+
+  status.textContent = 'Requesting GPS permission...';
+
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      currentGPS = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: Math.round(pos.coords.accuracy) };
+      dot.className = 'gps-dot found';
+      status.textContent = currentGPS.lat.toFixed(5) + '° N, ' + currentGPS.lng.toFixed(5) + '° E · ±' + currentGPS.acc + 'm';
+      // Keep watching for more accurate position
+      navigator.geolocation.watchPosition(
+        p => {
+          currentGPS = { lat: p.coords.latitude, lng: p.coords.longitude, acc: Math.round(p.coords.accuracy) };
+          status.textContent = currentGPS.lat.toFixed(5) + '° N, ' + currentGPS.lng.toFixed(5) + '° E · ±' + currentGPS.acc + 'm';
+        },
+        () => {},
+        { enableHighAccuracy: true }
+      );
+    },
+    err => {
+      dot.className = 'gps-dot failed';
+      if (err.code === 1) {
+        status.textContent = 'GPS permission denied — please enable location in browser settings';
+      } else {
+        status.textContent = 'GPS unavailable — please describe your location above';
+      }
+    },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+  );
+}
+
+// Call GPS immediately when page loads
+window.addEventListener('load', initGPS);
 
 async function submitRequest() {
   const name = document.getElementById('reporter-name').value.trim();
@@ -94,21 +149,45 @@ async function submitRequest() {
   const urgency = document.getElementById('urgency').value;
   const locDesc = document.getElementById('location-desc').value.trim();
   const notes = document.getElementById('incident-notes').value.trim();
+
   if (!name) { showToast('⚠ Please enter your name'); return; }
   if (!locDesc) { showToast('⚠ Please describe your location'); return; }
+
   const request = {
     id: 'REQ-' + Date.now(),
     name, type, urgency,
     loc_desc: locDesc,
-    notes,
+    notes: notes || null,
     gps_lat: currentGPS ? currentGPS.lat : null,
     gps_lng: currentGPS ? currentGPS.lng : null,
-    acked: false
+    acked: false,
+    acked_by: null
   };
-  const { error } = await supabase.from('help_requests').insert(request);
-  if (error) { showToast('⚠ Error sending request. Check connection.'); console.error(error); return; }
-  document.getElementById('form-section').style.display = 'none';
-  document.getElementById('success-section').style.display = 'flex';
+
+  try {
+    const response = await fetch(SUPABASE_URL + '/rest/v1/help_requests', {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_KEY,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify(request)
+    });
+
+    if (response.ok || response.status === 201) {
+      document.getElementById('form-section').style.display = 'none';
+      document.getElementById('success-section').style.display = 'flex';
+    } else {
+      const err = await response.text();
+      showToast('⚠ Failed to send. Please try again.');
+      console.error('Supabase error:', err);
+    }
+  } catch (e) {
+    showToast('⚠ Network error. Please try again.');
+    console.error(e);
+  }
 }
 
 function resetForm() {
@@ -117,9 +196,21 @@ function resetForm() {
   document.getElementById('reporter-name').value = '';
   document.getElementById('location-desc').value = '';
   document.getElementById('incident-notes').value = '';
+  initGPS();
 }
-function clearForm() { document.getElementById('reporter-name').value=''; document.getElementById('location-desc').value=''; document.getElementById('incident-notes').value=''; }
-function showToast(msg) { const t=document.getElementById('toast'); t.textContent=msg; t.style.display='block'; clearTimeout(window._tt); window._tt=setTimeout(()=>t.style.display='none',2500); }
+
+function clearForm() {
+  document.getElementById('reporter-name').value = '';
+  document.getElementById('location-desc').value = '';
+  document.getElementById('incident-notes').value = '';
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.display = 'block';
+  clearTimeout(window._tt);
+  window._tt = setTimeout(() => t.style.display = 'none', 2500);
+}
 </script>
 </body>
 </html>

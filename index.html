@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Mobile Patrol — Guard App</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;background:#0d0f12;color:#e8eaf0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:15px;overflow:hidden}
@@ -19,6 +18,7 @@ html,body{height:100%;background:#0d0f12;color:#e8eaf0;font-family:-apple-system
 .lcard h2{font-size:15px;font-weight:600;margin-bottom:16px}
 .fl{font-family:monospace;font-size:10px;color:#555a6a;letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:5px;margin-top:2px}
 select,input{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:11px 13px;font-size:14px;color:#e8eaf0;outline:none;margin-bottom:14px;-webkit-appearance:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+select:focus,input:focus{border-color:#00e5a0}
 .login-btn{width:100%;padding:13px;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;border:none;background:#00e5a0;color:#000;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
 .err{background:rgba(255,77,77,0.12);border:1px solid rgba(255,77,77,0.3);border-radius:8px;padding:9px 13px;font-size:13px;color:#ff6b6b;margin-bottom:14px;display:none}
 .topbar{padding:13px 16px 11px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(255,255,255,0.08);background:#151820;flex-shrink:0}
@@ -69,6 +69,12 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
 .tl-item{display:flex;gap:12px;padding-bottom:16px}
 .tl-dot{width:9px;height:9px;border-radius:50%;background:#00e5a0;flex-shrink:0;margin-top:4px}
 .tl-dot.red{background:#ff4d4d}.tl-dot.gray{background:#555a6a}.tl-dot.blue{background:#4da3ff}.tl-dot.purple{background:#cc66ff}
+.metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.metric{background:#151820;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px}
+.metric-val{font-family:monospace;font-size:22px;font-weight:500;color:#00e5a0}
+.metric-lbl{font-family:monospace;font-size:10px;color:#555a6a;text-transform:uppercase;margin-top:3px}
+.rep-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.08)}
+.rep-row:last-child{border-bottom:none}
 .offline-bar{background:rgba(255,176,32,0.1);border:1px solid rgba(255,176,32,0.25);border-radius:8px;padding:8px 12px;display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:12px;color:#ffb020;font-family:monospace}
 .bottom-nav{display:flex;border-top:1px solid rgba(255,255,255,0.08);background:#151820;flex-shrink:0}
 .nav-btn{flex:1;background:none;border:none;cursor:pointer;padding:9px 2px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:8px;font-family:monospace;color:#555a6a;letter-spacing:0.3px}
@@ -80,6 +86,11 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
 .alert-modal.open{display:flex}
 .alert-box{background:#151820;border:2px solid #ff4d4d;border-radius:16px;padding:22px 20px;width:100%;max-width:360px;animation:alertPulse 0.5s ease}
 @keyframes alertPulse{0%{transform:scale(0.9);opacity:0}100%{transform:scale(1);opacity:1}}
+.alert-title{font-size:18px;font-weight:700;color:#ff4d4d;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.alert-info{font-family:monospace;font-size:11px;color:#8b90a0;margin-top:10px;line-height:1.7}
+.alert-info span{color:#e8eaf0}
+.alert-row{display:flex;gap:8px;margin-top:14px}
+.alert-row button{flex:1;padding:11px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
 .req-item{background:#151820;border:1px solid rgba(255,77,77,0.25);border-radius:10px;padding:12px;margin-bottom:10px}
 .req-item.acked{border-color:rgba(255,255,255,0.08);opacity:0.6}
 #toast{display:none;position:fixed;bottom:75px;left:50%;transform:translateX(-50%);background:#151820;border:1px solid rgba(255,255,255,0.14);border-radius:8px;padding:9px 16px;font-family:monospace;font-size:12px;color:#00e5a0;white-space:nowrap;z-index:300;max-width:90vw;text-align:center}
@@ -107,14 +118,14 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
       </select>
       <div id="name-fields" style="display:none">
         <label class="fl">First name</label>
-        <input type="text" id="input-fn" placeholder="First name">
+        <input type="text" id="input-fn" placeholder="First name" autocomplete="given-name">
         <label class="fl">Last name</label>
-        <input type="text" id="input-ln" placeholder="Last name">
+        <input type="text" id="input-ln" placeholder="Last name" autocomplete="family-name">
       </div>
       <label class="fl">Password</label>
       <input type="text" id="login-pw" placeholder="Enter password" autocomplete="off" style="-webkit-text-security:disc">
       <button type="button" class="login-btn" onclick="doLogin()">Sign in</button>
-      <div style="margin-top:12px;background:rgba(255,176,32,0.1);border:1px solid rgba(255,176,32,0.25);border-radius:8px;padding:10px 12px;font-size:12px;color:#ffb020;font-family:monospace;text-align:center">⚠ After signing in tap "Enable Alerts"</div>
+      <div style="margin-top:12px;background:rgba(255,176,32,0.1);border:1px solid rgba(255,176,32,0.25);border-radius:8px;padding:10px 12px;font-size:12px;color:#ffb020;font-family:monospace;text-align:center">⚠ After signing in, tap "Enable Alerts" for notifications</div>
     </div>
   </div>
 </div>
@@ -146,7 +157,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
         </div>
         <div style="background:#151820;border:1px solid rgba(180,0,255,0.2);border-radius:8px;padding:10px;text-align:center">
           <div style="font-family:monospace;font-size:16px;font-weight:500;color:#cc66ff" id="stat-surv-done">0/3</div>
-          <div style="font-family:monospace;font-size:9px;color:#555a6a;margin-top:2px">SURV.PTS</div>
+          <div style="font-family:monospace;font-size:9px;color:#555a6a;margin-top:2px">SURV PTS</div>
         </div>
         <div style="background:#151820;border:1px solid rgba(0,119,255,0.2);border-radius:8px;padding:10px;text-align:center">
           <div style="font-family:monospace;font-size:16px;font-weight:500;color:#4da3ff" id="stat-radio-done">0/1</div>
@@ -169,7 +180,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
           <div class="clabel" style="margin-bottom:0;color:#cc66ff">Surveillance Points (3)</div>
           <span class="badge bp" id="surv-progress-badge">0 / 3</span>
         </div>
-        <div style="font-size:12px;color:#555a6a;font-family:monospace;margin-bottom:10px">500m GPS range · Notes required</div>
+        <div style="font-size:12px;color:#555a6a;font-family:monospace;margin-bottom:10px">500m GPS range · Add observations after scanning</div>
         <div id="surv-list"></div>
       </div>
       <div class="card" style="border-color:rgba(0,119,255,0.2)">
@@ -212,7 +223,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
         <label class="fl">Subject</label>
         <input type="text" id="surv-title" placeholder="e.g. Suspicious vehicle near entrance">
         <label class="fl">Detailed observations</label>
-        <textarea rows="5" id="surv-body" placeholder="Describe persons, vehicles, behaviour, clothing, patterns..."></textarea>
+        <textarea rows="5" id="surv-body" placeholder="Describe persons, vehicles, behaviour, patterns..."></textarea>
         <label class="fl">Category</label>
         <select id="surv-category">
           <option>General observation</option>
@@ -223,7 +234,14 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
           <option>Counter-surveillance</option>
           <option>Other</option>
         </select>
-        <button type="button" class="btn btn-purple" onclick="submitSurvNote()">📝 Submit observation</button>
+        <label class="fl">Photos</label>
+        <div class="photo-grid">
+          <div class="photo-slot" onclick="this.classList.toggle('filled');this.textContent=this.classList.contains('filled')?'📷':'+'">+</div>
+          <div class="photo-slot" onclick="this.classList.toggle('filled');this.textContent=this.classList.contains('filled')?'📷':'+'">+</div>
+          <div class="photo-slot" onclick="this.classList.toggle('filled');this.textContent=this.classList.contains('filled')?'📷':'+'">+</div>
+          <div class="photo-slot" onclick="this.classList.toggle('filled');this.textContent=this.classList.contains('filled')?'📷':'+'">+</div>
+        </div>
+        <button type="button" class="btn btn-purple" onclick="submitSurvNote()">📝 Submit observation note</button>
         <button type="button" class="btn" onclick="skipSurvNote()">Skip — checkpoint only</button>
       </div>
       <div class="scan-err" id="scan-err"></div>
@@ -240,13 +258,20 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
     </div>
     <div class="content">
       <label class="fl">Incident type</label>
-      <select id="inc-type"><option>Suspicious activity</option><option>Damaged property</option><option>Unauthorized access</option><option>Medical emergency</option><option>Fire / safety hazard</option><option>Other</option></select>
+      <select><option>Suspicious activity</option><option>Damaged property</option><option>Unauthorized access</option><option>Medical emergency</option><option>Fire / safety hazard</option><option>Other</option></select>
       <label class="fl">Severity</label>
-      <select id="inc-severity"><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select>
+      <select><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select>
       <label class="fl">Location</label>
-      <input type="text" id="inc-location" placeholder="Describe location">
+      <input type="text" placeholder="Describe location">
       <label class="fl">Notes</label>
-      <textarea rows="4" id="inc-notes" placeholder="Describe what you observed..."></textarea>
+      <textarea rows="4" placeholder="Describe what you observed..."></textarea>
+      <label class="fl">Photos</label>
+      <div class="photo-grid">
+        <div class="photo-slot" onclick="this.classList.toggle('filled');this.textContent=this.classList.contains('filled')?'📷':'+'">+</div>
+        <div class="photo-slot" onclick="this.classList.toggle('filled');this.textContent=this.classList.contains('filled')?'📷':'+'">+</div>
+        <div class="photo-slot" onclick="this.classList.toggle('filled');this.textContent=this.classList.contains('filled')?'📷':'+'">+</div>
+        <div class="photo-slot" onclick="this.classList.toggle('filled');this.textContent=this.classList.contains('filled')?'📷':'+'">+</div>
+      </div>
       <div class="gps-bar"><div class="gps-dot"></div><span id="incident-gps">Acquiring GPS...</span></div>
       <button type="button" class="btn btn-d" onclick="submitIncident()">📤 Submit incident report</button>
     </div>
@@ -256,7 +281,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
   <div class="screen" id="s-timeline" style="min-height:unset;flex:1">
     <div class="topbar"><h1>Activity Timeline</h1></div>
     <div class="content">
-      <div style="font-family:monospace;font-size:11px;color:#555a6a;margin-bottom:14px" id="tl-header">Shift · Mobile Patrol</div>
+      <div style="font-family:monospace;font-size:11px;color:#555a6a;margin-bottom:14px" id="tl-header">Tonight · Mobile Patrol</div>
       <div id="timeline-list">
         <div class="tl-item"><div class="tl-dot blue"></div><div><div style="font-size:13px;font-weight:500">Patrol started</div><div style="font-family:monospace;font-size:11px;color:#555a6a">Shift began · GPS acquired</div></div></div>
       </div>
@@ -274,6 +299,12 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
         <div class="clabel" style="color:#ff6b6b;margin-bottom:10px">🚨 Help requests</div>
         <div id="help-requests-list"><div style="font-size:13px;color:#555a6a;font-family:monospace">No help requests yet.</div></div>
       </div>
+      <div class="metrics">
+        <div class="metric"><div class="metric-val" id="rep-cp">0/24</div><div class="metric-lbl">Checkpoints</div></div>
+        <div class="metric"><div class="metric-val" style="color:#cc66ff" id="rep-surv">0/3</div><div class="metric-lbl">Surv. points</div></div>
+        <div class="metric"><div class="metric-val" style="color:#4da3ff" id="rep-radio">0/1</div><div class="metric-lbl">Radio checks</div></div>
+        <div class="metric"><div class="metric-val" style="color:#ff4d4d" id="rep-inc">0</div><div class="metric-lbl">Incidents</div></div>
+      </div>
     </div>
   </div>
 
@@ -282,18 +313,18 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
     <button type="button" class="nav-btn" id="nav-scan" onclick="navApp('s-scan');setNav('nav-scan')">📷<br>SCAN</button>
     <button type="button" class="nav-btn" id="nav-incident" onclick="navApp('s-incident');setNav('nav-incident')">⚠<br>INCIDENT</button>
     <button type="button" class="nav-btn" id="nav-timeline" onclick="navApp('s-timeline');setNav('nav-timeline')">📋<br>LOG</button>
-    <button type="button" class="nav-btn" id="nav-reports" onclick="navApp('s-reports');setNav('nav-reports');renderHelpRequests()">📊<br>REPORTS</button>
+    <button type="button" class="nav-btn" id="nav-reports" onclick="navApp('s-reports');setNav('nav-reports');loadHelpRequests()">📊<br>REPORTS</button>
   </nav>
 </div>
 
 <!-- ALERT MODAL -->
 <div class="alert-modal" id="alert-modal">
   <div class="alert-box">
-    <div style="font-size:18px;font-weight:700;color:#ff4d4d;margin-bottom:4px;display:flex;align-items:center;gap:8px">🚨 HELP REQUEST <span style="font-family:monospace;font-size:10px;padding:2px 7px;border-radius:4px;background:rgba(255,77,77,0.2);color:#ff6b6b;border:1px solid rgba(255,77,77,0.3)" id="alert-urgency">CRITICAL</span></div>
-    <div style="font-family:monospace;font-size:11px;color:#8b90a0;margin-top:10px;line-height:1.7" id="alert-info"></div>
-    <div style="display:flex;gap:8px;margin-top:14px">
-      <button type="button" style="flex:1;padding:11px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid rgba(255,255,255,0.08);background:#1c2030;color:#8b90a0" onclick="dismissAlert()">Dismiss</button>
-      <button type="button" style="flex:1;padding:11px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;background:#ff4d4d;color:#fff" onclick="acknowledgeAlert()">✓ Responding</button>
+    <div class="alert-title">🚨 HELP REQUEST <span style="font-family:monospace;font-size:10px;padding:2px 7px;border-radius:4px;background:rgba(255,77,77,0.2);color:#ff6b6b;border:1px solid rgba(255,77,77,0.3)" id="alert-urgency">CRITICAL</span></div>
+    <div class="alert-info" id="alert-info"></div>
+    <div class="alert-row">
+      <button type="button" style="background:#1c2030;color:#8b90a0;border:1px solid rgba(255,255,255,0.08)" onclick="dismissAlert()">Dismiss</button>
+      <button type="button" style="background:#ff4d4d;color:#fff" onclick="acknowledgeAlert()">✓ Responding</button>
     </div>
   </div>
 </div>
@@ -304,140 +335,161 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
 <script>
 const SUPABASE_URL = 'https://hzvegzkjogcjqzogxvvm.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh6dmVnemtqb2djanF6b2d4dnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwOTA3NjgsImV4cCI6MjA5NTY2Njc2OH0.jDvCtntJjFd0tp9h5vFHm3xKa6s5HOGAschU-QrnmAE';
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// ── ACCOUNTS (loaded from localStorage so admin changes persist) ──
-function getAccounts() {
-  return JSON.parse(localStorage.getItem('mp_guard_profiles') || 'null') || {
-    guard1:{name:'A. Weber',pass:'guard1pass'},
-    guard2:{name:'M. Kowalski',pass:'guard2pass'},
-    guard3:{name:'J. Schmidt',pass:'guard3pass'},
-    guard4:{name:'T. Bauer',pass:'guard4pass'},
-    guard5:{name:'Replacement',pass:'guardpass',vacant:true}
-  };
+const ACCOUNTS = {
+  guard1:{name:'A. Weber',pass:'guard1pass'},
+  guard2:{name:'M. Kowalski',pass:'guard2pass'},
+  guard3:{name:'J. Schmidt',pass:'guard3pass'},
+  guard4:{name:'T. Bauer',pass:'guard4pass'},
+  guard5:{name:null,pass:'guardpass'}
+};
+
+let checkpoints = JSON.parse(localStorage.getItem('mp_checkpoints')||'null')||[];
+if(checkpoints.length===0){
+  for(let i=1;i<=24;i++) checkpoints.push({id:'CP-'+String(i).padStart(3,'0'),name:'Checkpoint '+i,type:'checkpoint',route:'Main Patrol',gps:null,anchored:false});
+  for(let i=1;i<=3;i++) checkpoints.push({id:'SD-'+String(i).padStart(3,'0'),name:'Surveillance Point '+i,type:'surveillance',route:'Main Patrol',gps:null,anchored:false,range:500});
+  checkpoints.push({id:'RC-001',name:'Radio Check — Base',type:'radio',route:'Main Patrol',gps:null,anchored:false,range:500});
+  localStorage.setItem('mp_checkpoints',JSON.stringify(checkpoints));
 }
 
-let checkpoints = JSON.parse(localStorage.getItem('mp_checkpoints') || 'null') || [];
-if (checkpoints.length === 0) {
-  for (let i=1;i<=24;i++) checkpoints.push({id:'CP-'+String(i).padStart(3,'0'),name:'Checkpoint '+i,type:'checkpoint',gps:null,anchored:false});
-  for (let i=1;i<=3;i++) checkpoints.push({id:'SD-'+String(i).padStart(3,'0'),name:'Surveillance Point '+i,type:'surveillance',gps:null,anchored:false,range:500});
-  checkpoints.push({id:'RC-001',name:'Radio Check — Base',type:'radio',gps:null,anchored:false,range:500});
-  localStorage.setItem('mp_checkpoints', JSON.stringify(checkpoints));
-}
-
-let sessionScanned = JSON.parse(sessionStorage.getItem('mp_scanned') || '{}');
-let incidentCount = parseInt(sessionStorage.getItem('mp_incidents') || '0');
+let sessionScanned = JSON.parse(sessionStorage.getItem('mp_scanned')||'{}');
+let incidentCount = parseInt(sessionStorage.getItem('mp_incidents')||'0');
 let currentGPS = null;
 let html5QrCode = null;
 let scannerRunning = false;
 let currentScanCP = null;
-let currentAlertId = null;
 let audioReady = false;
-let guardName = '';
+let lastSeenRequestId = null;
+let currentAlertId = null;
+let currentGuardName = '';
 
-// ── SUPABASE REALTIME ──
-let subscription = null;
-
-function startRealtimeSubscription() {
-  subscription = sb.channel('help_requests_channel')
-    .on('postgres_changes', {event:'INSERT', schema:'public', table:'help_requests'}, payload => {
-      showHelpAlert(payload.new);
-    })
-    .subscribe();
+// ── SUPABASE HELPERS ──
+async function supabaseGet(table, query='') {
+  try {
+    const r = await fetch(SUPABASE_URL+'/rest/v1/'+table+'?'+query, {
+      headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+    });
+    return await r.json();
+  } catch(e){ return []; }
+}
+async function supabasePost(table, data) {
+  try {
+    const r = await fetch(SUPABASE_URL+'/rest/v1/'+table, {
+      method:'POST',
+      headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+      body:JSON.stringify(data)
+    });
+    return r.ok || r.status===201;
+  } catch(e){ return false; }
+}
+async function supabasePatch(table, id, data) {
+  try {
+    const r = await fetch(SUPABASE_URL+'/rest/v1/'+table+'?id=eq.'+id, {
+      method:'PATCH',
+      headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify(data)
+    });
+    return r.ok;
+  } catch(e){ return false; }
 }
 
-// ── AUDIO/VIBRATION ──
+// ── ALERTS ──
 function enableSound() {
-  document.getElementById('sound-banner').style.display = 'none';
+  document.getElementById('sound-banner').style.display='none';
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const buf = ctx.createBuffer(1,1,22050);
-    const src = ctx.createBufferSource();
-    src.buffer=buf; src.connect(ctx.destination); src.start(0);
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    const buf=ctx.createBuffer(1,1,22050);
+    const src=ctx.createBufferSource();
+    src.buffer=buf;src.connect(ctx.destination);src.start(0);
     window._alertCtx=ctx; audioReady=true;
     showToast('✓ Alerts enabled');
-  } catch(e) { showToast('✓ Visual alerts enabled'); }
-  if (navigator.vibrate) navigator.vibrate([200,100,200]);
+  } catch(e){ showToast('✓ Visual alerts enabled'); }
+  if(navigator.vibrate) navigator.vibrate([200,100,200]);
 }
-
 function playAlertSound() {
-  if (navigator.vibrate) navigator.vibrate([500,200,500,200,500,200,800,200,800]);
-  if (audioReady && window._alertCtx) {
+  if(navigator.vibrate) navigator.vibrate([500,200,500,200,500,200,800,200,800]);
+  if(audioReady&&window._alertCtx){
     try {
-      const ctx = window._alertCtx;
-      const sr = ctx.sampleRate;
-      const buf = ctx.createBuffer(1,sr*0.3,sr);
-      const data = buf.getChannelData(0);
-      for (let i=0;i<data.length;i++) {
-        data[i] = 0.5*Math.sin(2*Math.PI*880*i/sr)+0.5*Math.sin(2*Math.PI*1320*i/sr);
-        if (i>data.length*0.7) data[i]*=(data.length-i)/(data.length*0.3);
-      }
+      const ctx=window._alertCtx;
+      const sr=ctx.sampleRate;
+      const buf=ctx.createBuffer(1,sr*0.3,sr);
+      const d=buf.getChannelData(0);
+      for(let i=0;i<d.length;i++){d[i]=0.5*Math.sin(2*Math.PI*880*i/sr)+0.5*Math.sin(2*Math.PI*1320*i/sr);if(i>d.length*0.7)d[i]*=(d.length-i)/(d.length*0.3);}
       let delay=0;
-      for (let i=0;i<5;i++) { const s=ctx.createBufferSource(); s.buffer=buf; s.connect(ctx.destination); s.start(ctx.currentTime+delay); delay+=0.4; }
+      for(let i=0;i<5;i++){const s=ctx.createBufferSource();s.buffer=buf;s.connect(ctx.destination);s.start(ctx.currentTime+delay);delay+=0.4;}
     } catch(e){}
   }
   const flash=document.getElementById('screen-flash');
   let count=0;
-  const iv=setInterval(()=>{ flash.style.display=count%2===0?'block':'none'; count++; if(count>10){clearInterval(iv);flash.style.display='none';} },300);
+  const iv=setInterval(()=>{flash.style.display=count%2===0?'block':'none';count++;if(count>10){clearInterval(iv);flash.style.display='none';}},300);
 }
 
-// ── HELP ALERT ──
+// ── POLL HELP REQUESTS FROM SUPABASE ──
+async function pollHelpRequests() {
+  const data = await supabaseGet('help_requests','order=timestamp.desc&limit=10');
+  if(!Array.isArray(data)||data.length===0) return;
+  const latest = data[0];
+  if(latest.id!==lastSeenRequestId&&!latest.acked){
+    lastSeenRequestId=latest.id;
+    showHelpAlert(latest);
+  }
+}
 function showHelpAlert(req) {
-  currentAlertId = req.id;
-  const urgencyLabel = req.urgency==='critical'?'CRITICAL':req.urgency==='high'?'HIGH':'MEDIUM';
-  document.getElementById('alert-urgency').textContent = urgencyLabel;
-  const gpsText = req.gps_lat ? req.gps_lat.toFixed(5)+'° N, '+req.gps_lng.toFixed(5)+'° E' : 'GPS unavailable';
-  document.getElementById('alert-info').innerHTML =
-    '<span style="color:#e8eaf0">From:</span> '+req.name+'<br>'+
-    '<span style="color:#e8eaf0">Type:</span> '+req.type+'<br>'+
-    '<span style="color:#e8eaf0">Location:</span> '+req.loc_desc+'<br>'+
-    '<span style="color:#e8eaf0">GPS:</span> '+gpsText+'<br>'+
-    (req.notes?'<span style="color:#e8eaf0">Notes:</span> '+req.notes+'<br>':'')+
-    '<span style="color:#e8eaf0">Time:</span> '+new Date(req.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  currentAlertId=req.id;
+  const urgLabel=req.urgency==='critical'?'CRITICAL':req.urgency==='high'?'HIGH':'MEDIUM';
+  document.getElementById('alert-urgency').textContent=urgLabel;
+  const gpsText=(req.gps_lat&&req.gps_lng)?req.gps_lat.toFixed(5)+'° N, '+req.gps_lng.toFixed(5)+'° E':'GPS unavailable';
+  document.getElementById('alert-info').innerHTML='<span>From:</span> '+req.name+'<br><span>Type:</span> '+req.type+'<br><span>Location:</span> '+req.loc_desc+'<br><span>GPS:</span> '+gpsText+'<br>'+(req.notes?'<span>Notes:</span> '+req.notes+'<br>':'')+'<span>Time:</span> '+new Date(req.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
   document.getElementById('alert-modal').classList.add('open');
   playAlertSound();
 }
-
 async function acknowledgeAlert() {
-  await sb.from('help_requests').update({acked:true, acked_by:guardName}).eq('id', currentAlertId);
+  await supabasePatch('help_requests',currentAlertId,{acked:true,acked_by:currentGuardName});
   document.getElementById('alert-modal').classList.remove('open');
   addTimelineEntry('Help request acknowledged','Responding · '+currentAlertId,'');
   showToast('✓ Acknowledged — en route');
-  renderHelpRequests();
+  loadHelpRequests();
 }
-function dismissAlert() { document.getElementById('alert-modal').classList.remove('open'); }
-
-async function renderHelpRequests() {
-  const { data } = await sb.from('help_requests').select('*').order('timestamp', {ascending:false}).limit(10);
-  const el = document.getElementById('help-requests-list');
-  if (!data || data.length===0) { el.innerHTML='<div style="font-size:13px;color:#555a6a;font-family:monospace">No help requests yet.</div>'; return; }
-  el.innerHTML = data.map(req => {
-    const gpsText = req.gps_lat ? req.gps_lat.toFixed(4)+'° N, '+req.gps_lng.toFixed(4)+'° E' : 'GPS unavailable';
-    const time = new Date(req.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+function dismissAlert(){document.getElementById('alert-modal').classList.remove('open');}
+async function loadHelpRequests() {
+  const data = await supabaseGet('help_requests','order=timestamp.desc&limit=10');
+  const el=document.getElementById('help-requests-list');
+  if(!Array.isArray(data)||data.length===0){el.innerHTML='<div style="font-size:13px;color:#555a6a;font-family:monospace">No help requests yet.</div>';return;}
+  el.innerHTML=data.map(req=>{
+    const gpsText=(req.gps_lat&&req.gps_lng)?req.gps_lat.toFixed(4)+'° N, '+req.gps_lng.toFixed(4)+'° E':'GPS unavailable';
+    const time=new Date(req.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
     return `<div class="req-item ${req.acked?'acked':''}">
       <div style="font-size:14px;font-weight:600;color:${req.acked?'#00e5a0':'#ff6b6b'};margin-bottom:4px">${req.acked?'✓ ':'🚨 '}${req.type}</div>
       <div style="font-family:monospace;font-size:11px;color:#555a6a;line-height:1.7">From: ${req.name}<br>Location: ${req.loc_desc}<br>GPS: ${gpsText}<br>Time: ${time} ${req.acked?'· <span style="color:#00e5a0">Acknowledged by '+req.acked_by+'</span>':''}</div>
     </div>`;
   }).join('');
 }
+setInterval(pollHelpRequests,5000);
 
 // ── GPS ──
-function getGPS(callback) {
-  if (!navigator.geolocation) { callback(null); return; }
+function getGPS(callback){
+  if(!navigator.geolocation){callback(null);return;}
   navigator.geolocation.getCurrentPosition(
-    p => { currentGPS={lat:p.coords.latitude,lng:p.coords.longitude,acc:p.coords.accuracy}; callback(currentGPS); },
-    () => callback(null), {enableHighAccuracy:true,timeout:10000}
+    p=>{currentGPS={lat:p.coords.latitude,lng:p.coords.longitude,acc:p.coords.accuracy};callback(currentGPS);},
+    ()=>callback(null),
+    {enableHighAccuracy:true,timeout:10000}
   );
 }
-function updateGPSStatus() {
-  getGPS(gps => {
-    const txt = gps ? gps.lat.toFixed(4)+'° N, '+gps.lng.toFixed(4)+'° E · ±'+Math.round(gps.acc)+'m' : 'GPS unavailable';
-    ['gps-status','incident-gps'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=txt; });
+function updateGPSStatus(){
+  getGPS(gps=>{
+    const txt=gps?gps.lat.toFixed(4)+'° N, '+gps.lng.toFixed(4)+'° E · ±'+Math.round(gps.acc)+'m':'GPS unavailable';
+    const el1=document.getElementById('gps-status');const el2=document.getElementById('incident-gps');
+    if(el1)el1.textContent=txt;if(el2)el2.textContent=txt;
   });
 }
+function getDistance(lat1,lon1,lat2,lon2){
+  const R=6371000,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180;
+  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
 
-// ── CHECKPOINT LISTS ──
-function renderLists() {
+// ── RENDER LISTS ──
+function renderLists(){
   const cps=checkpoints.filter(c=>c.type==='checkpoint');
   const survs=checkpoints.filter(c=>c.type==='surveillance');
   const radios=checkpoints.filter(c=>c.type==='radio');
@@ -450,13 +502,17 @@ function renderLists() {
   document.getElementById('stat-incidents').textContent=incidentCount;
   document.getElementById('cp-progress-badge').textContent=cpDone+' / 24';
   document.getElementById('surv-progress-badge').textContent=survDone+' / 3';
+  document.getElementById('rep-cp').textContent=cpDone+'/24';
+  document.getElementById('rep-surv').textContent=survDone+'/3';
+  document.getElementById('rep-radio').textContent=radioDone+'/1';
+  document.getElementById('rep-inc').textContent=incidentCount;
   document.getElementById('cp-list').innerHTML=cps.map(cp=>{
     const done=!!sessionScanned[cp.id];
     return `<div class="cp-item"><div class="cp-dot ${done?'cp-done':'cp-pending'}">${done?'✓':cp.id.replace('CP-','')}</div><div style="flex:1"><div style="font-size:13px;font-weight:500">${cp.name}</div><div style="font-family:monospace;font-size:10px;color:${done?'#00e5a0':'#555a6a'}">${done?sessionScanned[cp.id]+' · scanned':cp.anchored?'GPS anchored · ready':'GPS locks on first scan'}</div></div>${done?'<span class="badge bg">✓</span>':''}</div>`;
   }).join('');
   document.getElementById('surv-list').innerHTML=survs.map(cp=>{
     const done=!!sessionScanned[cp.id];
-    return `<div class="cp-item"><div class="cp-dot ${done?'cp-surv-done':'cp-surv'}">🔍</div><div style="flex:1"><div style="font-size:13px;font-weight:500">${cp.name}</div><div style="font-family:monospace;font-size:10px;color:${done?'#cc66ff':'#555a6a'}">${done?sessionScanned[cp.id]+' · scanned':'500m range · notes required'}</div></div>${done?'<span class="badge bp">✓</span>':''}</div>`;
+    return `<div class="cp-item"><div class="cp-dot ${done?'cp-surv-done':'cp-surv'}">🔍</div><div style="flex:1"><div style="font-size:13px;font-weight:500">${cp.name}</div><div style="font-family:monospace;font-size:10px;color:${done?'#cc66ff':'#555a6a'}">${done?sessionScanned[cp.id]+' · noted':'500m range · scan + add observations'}</div></div>${done?'<span class="badge bp">✓</span>':''}</div>`;
   }).join('');
   document.getElementById('radio-list').innerHTML=radios.map(cp=>{
     const done=!!sessionScanned[cp.id];
@@ -465,36 +521,36 @@ function renderLists() {
 }
 
 // ── LOGIN ──
-function onAcctChange() {
+function onAcctChange(){
   document.getElementById('name-fields').style.display=document.getElementById('acct-select').value==='guard5'?'block':'none';
 }
-function doLogin() {
+function doLogin(){
   const k=document.getElementById('acct-select').value;
   const p=document.getElementById('login-pw').value;
-  const accounts=getAccounts();
-  const acc=accounts[k];
+  // Check against saved profiles first
+  const savedProfiles=JSON.parse(localStorage.getItem('mp_guard_profiles')||'null');
+  const acc=savedProfiles?savedProfiles[k]:ACCOUNTS[k];
   const err=document.getElementById('login-err');
   if(!acc||p!==acc.pass){err.style.display='block';return;}
   err.style.display='none';
   let name=acc.name;
-  if(acc.vacant||k==='guard5'){
+  if(!name||name==='Replacement'){
     const fn=document.getElementById('input-fn').value.trim();
     const ln=document.getElementById('input-ln').value.trim();
     if(!fn||!ln){err.textContent='Please enter your name.';err.style.display='block';return;}
     name=fn+' '+ln;
   }
-  guardName=name;
+  currentGuardName=name;
   document.getElementById('status-name').textContent='● '+name;
   document.getElementById('tl-header').textContent='Shift · Mobile Patrol · '+name;
   document.getElementById('screen-login').classList.remove('active');
   document.getElementById('screen-app').classList.add('active');
-  renderLists(); updateGPSStatus();
-  startRealtimeSubscription();
+  renderLists();updateGPSStatus();
   showToast('Welcome, '+name);
+  pollHelpRequests();
 }
-function doLogout() {
+function doLogout(){
   stopScanner();
-  if(subscription) sb.removeChannel(subscription);
   document.getElementById('login-pw').value='';
   document.getElementById('screen-app').classList.remove('active');
   document.getElementById('screen-login').classList.add('active');
@@ -502,7 +558,7 @@ function doLogout() {
 }
 
 // ── SCANNER ──
-function startScanner() {
+function startScanner(){
   document.getElementById('scan-idle').style.display='none';
   document.getElementById('scan-result').style.display='none';
   document.getElementById('scan-err').style.display='none';
@@ -514,31 +570,31 @@ function startScanner() {
   Html5Qrcode.getCameras().then(cameras=>{
     if(!cameras||cameras.length===0){showScanErr('No camera found.');return;}
     html5QrCode.start({facingMode:'environment'},{fps:10,qrbox:{width:220,height:220}},onScanSuccess,()=>{})
-    .catch(()=>showScanErr('Camera access denied.'));
+    .catch(()=>showScanErr('Camera access denied. Please allow camera access.'));
     scannerRunning=true;
   }).catch(()=>showScanErr('Camera access denied.'));
 }
-function stopScanner() {
+function stopScanner(){
   if(html5QrCode&&scannerRunning){
     html5QrCode.stop().then(()=>{
-      html5QrCode.clear(); scannerRunning=false;
+      html5QrCode.clear();scannerRunning=false;
       document.getElementById('scan-idle').style.display='flex';
       document.getElementById('btn-start-scan').style.display='flex';
       document.getElementById('btn-stop-scan').style.display='none';
     }).catch(()=>{});
   }
 }
-
-function onScanSuccess(decodedText) {
+async function onScanSuccess(decodedText){
   stopScanner();
   const cp=checkpoints.find(c=>c.id===decodedText);
-  if(!cp){showScanErr('Unknown QR code: '+decodedText);return;}
+  if(!cp){showScanErr('Unknown QR code: '+decodedText+'. Not registered in system.');return;}
   const now=new Date();
   const timeStr=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
   const gpsRange=cp.type==='checkpoint'?20:500;
   getGPS(async gps=>{
     if(!cp.anchored){
-      if(gps){cp.gps={lat:gps.lat,lng:gps.lng};cp.anchored=true;localStorage.setItem('mp_checkpoints',JSON.stringify(checkpoints));}
+      if(gps){cp.gps={lat:gps.lat,lng:gps.lng};}
+      cp.anchored=true;localStorage.setItem('mp_checkpoints',JSON.stringify(checkpoints));
     } else if(gps&&cp.gps){
       const dist=getDistance(gps.lat,gps.lng,cp.gps.lat,cp.gps.lng);
       if(dist>gpsRange){showScanErr('⚠ GPS mismatch — you are '+Math.round(dist)+'m away. Must be within '+gpsRange+'m.');return;}
@@ -546,14 +602,19 @@ function onScanSuccess(decodedText) {
     sessionScanned[cp.id]=timeStr;
     sessionStorage.setItem('mp_scanned',JSON.stringify(sessionScanned));
     currentScanCP=cp;
-    // Save scan to Supabase
-    await sb.from('patrol_scans').insert({
-      id:'SCAN-'+Date.now(), guard_name:guardName,
-      checkpoint_id:cp.id, checkpoint_name:cp.name, checkpoint_type:cp.type,
-      gps_lat:gps?gps.lat:null, gps_lng:gps?gps.lng:null, gps_verified:!!gps
+    // Save to Supabase
+    await supabasePost('patrol_scans',{
+      id:'SCAN-'+Date.now(),
+      guard_name:currentGuardName,
+      checkpoint_id:cp.id,
+      checkpoint_name:cp.name,
+      checkpoint_type:cp.type,
+      gps_lat:gps?gps.lat:null,
+      gps_lng:gps?gps.lng:null,
+      gps_verified:!!(gps&&cp.gps)
     });
     document.getElementById('scan-result-title').textContent='✓ '+cp.name+' — scanned at '+timeStr;
-    document.getElementById('scan-result-meta').textContent=cp.type.charAt(0).toUpperCase()+cp.type.slice(1)+' · '+(gps&&cp.gps?'GPS verified':'GPS logged');
+    document.getElementById('scan-result-meta').textContent=cp.type+' · '+(gps&&cp.gps?'GPS verified':'GPS logged');
     document.getElementById('scan-result').style.display='block';
     addTimelineEntry(cp.name+' scanned',timeStr+' · '+cp.id,cp.type);
     renderLists();
@@ -566,12 +627,6 @@ function onScanSuccess(decodedText) {
       setTimeout(()=>{navApp('s-home');setNav('nav-home');document.getElementById('scan-result').style.display='none';},2000);
     }
   });
-}
-
-function getDistance(lat1,lon1,lat2,lon2){
-  const R=6371000,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180;
-  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
-  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
 function showScanErr(msg){
   document.getElementById('scan-err').textContent=msg;
@@ -587,12 +642,15 @@ async function submitSurvNote(){
   const body=document.getElementById('surv-body').value.trim();
   if(!title||!body){showToast('⚠ Please enter subject and observations');return;}
   const category=document.getElementById('surv-category').value;
+  const photos=document.querySelectorAll('#surv-form .photo-slot.filled').length;
   const now=new Date();
-  await sb.from('surveillance_notes').insert({
-    id:'NOTE-'+Date.now(), guard_name:guardName,
+  await supabasePost('surveillance_notes',{
+    id:'NOTE-'+Date.now(),
+    guard_name:currentGuardName,
     checkpoint:currentScanCP?currentScanCP.name:'Unknown',
-    title, body, category, photos:0,
-    gps_lat:currentGPS?currentGPS.lat:null, gps_lng:currentGPS?currentGPS.lng:null
+    title,body,category,photos,
+    gps_lat:currentGPS?currentGPS.lat:null,
+    gps_lng:currentGPS?currentGPS.lng:null
   });
   addTimelineEntry('Surveillance note submitted',now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+' · '+category,'purple');
   document.getElementById('surv-form').style.display='none';
@@ -604,8 +662,17 @@ function skipSurvNote(){
   setTimeout(()=>{navApp('s-home');setNav('nav-home');document.getElementById('scan-result').style.display='none';},500);
 }
 
+// ── TIMELINE ──
+function addTimelineEntry(title,meta,type){
+  const list=document.getElementById('timeline-list');
+  const item=document.createElement('div');item.className='tl-item';
+  const dotClass=type==='red'?'tl-dot red':type==='purple'?'tl-dot purple':type==='blue'?'tl-dot blue':'tl-dot';
+  item.innerHTML=`<div class="${dotClass}"></div><div><div style="font-size:13px;font-weight:500">${title}</div><div style="font-family:monospace;font-size:11px;color:#555a6a">${meta}</div></div>`;
+  list.appendChild(item);
+}
+
 // ── INCIDENT ──
-async function submitIncident(){
+function submitIncident(){
   incidentCount++;
   sessionStorage.setItem('mp_incidents',incidentCount);
   renderLists();
@@ -614,20 +681,11 @@ async function submitIncident(){
   setTimeout(()=>{navApp('s-home');setNav('nav-home');},1200);
 }
 
-// ── TIMELINE ──
-function addTimelineEntry(title,meta,type){
-  const list=document.getElementById('timeline-list');
-  const item=document.createElement('div'); item.className='tl-item';
-  const dotClass=type==='red'?'tl-dot red':type==='purple'?'tl-dot purple':type==='blue'?'tl-dot blue':'tl-dot';
-  item.innerHTML=`<div class="${dotClass}"></div><div><div style="font-size:13px;font-weight:500">${title}</div><div style="font-family:monospace;font-size:11px;color:#555a6a">${meta}</div></div>`;
-  list.appendChild(item);
-}
-
 // ── NAV ──
 function navApp(id){
   document.querySelectorAll('#screen-app .screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
-  if(id==='s-scan') updateGPSStatus();
+  if(id==='s-scan')updateGPSStatus();
 }
 function setNav(id){
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
@@ -635,7 +693,7 @@ function setNav(id){
 }
 function showToast(msg){
   const t=document.getElementById('toast');
-  t.textContent=msg; t.style.display='block';
+  t.textContent=msg;t.style.display='block';
   clearTimeout(window._tt);
   window._tt=setTimeout(()=>t.style.display='none',2500);
 }
