@@ -375,25 +375,33 @@ document.getElementById('enable-alerts-btn').addEventListener('click', function(
 });
 
 function playAlert() {
-  if (navigator.vibrate) navigator.vibrate([500, 200, 500, 200, 500, 200, 800, 200, 800]);
+  if (navigator.vibrate) navigator.vibrate([800, 200, 800, 200, 800, 200, 800, 200, 800, 200, 800, 200, 800]);
   if (audioReady && audioCtx) {
     try {
       if (audioCtx.state === 'suspended') audioCtx.resume();
-      var beepTimes = [0, 0.4, 0.8, 1.5, 1.9, 2.3];
-      var beepFreqs = [1000, 1000, 1200, 1000, 1000, 1200];
-      for (var b = 0; b < beepTimes.length; b++) {
-        (function(t, f) {
+      var now = audioCtx.currentTime;
+      // Create a repeating alarm sound - rising tone pattern like emergency siren
+      var totalDuration = 6.0;
+      var cycleDuration = 0.8;
+      var numCycles = Math.floor(totalDuration / cycleDuration);
+      for (var c = 0; c < numCycles; c++) {
+        (function(cycleStart) {
           var osc = audioCtx.createOscillator();
           var gain = audioCtx.createGain();
           osc.connect(gain);
           gain.connect(audioCtx.destination);
-          osc.type = 'sine';
-          osc.frequency.value = f;
-          gain.gain.setValueAtTime(1.0, audioCtx.currentTime + t);
-          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + t + 0.3);
-          osc.start(audioCtx.currentTime + t);
-          osc.stop(audioCtx.currentTime + t + 0.35);
-        })(beepTimes[b], beepFreqs[b]);
+          osc.type = 'square';
+          // Rising frequency sweep from 600Hz to 1200Hz
+          osc.frequency.setValueAtTime(600, now + cycleStart);
+          osc.frequency.linearRampToValueAtTime(1200, now + cycleStart + 0.4);
+          osc.frequency.linearRampToValueAtTime(600, now + cycleStart + 0.8);
+          gain.gain.setValueAtTime(0, now + cycleStart);
+          gain.gain.linearRampToValueAtTime(1.0, now + cycleStart + 0.05);
+          gain.gain.setValueAtTime(1.0, now + cycleStart + 0.75);
+          gain.gain.linearRampToValueAtTime(0, now + cycleStart + 0.8);
+          osc.start(now + cycleStart);
+          osc.stop(now + cycleStart + 0.8);
+        })(c * cycleDuration);
       }
     } catch(e) {}
   }
@@ -402,8 +410,8 @@ function playAlert() {
   var iv = setInterval(function() {
     flash.style.display = (count % 2 === 0) ? 'block' : 'none';
     count++;
-    if (count > 10) { clearInterval(iv); flash.style.display = 'none'; }
-  }, 300);
+    if (count > 20) { clearInterval(iv); flash.style.display = 'none'; }
+  }, 200);
 }
 
 // POLL HELP REQUESTS
