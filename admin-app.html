@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Mobile Patrol — Admin Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -16,7 +17,6 @@ html,body{min-height:100%;background:#0d0f12;color:#e8eaf0;font-family:-apple-sy
 .lcard h2{font-size:15px;font-weight:600;margin-bottom:16px}
 .fl{font-family:monospace;font-size:10px;color:#555a6a;letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:5px;margin-top:2px}
 select,input{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:11px 13px;font-size:14px;color:#e8eaf0;outline:none;margin-bottom:14px;-webkit-appearance:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
-select:focus,input:focus{border-color:#00e5a0}
 .login-btn{width:100%;padding:13px;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;border:none;background:#00e5a0;color:#000;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
 .err{background:rgba(255,77,77,0.12);border:1px solid rgba(255,77,77,0.3);border-radius:8px;padding:9px 13px;font-size:13px;color:#ff6b6b;margin-bottom:14px;display:none}
 .screen{display:none;flex-direction:column;min-height:100vh}
@@ -25,7 +25,7 @@ select:focus,input:focus{border-color:#00e5a0}
 .topbar h1{font-size:16px;font-weight:600;flex:1}
 .statusbar{padding:7px 16px;display:flex;justify-content:space-between;font-family:monospace;font-size:11px;color:#555a6a;border-bottom:1px solid rgba(255,255,255,0.08);background:#151820;position:sticky;top:48px;z-index:9}
 .tab-nav{display:flex;background:#151820;border-bottom:1px solid rgba(255,255,255,0.08);overflow-x:auto;flex-shrink:0;position:sticky;top:78px;z-index:8}
-.tab-btn{padding:10px 14px;font-size:11px;font-family:monospace;color:#555a6a;cursor:pointer;border:none;background:none;white-space:nowrap;border-bottom:2px solid transparent;letter-spacing:0.5px}
+.tab-btn{padding:10px 12px;font-size:11px;font-family:monospace;color:#555a6a;cursor:pointer;border:none;background:none;white-space:nowrap;border-bottom:2px solid transparent;letter-spacing:0.5px}
 .tab-btn.active{color:#00e5a0;border-bottom-color:#00e5a0}
 .content{flex:1;padding:14px 16px}
 .card{background:#151820;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px;margin-bottom:12px}
@@ -46,7 +46,6 @@ select:focus,input:focus{border-color:#00e5a0}
 .profile-row:last-child{border-bottom:none}
 .avatar{width:38px;height:38px;border-radius:50%;background:#1c2030;border:1px solid rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;font-family:monospace;font-size:12px;font-weight:500;color:#00e5a0;flex-shrink:0}
 .avatar.gold{color:#ffc800;border-color:rgba(255,200,0,0.3);background:rgba(255,200,0,0.08)}
-.avatar.blue{color:#4da3ff;border-color:rgba(0,119,255,0.3);background:rgba(0,119,255,0.08)}
 .live-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.08)}
 .live-row:last-child{border-bottom:none}
 .progress-track{height:4px;background:#1c2030;border-radius:2px;margin-top:5px}
@@ -64,7 +63,7 @@ select:focus,input:focus{border-color:#00e5a0}
 .qr-card{background:#fff;border-radius:10px;padding:12px;text-align:center}
 .qr-card-title{font-size:11px;font-weight:600;color:#333;margin-bottom:8px;font-family:monospace}
 .qr-card-sub{font-size:9px;color:#666;margin-top:4px;font-family:monospace}
-.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:200;align-items:flex-end;justify-content:center;padding:0}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:200;align-items:flex-end;justify-content:center}
 .modal-bg.open{display:flex}
 .modal{background:#151820;border:1px solid rgba(255,255,255,0.12);border-radius:16px 16px 0 0;padding:22px 20px;width:100%;max-width:520px;max-height:85vh;overflow-y:auto}
 .modal h3{font-size:15px;font-weight:600;margin-bottom:16px}
@@ -76,10 +75,10 @@ select:focus,input:focus{border-color:#00e5a0}
 .tab-panel.active{display:block}
 .req-item{background:#151820;border:1px solid rgba(255,77,77,0.2);border-radius:10px;padding:12px;margin-bottom:10px}
 .req-item.acked{border-color:rgba(255,255,255,0.08);opacity:0.6}
-.notif-banner{background:rgba(255,77,77,0.08);border:1px solid rgba(255,77,77,0.25);border-radius:10px;padding:12px 14px;margin-bottom:12px;display:none}
-.pw-show{display:flex;align-items:center;gap:8px;background:#1c2030;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:8px 12px;margin-bottom:14px;font-family:monospace;font-size:13px;color:#555a6a}
-.pw-val{flex:1;color:#e8eaf0}
+.notif-banner{background:rgba(255,77,77,0.08);border:1px solid rgba(255,77,77,0.25);border-radius:10px;padding:12px 14px;margin-bottom:12px;display:none;animation:fadeIn 0.3s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
 .locked-badge{background:rgba(255,200,0,0.1);border:1px solid rgba(255,200,0,0.3);border-radius:6px;padding:4px 10px;font-size:11px;color:#ffc800;font-family:monospace}
+textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px 13px;font-size:14px;color:#e8eaf0;outline:none;margin-bottom:12px;resize:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;line-height:1.6}
 #toast{display:none;position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#151820;border:1px solid rgba(255,255,255,0.14);border-radius:8px;padding:9px 16px;font-family:monospace;font-size:12px;color:#00e5a0;white-space:nowrap;z-index:300;max-width:90vw;text-align:center}
 @media print{.topbar,.statusbar,.tab-nav,#toast,.btn{display:none!important}.qr-grid{grid-template-columns:repeat(4,1fr)}.qr-card{break-inside:avoid}body{background:#fff}}
 </style>
@@ -146,41 +145,37 @@ select:focus,input:focus{border-color:#00e5a0}
         <button type="button" class="btn-sm btn" style="margin-top:8px;color:#ff6b6b;border-color:rgba(255,77,77,0.3)" onclick="showTab('tab-requests',null);renderAdminRequests()">View →</button>
       </div>
       <div class="metrics">
-        <div class="metric"><div class="metric-val">2</div><div class="metric-lbl">On duty</div></div>
-        <div class="metric"><div class="metric-val" style="color:#ff4d4d">1</div><div class="metric-lbl">Incidents</div></div>
-        <div class="metric"><div class="metric-val">1</div><div class="metric-lbl">Rounds done</div></div>
-        <div class="metric"><div class="metric-val">0</div><div class="metric-lbl">Missed</div></div>
+        <div class="metric"><div class="metric-val" id="m-onduty">—</div><div class="metric-lbl">On duty</div></div>
+        <div class="metric"><div class="metric-val" style="color:#ff4d4d" id="m-incidents">—</div><div class="metric-lbl">Requests today</div></div>
+        <div class="metric"><div class="metric-val" id="m-scans">—</div><div class="metric-lbl">Scans today</div></div>
+        <div class="metric"><div class="metric-val" id="m-notes">—</div><div class="metric-lbl">Surv. notes</div></div>
       </div>
       <div class="card">
-        <div class="clabel">All guards — live</div>
+        <div class="clabel">Guard status</div>
         <div id="live-guard-list"></div>
       </div>
     </div>
 
     <!-- REQUESTS -->
     <div class="tab-panel" id="tab-requests">
-      <div style="font-size:13px;color:#8b90a0;margin-bottom:12px;font-family:monospace">Incoming help requests. Silent — no sound.</div>
+      <div style="font-size:13px;color:#8b90a0;margin-bottom:12px;font-family:monospace">All help requests — silent, no sound. Updates in real time.</div>
       <div id="admin-requests-list"><div style="font-size:13px;color:#555a6a;font-family:monospace">No help requests yet.</div></div>
     </div>
 
     <!-- PROFILES -->
     <div class="tab-panel" id="tab-profiles">
-      <!-- GUARD PROFILES -->
       <div class="card" style="border-color:rgba(0,229,160,0.2)">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
           <div class="clabel" style="color:#00e5a0;margin-bottom:0">Guard profiles</div>
           <button type="button" id="btn-add-guard" class="btn btn-sm btn-p" onclick="openAddProfileModal('guard')" style="display:none">+ Add guard</button>
         </div>
-        <div style="font-size:12px;color:#555a6a;font-family:monospace;margin-bottom:12px">All admins can edit guard profiles.</div>
         <div id="guard-profiles-list"></div>
       </div>
-      <!-- ADMIN PROFILES -->
       <div class="card" style="border-color:rgba(255,200,0,0.2)">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
           <div class="clabel" style="color:#ffc800;margin-bottom:0">Admin profiles</div>
           <button type="button" id="btn-add-admin" class="btn btn-sm" style="display:none;background:rgba(255,200,0,0.1);color:#ffc800;border-color:rgba(255,200,0,0.3)" onclick="openAddProfileModal('admin')">+ Add admin</button>
         </div>
-        <div style="font-size:12px;color:#555a6a;font-family:monospace;margin-bottom:12px" id="admin-profile-note">Main admin can edit all. Others can only edit their own.</div>
         <div id="admin-profiles-list"></div>
       </div>
     </div>
@@ -210,22 +205,17 @@ select:focus,input:focus{border-color:#00e5a0}
 
     <!-- SURVEILLANCE NOTES -->
     <div class="tab-panel" id="tab-notes">
-      <div style="font-size:13px;color:#8b90a0;margin-bottom:12px;font-family:monospace">Surveillance detection notes from all guards.</div>
+      <div style="font-size:13px;color:#8b90a0;margin-bottom:12px;font-family:monospace">Surveillance detection notes from all guards. Real-time updates.</div>
       <div id="admin-notes-list"><div style="font-size:13px;color:#555a6a;font-family:monospace">No notes yet.</div></div>
     </div>
 
     <!-- REPORTS -->
     <div class="tab-panel" id="tab-reports">
       <div class="metrics">
-        <div class="metric"><div class="metric-val">14</div><div class="metric-lbl">Patrols/month</div></div>
-        <div class="metric"><div class="metric-val" style="color:#ff4d4d">3</div><div class="metric-lbl">Incidents</div></div>
-        <div class="metric"><div class="metric-val">98%</div><div class="metric-lbl">CP rate</div></div>
-        <div class="metric"><div class="metric-val">0</div><div class="metric-lbl">Missed</div></div>
-      </div>
-      <div class="card">
-        <div class="clabel" style="margin-bottom:10px">Patrol history</div>
-        <div class="rep-row"><div><div style="font-size:13px;font-weight:500">Night Round — Site A</div><div style="font-family:monospace;font-size:11px;color:#555a6a">Today · A. Weber</div></div><span class="badge bb">In progress</span></div>
-        <div class="rep-row"><div><div style="font-size:13px;font-weight:500">Day Round — Site B</div><div style="font-family:monospace;font-size:11px;color:#555a6a">Yesterday · M. Kowalski</div></div><span class="badge bg">Complete</span></div>
+        <div class="metric"><div class="metric-val" id="rep-requests">—</div><div class="metric-lbl">Help requests</div></div>
+        <div class="metric"><div class="metric-val" id="rep-scans">—</div><div class="metric-lbl">Total scans</div></div>
+        <div class="metric"><div class="metric-val" id="rep-notes">—</div><div class="metric-lbl">Surv. notes</div></div>
+        <div class="metric"><div class="metric-val" id="rep-guards">5</div><div class="metric-lbl">Guards</div></div>
       </div>
       <div class="card">
         <div class="clabel" style="margin-bottom:10px">Export</div>
@@ -246,15 +236,9 @@ select:focus,input:focus{border-color:#00e5a0}
     <label class="fl">Full name</label>
     <input type="text" id="add-profile-name" placeholder="First and last name">
     <label class="fl">Password</label>
-    <input type="text" id="add-profile-pass" placeholder="Enter password" style="-webkit-text-security:disc" autocomplete="off">
+    <input type="text" id="add-profile-pass" placeholder="Enter password" style="-webkit-text-security:disc">
     <label class="fl">Confirm password</label>
-    <input type="text" id="add-profile-pass2" placeholder="Confirm password" style="-webkit-text-security:disc" autocomplete="off">
-    <div id="add-profile-type-section" style="display:none">
-      <label class="fl">Admin role</label>
-      <select id="add-profile-role">
-        <option value="admin">Standard Admin</option>
-      </select>
-    </div>
+    <input type="text" id="add-profile-pass2" placeholder="Confirm password" style="-webkit-text-security:disc">
     <div class="err" id="add-profile-err">Please fill in all fields.</div>
     <div class="modal-btns">
       <button type="button" style="background:#1c2030;color:#8b90a0;border:1px solid rgba(255,255,255,0.08)" onclick="closeModal('modal-add-profile')">Cancel</button>
@@ -271,10 +255,10 @@ select:focus,input:focus{border-color:#00e5a0}
     <input type="hidden" id="edit-profile-type">
     <label class="fl">Full name</label>
     <input type="text" id="edit-profile-name" placeholder="First and last name">
-    <label class="fl">New password</label>
-    <input type="text" id="edit-profile-pass" placeholder="Enter new password" style="-webkit-text-security:disc" autocomplete="off">
+    <label class="fl">New password (leave blank to keep current)</label>
+    <input type="text" id="edit-profile-pass" placeholder="Enter new password" style="-webkit-text-security:disc">
     <label class="fl">Confirm new password</label>
-    <input type="text" id="edit-profile-pass2" placeholder="Confirm new password" style="-webkit-text-security:disc" autocomplete="off">
+    <input type="text" id="edit-profile-pass2" placeholder="Confirm new password" style="-webkit-text-security:disc">
     <div class="err" id="profile-err">Passwords do not match.</div>
     <div class="modal-btns">
       <button type="button" style="background:#1c2030;color:#8b90a0;border:1px solid rgba(255,255,255,0.08)" onclick="closeModal('modal-profile')">Cancel</button>
@@ -296,13 +280,6 @@ select:focus,input:focus{border-color:#00e5a0}
       <option value="checkpoint">Standard Checkpoint (20m GPS)</option>
       <option value="surveillance">Surveillance Detection Point (500m GPS)</option>
       <option value="radio">Radio Checkpoint (500m GPS)</option>
-    </select>
-    <label class="fl">Assign to route</label>
-    <select id="new-cp-route">
-      <option>Main Patrol</option>
-      <option>Night Round — Site A</option>
-      <option>Day Round — Site B</option>
-      <option>All routes</option>
     </select>
     <label class="fl">GPS anchor mode</label>
     <select id="new-cp-gps" onchange="onGPSModeChange()">
@@ -338,123 +315,137 @@ select:focus,input:focus{border-color:#00e5a0}
 <div id="toast"></div>
 
 <script>
-// ── STATE ──
-let adminProfiles = JSON.parse(localStorage.getItem('mp_admin_profiles') || 'null') || {
-  admin1: {name:'R. Fischer', pass:'admin1pass', role:'main'},
-  admin2: {name:'S. Müller',  pass:'admin2pass', role:'admin'},
-  admin3: {name:'Vacant',     pass:'adminpass',  role:'admin'}
+const SUPABASE_URL = 'https://hzvegzkjogcjqzogxvvm.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh6dmVnemtqb2djanF6b2d4dnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwOTA3NjgsImV4cCI6MjA5NTY2Njc2OH0.jDvCtntJjFd0tp9h5vFHm3xKa6s5HOGAschU-QrnmAE';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let adminProfiles = JSON.parse(localStorage.getItem('mp_admin_profiles')||'null') || {
+  admin1:{name:'R. Fischer',pass:'admin1pass',role:'main'},
+  admin2:{name:'S. Müller',pass:'admin2pass',role:'admin'},
+  admin3:{name:'Vacant',pass:'adminpass',role:'admin'}
 };
-let guardProfiles = JSON.parse(localStorage.getItem('mp_guard_profiles') || 'null') || {
-  guard1: {name:'A. Weber',    pass:'guard1pass'},
-  guard2: {name:'M. Kowalski', pass:'guard2pass'},
-  guard3: {name:'J. Schmidt',  pass:'guard3pass'},
-  guard4: {name:'T. Bauer',    pass:'guard4pass'},
-  guard5: {name:'Replacement', pass:'guardpass', vacant:true}
+let guardProfiles = JSON.parse(localStorage.getItem('mp_guard_profiles')||'null') || {
+  guard1:{name:'A. Weber',pass:'guard1pass'},
+  guard2:{name:'M. Kowalski',pass:'guard2pass'},
+  guard3:{name:'J. Schmidt',pass:'guard3pass'},
+  guard4:{name:'T. Bauer',pass:'guard4pass'},
+  guard5:{name:'Replacement',pass:'guardpass',vacant:true}
 };
-let checkpoints = JSON.parse(localStorage.getItem('mp_checkpoints') || 'null') || [];
-if (checkpoints.length === 0) {
-  for (let i=1;i<=24;i++) checkpoints.push({id:'CP-'+String(i).padStart(3,'0'),name:'Checkpoint '+i,type:'checkpoint',route:'Main Patrol',gps:null,anchored:false});
-  for (let i=1;i<=3;i++) checkpoints.push({id:'SD-'+String(i).padStart(3,'0'),name:'Surveillance Point '+i,type:'surveillance',route:'Main Patrol',gps:null,anchored:false,range:500});
-  checkpoints.push({id:'RC-001',name:'Radio Check — Base',type:'radio',route:'Main Patrol',gps:null,anchored:false,range:500});
-  localStorage.setItem('mp_checkpoints', JSON.stringify(checkpoints));
+let checkpoints = JSON.parse(localStorage.getItem('mp_checkpoints')||'null') || [];
+if(checkpoints.length===0){
+  for(let i=1;i<=24;i++) checkpoints.push({id:'CP-'+String(i).padStart(3,'0'),name:'Checkpoint '+i,type:'checkpoint',gps:null,anchored:false});
+  for(let i=1;i<=3;i++) checkpoints.push({id:'SD-'+String(i).padStart(3,'0'),name:'Surveillance Point '+i,type:'surveillance',gps:null,anchored:false,range:500});
+  checkpoints.push({id:'RC-001',name:'Radio Check — Base',type:'radio',gps:null,anchored:false,range:500});
+  localStorage.setItem('mp_checkpoints',JSON.stringify(checkpoints));
 }
 
-let currentAdminKey = null;
-let currentAdminRole = null;
-let lastSeenRequestId = localStorage.getItem('mp_admin_last_req') || null;
+let currentAdminKey=null, currentAdminRole=null;
+let subscription=null;
 
-function saveAll() {
-  localStorage.setItem('mp_admin_profiles', JSON.stringify(adminProfiles));
-  localStorage.setItem('mp_guard_profiles', JSON.stringify(guardProfiles));
-  localStorage.setItem('mp_checkpoints', JSON.stringify(checkpoints));
+function saveAll(){
+  localStorage.setItem('mp_admin_profiles',JSON.stringify(adminProfiles));
+  localStorage.setItem('mp_guard_profiles',JSON.stringify(guardProfiles));
+  localStorage.setItem('mp_checkpoints',JSON.stringify(checkpoints));
 }
 
 // ── CLOCK ──
-function updateClock() { document.getElementById('status-time').textContent = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
+function updateClock(){document.getElementById('status-time').textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});}
 setInterval(updateClock,1000); updateClock();
 
-// ── POLL HELP REQUESTS ──
-function pollHelpRequests() {
-  const requests = JSON.parse(localStorage.getItem('mp_help_requests')||'[]');
-  const unacked = requests.filter(r=>!r.acked);
-  const badge = document.getElementById('req-badge');
-  if (unacked.length>0) { badge.style.display='inline'; badge.textContent=unacked.length; } else { badge.style.display='none'; }
-  if (requests.length>0 && requests[0].id!==lastSeenRequestId && !requests[0].acked) {
-    lastSeenRequestId = requests[0].id;
-    localStorage.setItem('mp_admin_last_req', lastSeenRequestId);
-    const req = requests[0];
-    const gpsText = req.gps ? req.gps.lat.toFixed(4)+'° N, '+req.gps.lng.toFixed(4)+'° E' : 'GPS unavailable';
-    document.getElementById('notif-banner-meta').innerHTML = 'From: '+req.name+' · '+req.type+'<br>Location: '+req.locDesc+'<br>GPS: '+gpsText;
-    document.getElementById('notif-banner').style.display='block';
-    showToast('🚨 New help request from '+req.name);
-  }
+// ── SUPABASE REALTIME (SILENT) ──
+function startRealtimeSubscription(){
+  subscription = sb.channel('admin_requests_channel')
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'help_requests'},payload=>{
+      const req=payload.new;
+      const gpsText=req.gps_lat?req.gps_lat.toFixed(4)+'° N, '+req.gps_lng.toFixed(4)+'° E':'GPS unavailable';
+      document.getElementById('notif-banner-meta').innerHTML='From: '+req.name+' · '+req.type+'<br>Location: '+req.loc_desc+'<br>GPS: '+gpsText;
+      document.getElementById('notif-banner').style.display='block';
+      showToast('🚨 New help request from '+req.name);
+      updateMetrics();
+      const badge=document.getElementById('req-badge');
+      badge.style.display='inline'; badge.textContent=(parseInt(badge.textContent||0)+1).toString();
+    })
+    .subscribe();
 }
-setInterval(pollHelpRequests,5000);
 
 // ── LOGIN ──
-function onAcctChange() {
-  document.getElementById('name-fields').style.display = document.getElementById('acct-select').value==='admin3'?'block':'none';
+function onAcctChange(){
+  document.getElementById('name-fields').style.display=document.getElementById('acct-select').value==='admin3'?'block':'none';
 }
-function doLogin() {
-  const k = document.getElementById('acct-select').value;
-  const p = document.getElementById('login-pw').value;
-  // Always read latest passwords from storage
-  const profiles = JSON.parse(localStorage.getItem('mp_admin_profiles')||'null') || adminProfiles;
-  adminProfiles = profiles;
-  const acc = adminProfiles[k];
-  const err = document.getElementById('login-err');
-  if (p !== acc.pass) { err.style.display='block'; return; }
+function doLogin(){
+  const k=document.getElementById('acct-select').value;
+  const p=document.getElementById('login-pw').value;
+  const profiles=JSON.parse(localStorage.getItem('mp_admin_profiles')||'null')||adminProfiles;
+  adminProfiles=profiles;
+  const acc=adminProfiles[k];
+  const err=document.getElementById('login-err');
+  if(p!==acc.pass){err.style.display='block';return;}
   err.style.display='none';
-  let name = acc.name;
-  if (k==='admin3' && (name==='Vacant'||!name)) {
+  let name=acc.name;
+  if(k==='admin3'&&(name==='Vacant'||!name)){
     const fn=document.getElementById('input-fn').value.trim();
     const ln=document.getElementById('input-ln').value.trim();
-    if (!fn||!ln) { err.textContent='Please enter your name.'; err.style.display='block'; return; }
+    if(!fn||!ln){err.textContent='Please enter your name.';err.style.display='block';return;}
     name=fn+' '+ln;
   }
-  currentAdminKey = k;
-  currentAdminRole = acc.role;
-  document.getElementById('status-name').textContent = '● '+name+(acc.role==='main'?' (Main Admin)':' (Admin)');
-  document.getElementById('admin-role-badge').textContent = acc.role==='main' ? 'MAIN ADMIN' : 'ADMIN';
+  currentAdminKey=k; currentAdminRole=acc.role;
+  document.getElementById('status-name').textContent='● '+name+(acc.role==='main'?' (Main Admin)':' (Admin)');
+  document.getElementById('admin-role-badge').textContent=acc.role==='main'?'MAIN ADMIN':'ADMIN';
   document.getElementById('screen-login').classList.remove('active');
   document.getElementById('screen-app').classList.add('active');
-  renderLiveGuards(); pollHelpRequests();
+  renderLiveGuards(); updateMetrics(); startRealtimeSubscription();
   showToast('Welcome, '+name);
 }
-function doLogout() {
+function doLogout(){
+  if(subscription) sb.removeChannel(subscription);
   document.getElementById('login-pw').value='';
   document.getElementById('screen-app').classList.remove('active');
   document.getElementById('screen-login').classList.add('active');
-  // Refresh login dropdown with latest names
-  const sel = document.getElementById('acct-select');
-  sel.options[0].text = 'Admin 1 — '+adminProfiles.admin1.name+' (Main)';
-  sel.options[1].text = 'Admin 2 — '+adminProfiles.admin2.name;
-  sel.options[2].text = 'Admin 3 — '+adminProfiles.admin3.name;
+  const sel=document.getElementById('acct-select');
+  sel.options[0].text='Admin 1 — '+adminProfiles.admin1.name+' (Main)';
+  sel.options[1].text='Admin 2 — '+adminProfiles.admin2.name;
+  sel.options[2].text='Admin 3 — '+adminProfiles.admin3.name;
+}
+
+// ── METRICS ──
+async function updateMetrics(){
+  const [{count:reqCount},{count:scanCount},{count:noteCount}] = await Promise.all([
+    sb.from('help_requests').select('*',{count:'exact',head:true}),
+    sb.from('patrol_scans').select('*',{count:'exact',head:true}),
+    sb.from('surveillance_notes').select('*',{count:'exact',head:true})
+  ]);
+  document.getElementById('m-incidents').textContent=reqCount||0;
+  document.getElementById('m-scans').textContent=scanCount||0;
+  document.getElementById('m-notes').textContent=noteCount||0;
+  document.getElementById('rep-requests').textContent=reqCount||0;
+  document.getElementById('rep-scans').textContent=scanCount||0;
+  document.getElementById('rep-notes').textContent=noteCount||0;
 }
 
 // ── TABS ──
-function showTab(id, btn) {
+function showTab(id,btn){
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById(id).classList.add('active');
-  if (btn) btn.classList.add('active');
+  if(btn) btn.classList.add('active');
 }
 
 // ── LIVE GUARDS ──
-function renderLiveGuards() {
-  const statuses = [
+function renderLiveGuards(){
+  const statuses=[
     {key:'guard1',site:'Site A',done:3,total:24,status:'On duty',badge:'bg'},
     {key:'guard2',site:'Site B',done:24,total:24,status:'Complete',badge:'bg'},
     {key:'guard3',site:'—',done:0,total:0,status:'Off duty',badge:'bgr'},
     {key:'guard4',site:'Site C',done:8,total:24,status:'On duty',badge:'bw'},
     {key:'guard5',site:'Site D',done:0,total:0,status:'Standby',badge:'bgr'},
   ];
-  document.getElementById('live-guard-list').innerHTML = statuses.map(s => {
-    const name = guardProfiles[s.key].name;
-    const initials = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-    const pct = s.total>0 ? Math.round(s.done/s.total*100) : 0;
+  document.getElementById('m-onduty').textContent=statuses.filter(s=>s.status==='On duty').length;
+  document.getElementById('live-guard-list').innerHTML=statuses.map(s=>{
+    const name=guardProfiles[s.key]?guardProfiles[s.key].name:'Unknown';
+    const initials=name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    const pct=s.total>0?Math.round(s.done/s.total*100):0;
     return `<div class="live-row">
-      <div class="avatar">${initials}</div>
+      <div class="avatar" style="${s.status==='Off duty'?'color:#555a6a':''}">${initials}</div>
       <div style="flex:1">
         <div style="display:flex;align-items:center;justify-content:space-between">
           <div style="font-size:13px;font-weight:500">${name}</div>
@@ -468,135 +459,129 @@ function renderLiveGuards() {
 }
 
 // ── PROFILES ──
-function renderProfiles() {
-  const isMain = currentAdminRole === 'main';
-  // Show/hide add buttons for main admin only
-  const btnAddGuard = document.getElementById('btn-add-guard');
-  const btnAddAdmin = document.getElementById('btn-add-admin');
-  if (btnAddGuard) btnAddGuard.style.display = isMain ? 'flex' : 'none';
-  if (btnAddAdmin) btnAddAdmin.style.display = isMain ? 'flex' : 'none';
-
-  // Guard profiles
-  document.getElementById('guard-profiles-list').innerHTML = Object.entries(guardProfiles).map(([k,g]) => {
-    const initials = g.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-    const isFixed = ['guard1','guard2','guard3','guard4','guard5'].includes(k);
+function renderProfiles(){
+  const isMain=currentAdminRole==='main';
+  document.getElementById('btn-add-guard').style.display=isMain?'flex':'none';
+  document.getElementById('btn-add-admin').style.display=isMain?'flex':'none';
+  document.getElementById('guard-profiles-list').innerHTML=Object.entries(guardProfiles).map(([k,g])=>{
+    const initials=g.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    const isFixed=['guard1','guard2','guard3','guard4','guard5'].includes(k);
     return `<div class="profile-row">
       <div class="avatar">${initials}</div>
       <div style="flex:1">
         <div style="font-size:13px;font-weight:500">${g.name} ${g.vacant?'<span class="badge bgr">Vacant</span>':''}</div>
-        <div style="font-family:monospace;font-size:10px;color:#555a6a;margin-top:1px">${k} · Password: ${'●'.repeat(g.pass.length)}</div>
+        <div style="font-family:monospace;font-size:10px;color:#555a6a;margin-top:1px">${k} · Pass: ${'●'.repeat(Math.min(g.pass.length,8))}</div>
       </div>
       <div style="display:flex;gap:6px;align-items:center">
         <button type="button" class="btn btn-sm btn-b" onclick="openProfileModal('${k}','guard')">Edit</button>
-        ${isMain && !isFixed ? `<button type="button" class="btn btn-sm btn-d" style="background:none;color:#ff6b6b;border-color:rgba(255,77,77,0.3)" onclick="removeProfile('${k}','guard')">✕</button>` : ''}
+        ${isMain&&!isFixed?`<button type="button" class="btn btn-sm btn-d" style="background:none;color:#ff6b6b;border-color:rgba(255,77,77,0.3)" onclick="removeProfile('${k}','guard')">✕</button>`:''}
       </div>
     </div>`;
   }).join('');
-
-  // Admin profiles
-  document.getElementById('admin-profiles-list').innerHTML = Object.entries(adminProfiles).map(([k,a]) => {
-    const initials = a.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-    const isMainProfile = a.role==='main';
-    const canEdit = currentAdminRole==='main' || k===currentAdminKey;
-    const isFixed = ['admin1','admin2','admin3'].includes(k);
+  document.getElementById('admin-profiles-list').innerHTML=Object.entries(adminProfiles).map(([k,a])=>{
+    const initials=a.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    const isMainProfile=a.role==='main';
+    const canEdit=currentAdminRole==='main'||k===currentAdminKey;
+    const isFixed=['admin1','admin2','admin3'].includes(k);
     return `<div class="profile-row">
       <div class="avatar ${isMainProfile?'gold':''}">${initials}</div>
       <div style="flex:1">
         <div style="font-size:13px;font-weight:500">${a.name} ${isMainProfile?'<span class="badge bgold">MAIN</span>':''}</div>
-        <div style="font-family:monospace;font-size:10px;color:#555a6a;margin-top:1px">${k} · Password: ${'●'.repeat(a.pass.length)}</div>
+        <div style="font-family:monospace;font-size:10px;color:#555a6a;margin-top:1px">${k} · Pass: ${'●'.repeat(Math.min(a.pass.length,8))}</div>
       </div>
       <div style="display:flex;gap:6px;align-items:center">
-        ${canEdit
-          ? `<button type="button" class="btn btn-sm" style="background:rgba(255,200,0,0.1);color:#ffc800;border-color:rgba(255,200,0,0.3)" onclick="openProfileModal('${k}','admin')">Edit</button>`
-          : `<span class="locked-badge">🔒 Locked</span>`
-        }
-        ${isMain && !isMainProfile && !isFixed ? `<button type="button" class="btn btn-sm btn-d" style="background:none;color:#ff6b6b;border-color:rgba(255,77,77,0.3)" onclick="removeProfile('${k}','admin')">✕</button>` : ''}
+        ${canEdit?`<button type="button" class="btn btn-sm" style="background:rgba(255,200,0,0.1);color:#ffc800;border-color:rgba(255,200,0,0.3)" onclick="openProfileModal('${k}','admin')">Edit</button>`:`<span class="locked-badge">🔒</span>`}
+        ${isMain&&!isMainProfile&&!isFixed?`<button type="button" class="btn btn-sm btn-d" style="background:none;color:#ff6b6b;border-color:rgba(255,77,77,0.3)" onclick="removeProfile('${k}','admin')">✕</button>`:''}
       </div>
     </div>`;
   }).join('');
 }
 
-function openProfileModal(key, type) {
-  const profile = type==='guard' ? guardProfiles[key] : adminProfiles[key];
-  document.getElementById('edit-profile-key').value = key;
-  document.getElementById('edit-profile-type').value = type;
-  document.getElementById('edit-profile-name').value = profile.name;
-  document.getElementById('edit-profile-pass').value = '';
-  document.getElementById('edit-profile-pass2').value = '';
-  document.getElementById('profile-err').style.display = 'none';
-  document.getElementById('profile-modal-title').textContent = 'Edit '+(type==='guard'?'Guard':'Admin')+' Profile — '+profile.name;
+function openProfileModal(key,type){
+  const profile=type==='guard'?guardProfiles[key]:adminProfiles[key];
+  document.getElementById('edit-profile-key').value=key;
+  document.getElementById('edit-profile-type').value=type;
+  document.getElementById('edit-profile-name').value=profile.name;
+  document.getElementById('edit-profile-pass').value='';
+  document.getElementById('edit-profile-pass2').value='';
+  document.getElementById('profile-err').style.display='none';
+  document.getElementById('profile-modal-title').textContent='Edit '+(type==='guard'?'Guard':'Admin')+' — '+profile.name;
   document.getElementById('modal-profile').classList.add('open');
 }
-
-function saveProfile() {
-  const key = document.getElementById('edit-profile-key').value;
-  const type = document.getElementById('edit-profile-type').value;
-  const name = document.getElementById('edit-profile-name').value.trim();
-  const pass = document.getElementById('edit-profile-pass').value;
-  const pass2 = document.getElementById('edit-profile-pass2').value;
-  const err = document.getElementById('profile-err');
-
-  if (!name) { err.textContent='Please enter a name.'; err.style.display='block'; return; }
-  if (pass && pass !== pass2) { err.textContent='Passwords do not match.'; err.style.display='block'; return; }
-  if (pass && pass.length < 6) { err.textContent='Password must be at least 6 characters.'; err.style.display='block'; return; }
-
+function saveProfile(){
+  const key=document.getElementById('edit-profile-key').value;
+  const type=document.getElementById('edit-profile-type').value;
+  const name=document.getElementById('edit-profile-name').value.trim();
+  const pass=document.getElementById('edit-profile-pass').value;
+  const pass2=document.getElementById('edit-profile-pass2').value;
+  const err=document.getElementById('profile-err');
+  if(!name){err.textContent='Please enter a name.';err.style.display='block';return;}
+  if(pass&&pass!==pass2){err.textContent='Passwords do not match.';err.style.display='block';return;}
+  if(pass&&pass.length<6){err.textContent='Password must be at least 6 characters.';err.style.display='block';return;}
   err.style.display='none';
-
-  if (type==='guard') {
-    guardProfiles[key].name = name;
-    if (pass) guardProfiles[key].pass = pass;
-  } else {
-    adminProfiles[key].name = name;
-    if (pass) adminProfiles[key].pass = pass;
-  }
-
-  saveAll();
-  renderProfiles();
-  renderLiveGuards();
-
-  // Update login dropdown
-  const sel = document.getElementById('acct-select');
-  sel.options[0].text = 'Admin 1 — '+adminProfiles.admin1.name+' (Main)';
-  sel.options[1].text = 'Admin 2 — '+adminProfiles.admin2.name;
-  sel.options[2].text = 'Admin 3 — '+adminProfiles.admin3.name;
-
+  if(type==='guard'){guardProfiles[key].name=name;if(pass)guardProfiles[key].pass=pass;}
+  else{adminProfiles[key].name=name;if(pass)adminProfiles[key].pass=pass;}
+  saveAll();renderProfiles();renderLiveGuards();
+  const sel=document.getElementById('acct-select');
+  sel.options[0].text='Admin 1 — '+adminProfiles.admin1.name+' (Main)';
+  sel.options[1].text='Admin 2 — '+adminProfiles.admin2.name;
+  sel.options[2].text='Admin 3 — '+adminProfiles.admin3.name;
   closeModal('modal-profile');
   showToast('✓ Profile updated for '+name);
 }
 
+function openAddProfileModal(type){
+  document.getElementById('add-profile-type').value=type;
+  document.getElementById('add-profile-modal-title').textContent='Add New '+(type==='guard'?'Guard':'Admin')+' Profile';
+  document.getElementById('add-profile-name').value='';
+  document.getElementById('add-profile-pass').value='';
+  document.getElementById('add-profile-pass2').value='';
+  document.getElementById('add-profile-err').style.display='none';
+  document.getElementById('modal-add-profile').classList.add('open');
+}
+function saveNewProfile(){
+  const type=document.getElementById('add-profile-type').value;
+  const name=document.getElementById('add-profile-name').value.trim();
+  const pass=document.getElementById('add-profile-pass').value;
+  const pass2=document.getElementById('add-profile-pass2').value;
+  const err=document.getElementById('add-profile-err');
+  if(!name){err.textContent='Please enter a name.';err.style.display='block';return;}
+  if(!pass){err.textContent='Please enter a password.';err.style.display='block';return;}
+  if(pass!==pass2){err.textContent='Passwords do not match.';err.style.display='block';return;}
+  if(pass.length<6){err.textContent='Password must be at least 6 characters.';err.style.display='block';return;}
+  err.style.display='none';
+  const newKey=(type==='guard'?'guard':'admin')+Date.now();
+  if(type==='guard') guardProfiles[newKey]={name,pass};
+  else adminProfiles[newKey]={name,pass,role:'admin'};
+  saveAll();renderProfiles();closeModal('modal-add-profile');
+  showToast('✓ '+name+' added successfully');
+}
+function removeProfile(key,type){
+  const profile=type==='guard'?guardProfiles[key]:adminProfiles[key];
+  if(!confirm('Remove profile for '+profile.name+'?')) return;
+  if(type==='guard') delete guardProfiles[key];
+  else delete adminProfiles[key];
+  saveAll();renderProfiles();renderLiveGuards();
+  showToast('✓ Profile removed: '+profile.name);
+}
+
 // ── CHECKPOINTS ──
-function renderCheckpoints() {
-  const anchored = checkpoints.filter(c=>c.anchored);
-  const pending = checkpoints.filter(c=>!c.anchored);
-  const typeLabel = t => t==='surveillance'?'Surveillance · 500m':t==='radio'?'Radio · 500m':'Checkpoint · 20m';
-  document.getElementById('cp-anchored-list').innerHTML = anchored.length===0
-    ? '<div style="font-size:13px;color:#555a6a;padding:8px 0">No anchored checkpoints yet.</div>'
-    : anchored.map(cp => {
-        const idx=checkpoints.indexOf(cp);
-        return `<div class="cp-row">
-          <div class="cp-dot cp-locked">⚓</div>
-          <div style="flex:1">
-            <div style="font-size:13px;font-weight:500">${cp.name} <span style="font-family:monospace;font-size:10px;color:#555a6a">${cp.id}</span></div>
-            <div style="font-family:monospace;font-size:10px;color:#00e5a0;margin-top:2px">${cp.gps?cp.gps.lat.toFixed(5)+'° N, '+cp.gps.lng.toFixed(5)+'° E':'Coords on file'}</div>
-            <div style="font-family:monospace;font-size:10px;color:#4da3ff;margin-top:1px">${typeLabel(cp.type)}</div>
-          </div>
-          <button type="button" class="btn btn-sm" style="color:#ffb020;border-color:rgba(255,176,32,0.3);background:none" onclick="openGPSModal(${idx})">GPS</button>
-        </div>`;
-      }).join('');
-  document.getElementById('cp-pending-list').innerHTML = pending.length===0
-    ? '<div style="font-size:13px;color:#555a6a;padding:8px 0">All checkpoints anchored.</div>'
-    : pending.map(cp => {
-        const idx=checkpoints.indexOf(cp);
-        return `<div class="cp-row">
-          <div class="cp-dot cp-unlocked">+</div>
-          <div style="flex:1">
-            <div style="font-size:13px;font-weight:500">${cp.name} <span style="font-family:monospace;font-size:10px;color:#555a6a">${cp.id}</span></div>
-            <div style="font-family:monospace;font-size:10px;color:#ffb020;margin-top:2px">⚓ GPS locks on first scan</div>
-            <div style="font-family:monospace;font-size:10px;color:#4da3ff;margin-top:1px">${typeLabel(cp.type)}</div>
-          </div>
-          <button type="button" class="btn btn-sm" style="color:#ff6b6b;border-color:rgba(255,77,77,0.3);background:none" onclick="removeCheckpoint(${idx})">Remove</button>
-        </div>`;
-      }).join('');
+function renderCheckpoints(){
+  const anchored=checkpoints.filter(c=>c.anchored);
+  const pending=checkpoints.filter(c=>!c.anchored);
+  const typeLabel=t=>t==='surveillance'?'Surveillance · 500m':t==='radio'?'Radio · 500m':'Checkpoint · 20m';
+  document.getElementById('cp-anchored-list').innerHTML=anchored.length===0
+    ?'<div style="font-size:13px;color:#555a6a;padding:8px 0">No anchored checkpoints yet.</div>'
+    :anchored.map(cp=>{
+      const idx=checkpoints.indexOf(cp);
+      return `<div class="cp-row"><div class="cp-dot cp-locked">⚓</div><div style="flex:1"><div style="font-size:13px;font-weight:500">${cp.name} <span style="font-family:monospace;font-size:10px;color:#555a6a">${cp.id}</span></div><div style="font-family:monospace;font-size:10px;color:#00e5a0;margin-top:2px">${cp.gps?cp.gps.lat.toFixed(5)+'° N, '+cp.gps.lng.toFixed(5)+'° E':'Coords on file'}</div><div style="font-family:monospace;font-size:10px;color:#4da3ff;margin-top:1px">${typeLabel(cp.type)}</div></div><button type="button" class="btn btn-sm" style="color:#ffb020;border-color:rgba(255,176,32,0.3);background:none" onclick="openGPSModal(${idx})">GPS</button></div>`;
+    }).join('');
+  document.getElementById('cp-pending-list').innerHTML=pending.length===0
+    ?'<div style="font-size:13px;color:#555a6a;padding:8px 0">All checkpoints anchored.</div>'
+    :pending.map(cp=>{
+      const idx=checkpoints.indexOf(cp);
+      return `<div class="cp-row"><div class="cp-dot cp-unlocked">+</div><div style="flex:1"><div style="font-size:13px;font-weight:500">${cp.name} <span style="font-family:monospace;font-size:10px;color:#555a6a">${cp.id}</span></div><div style="font-family:monospace;font-size:10px;color:#ffb020;margin-top:2px">⚓ GPS locks on first scan</div><div style="font-family:monospace;font-size:10px;color:#4da3ff;margin-top:1px">${typeLabel(cp.type)}</div></div><button type="button" class="btn btn-sm" style="color:#ff6b6b;border-color:rgba(255,77,77,0.3);background:none" onclick="removeCheckpoint(${idx})">Remove</button></div>`;
+    }).join('');
 }
 function onGPSModeChange(){document.getElementById('manual-gps-fields').style.display=document.getElementById('new-cp-gps').value==='manual'?'block':'none';}
 function openAddCheckpoint(){document.getElementById('modal-add').classList.add('open');}
@@ -604,13 +589,12 @@ function addCheckpoint(){
   const name=document.getElementById('new-cp-name').value.trim();
   const id=document.getElementById('new-cp-id').value.trim();
   const type=document.getElementById('new-cp-type').value;
-  const route=document.getElementById('new-cp-route').value;
   const gpsMode=document.getElementById('new-cp-gps').value;
   if(!name||!id){showToast('⚠ Please enter name and ID');return;}
   if(checkpoints.find(c=>c.id===id)){showToast('⚠ ID already exists');return;}
   let gps=null,anchored=false;
   if(gpsMode==='manual'){const lat=parseFloat(document.getElementById('new-cp-lat').value);const lng=parseFloat(document.getElementById('new-cp-lng').value);if(!isNaN(lat)&&!isNaN(lng)){gps={lat,lng};anchored=true;}}
-  checkpoints.push({id,name,type,route,gps,anchored,range:type==='checkpoint'?20:500});
+  checkpoints.push({id,name,type,gps,anchored,range:type==='checkpoint'?20:500});
   saveAll();renderCheckpoints();closeModal('modal-add');
   document.getElementById('new-cp-name').value='';document.getElementById('new-cp-id').value='';
   showToast('✓ '+name+' added');
@@ -620,112 +604,58 @@ function openGPSModal(idx){
   const cp=checkpoints[idx];
   document.getElementById('gps-cp-index').value=idx;
   document.getElementById('gps-modal-title').textContent=cp.name+' — GPS Anchor';
-  document.getElementById('gps-modal-content').innerHTML=`<div style="font-family:monospace;font-size:12px;color:#8b90a0;margin-bottom:12px;line-height:1.8"><div><span style="color:#555a6a">ID:</span> ${cp.id}</div><div><span style="color:#555a6a">Type:</span> ${cp.type}</div><div><span style="color:#555a6a">Status:</span> <span style="color:${cp.anchored?'#00e5a0':'#ffb020'}">${cp.anchored?'Anchored':'Pending'}</span></div>${cp.gps?`<div><span style="color:#555a6a">Lat:</span> ${cp.gps.lat.toFixed(6)}°</div><div><span style="color:#555a6a">Lng:</span> ${cp.gps.lng.toFixed(6)}°</div>`:'<div style="color:#ffb020">GPS locks on first scan</div>'}</div><div style="font-size:12px;color:#555a6a">Resetting allows the next scan to re-anchor.</div>`;
+  document.getElementById('gps-modal-content').innerHTML=`<div style="font-family:monospace;font-size:12px;color:#8b90a0;margin-bottom:12px;line-height:1.8"><div><span style="color:#555a6a">ID:</span> ${cp.id}</div><div><span style="color:#555a6a">Type:</span> ${cp.type}</div><div><span style="color:#555a6a">Status:</span> <span style="color:${cp.anchored?'#00e5a0':'#ffb020'}">${cp.anchored?'Anchored':'Pending'}</span></div>${cp.gps?`<div><span style="color:#555a6a">Lat:</span> ${cp.gps.lat.toFixed(6)}°</div><div><span style="color:#555a6a">Lng:</span> ${cp.gps.lng.toFixed(6)}°</div>`:'<div style="color:#ffb020">GPS locks on first scan</div>'}</div><div style="font-size:12px;color:#555a6a">Resetting allows next scan to re-anchor.</div>`;
   document.getElementById('modal-gps').classList.add('open');
 }
 function resetGPSAnchor(){const idx=parseInt(document.getElementById('gps-cp-index').value);checkpoints[idx].gps=null;checkpoints[idx].anchored=false;saveAll();renderCheckpoints();closeModal('modal-gps');showToast('✓ GPS anchor reset');}
 
 // ── QR CODES ──
 function generateQRCodes(){
-  const grid=document.getElementById('qr-grid'); grid.innerHTML='';
+  const grid=document.getElementById('qr-grid');grid.innerHTML='';
   checkpoints.forEach(cp=>{
     const card=document.createElement('div');card.className='qr-card';
     const title=document.createElement('div');title.className='qr-card-title';title.textContent=cp.name;
     const qrDiv=document.createElement('div');qrDiv.id='qr-'+cp.id;
-    const sub=document.createElement('div');sub.className='qr-card-sub';sub.textContent=cp.id+' · '+(cp.type==='checkpoint'?'20m':cp.type==='surveillance'?'Surv 500m':'Radio 500m');
+    const sub=document.createElement('div');sub.className='qr-card-sub';sub.textContent=cp.id+' · '+(cp.type==='checkpoint'?'20m':cp.type==='surveillance'?'Surv':'Radio');
     card.appendChild(title);card.appendChild(qrDiv);card.appendChild(sub);grid.appendChild(card);
     try{new QRCode(qrDiv,{text:cp.id,width:110,height:110,colorDark:'#000000',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.H});}catch(e){}
   });
 }
 
 // ── REQUESTS ──
-function renderAdminRequests(){
-  const requests=JSON.parse(localStorage.getItem('mp_help_requests')||'[]');
+async function renderAdminRequests(){
+  const {data}=await sb.from('help_requests').select('*').order('timestamp',{ascending:false}).limit(20);
   const el=document.getElementById('admin-requests-list');
-  if(requests.length===0){el.innerHTML='<div style="font-size:13px;color:#555a6a;font-family:monospace">No help requests yet.</div>';return;}
-  el.innerHTML=requests.map(req=>{
-    const gpsText=req.gps?req.gps.lat.toFixed(5)+'° N, '+req.gps.lng.toFixed(5)+'° E':'GPS unavailable';
+  if(!data||data.length===0){el.innerHTML='<div style="font-size:13px;color:#555a6a;font-family:monospace">No help requests yet.</div>';return;}
+  document.getElementById('req-badge').style.display='none';
+  el.innerHTML=data.map(req=>{
+    const gpsText=req.gps_lat?req.gps_lat.toFixed(5)+'° N, '+req.gps_lng.toFixed(5)+'° E':'GPS unavailable';
     const time=new Date(req.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
     const urgColor=req.urgency==='critical'?'#ff4d4d':req.urgency==='high'?'#ffb020':'#4da3ff';
     return `<div class="req-item ${req.acked?'acked':''}">
-      <div style="font-size:14px;font-weight:600;color:${urgColor};margin-bottom:4px">${req.acked?'✓ ':'🚨 '}${req.type} — ${req.urgency.toUpperCase()}</div>
-      <div style="font-family:monospace;font-size:11px;color:#555a6a;line-height:1.7">From: ${req.name}<br>Location: ${req.locDesc}<br>GPS: ${gpsText}<br>${req.notes?'Notes: '+req.notes+'<br>':''}Time: ${time} ${req.acked?'· <span style="color:#00e5a0">Acked by '+req.ackedBy+'</span>':'· <span style="color:#ffb020">Awaiting response</span>'}</div>
+      <div style="font-size:14px;font-weight:600;color:${urgColor};margin-bottom:4px">${req.acked?'✓ ':'🚨 '}${req.type} — ${(req.urgency||'').toUpperCase()}</div>
+      <div style="font-family:monospace;font-size:11px;color:#555a6a;line-height:1.7">From: ${req.name}<br>Location: ${req.loc_desc}<br>GPS: ${gpsText}<br>${req.notes?'Notes: '+req.notes+'<br>':''}Time: ${time} ${req.acked?'· <span style="color:#00e5a0">Acked by '+req.acked_by+'</span>':'· <span style="color:#ffb020">Awaiting response</span>'}</div>
     </div>`;
   }).join('');
 }
 
 // ── SURVEILLANCE NOTES ──
-function renderAdminNotes(){
-  const notes=JSON.parse(localStorage.getItem('mp_shared_notes')||'[]');
+async function renderAdminNotes(){
+  const {data}=await sb.from('surveillance_notes').select('*').order('timestamp',{ascending:false}).limit(20);
   const el=document.getElementById('admin-notes-list');
-  if(notes.length===0){el.innerHTML='<div style="font-size:13px;color:#555a6a;font-family:monospace">No notes yet.</div>';return;}
-  el.innerHTML=notes.map(note=>{
-    const gpsText=note.gps?note.gps.lat.toFixed(5)+'° N, '+note.gps.lng.toFixed(5)+'° E':'GPS unavailable';
+  if(!data||data.length===0){el.innerHTML='<div style="font-size:13px;color:#555a6a;font-family:monospace">No notes yet.</div>';return;}
+  el.innerHTML=data.map(note=>{
+    const gpsText=note.gps_lat?note.gps_lat.toFixed(5)+'° N, '+note.gps_lng.toFixed(5)+'° E':'GPS unavailable';
+    const time=new Date(note.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
     return `<div style="background:#151820;border:1px solid rgba(180,0,255,0.2);border-radius:12px;padding:14px;margin-bottom:12px">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px">
         <div style="font-size:14px;font-weight:600;color:#e8eaf0;flex:1">${note.title}</div>
         <span class="badge bgr" style="margin-left:8px;flex-shrink:0">${note.category}</span>
       </div>
       <div style="font-size:13px;color:#8b90a0;line-height:1.6;margin-bottom:8px">${note.body}</div>
-      <div style="font-family:monospace;font-size:10px;color:#555a6a;line-height:1.8">Guard: <span style="color:#4da3ff">${note.guard}</span><br>${note.dateStr} · ${note.timeStr}<br>GPS: ${gpsText}<br>${note.photos>0?'📷 '+note.photos+' photo(s)':'No photos'}</div>
+      <div style="font-family:monospace;font-size:10px;color:#555a6a;line-height:1.8">Guard: <span style="color:#4da3ff">${note.guard_name}</span><br>${time}<br>GPS: ${gpsText}</div>
     </div>`;
   }).join('');
-}
-setInterval(()=>{const a=document.querySelector('.tab-panel.active');if(a&&a.id==='tab-notes')renderAdminNotes();},10000);
-
-
-// ── ADD / REMOVE PROFILES ──
-function openAddProfileModal(type) {
-  document.getElementById('add-profile-type').value = type;
-  document.getElementById('add-profile-modal-title').textContent = 'Add New ' + (type==='guard'?'Guard':'Admin') + ' Profile';
-  document.getElementById('add-profile-name').value = '';
-  document.getElementById('add-profile-pass').value = '';
-  document.getElementById('add-profile-pass2').value = '';
-  document.getElementById('add-profile-err').style.display = 'none';
-  document.getElementById('add-profile-type-section').style.display = type==='admin' ? 'block' : 'none';
-  document.getElementById('modal-add-profile').classList.add('open');
-}
-
-function saveNewProfile() {
-  const type = document.getElementById('add-profile-type').value;
-  const name = document.getElementById('add-profile-name').value.trim();
-  const pass = document.getElementById('add-profile-pass').value;
-  const pass2 = document.getElementById('add-profile-pass2').value;
-  const err = document.getElementById('add-profile-err');
-
-  if (!name) { err.textContent='Please enter a name.'; err.style.display='block'; return; }
-  if (!pass) { err.textContent='Please enter a password.'; err.style.display='block'; return; }
-  if (pass !== pass2) { err.textContent='Passwords do not match.'; err.style.display='block'; return; }
-  if (pass.length < 6) { err.textContent='Password must be at least 6 characters.'; err.style.display='block'; return; }
-
-  err.style.display = 'none';
-
-  if (type === 'guard') {
-    const newKey = 'guard' + (Date.now());
-    guardProfiles[newKey] = { name, pass };
-  } else {
-    const newKey = 'admin' + (Date.now());
-    adminProfiles[newKey] = { name, pass, role: 'admin' };
-  }
-
-  saveAll();
-  renderProfiles();
-  closeModal('modal-add-profile');
-  showToast('✓ ' + name + ' added successfully');
-}
-
-function removeProfile(key, type) {
-  const profile = type==='guard' ? guardProfiles[key] : adminProfiles[key];
-  if (!confirm('Remove profile for ' + profile.name + '? This cannot be undone.')) return;
-  if (type === 'guard') {
-    delete guardProfiles[key];
-  } else {
-    delete adminProfiles[key];
-  }
-  saveAll();
-  renderProfiles();
-  renderLiveGuards();
-  showToast('✓ Profile removed: ' + profile.name);
 }
 
 // ── HELPERS ──
