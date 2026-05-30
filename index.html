@@ -339,6 +339,7 @@ var currentScanCP = null;
 var audioReady = false;
 var audioCtx = null;
 var lastSeenRequestId = null;
+var seenRequestIds = {};
 var currentAlertId = null;
 var currentGuardName = '';
 
@@ -419,8 +420,9 @@ function pollRequests() {
   sbGet('help_requests', 'order=timestamp.desc&limit=1', function(data) {
     if (!data || !data.length) return;
     var latest = data[0];
-    if (latest.id !== lastSeenRequestId && !latest.acked) {
+    if (!seenRequestIds[latest.id] && !latest.acked) {
       lastSeenRequestId = latest.id;
+      seenRequestIds[latest.id] = true;
       showHelpAlert(latest);
     }
   });
@@ -468,7 +470,7 @@ function loadHelpRequests() {
   });
 }
 
-setInterval(pollRequests, 5000);
+// Polling started only after login
 
 // GPS
 function getGPS(cb) {
@@ -554,12 +556,23 @@ document.getElementById('login-button').addEventListener('click', function() {
   renderLists();
   updateGPS();
   showToast('Welcome, ' + name);
-  // Get latest request ID first so we don't alert on old requests
-  sbGet('help_requests', 'order=timestamp.desc&limit=1', function(data) {
+  // Mark ALL existing requests as seen so login never triggers old alerts
+  sbGet('help_requests', 'order=timestamp.desc&limit=50', function(data) {
     if (data && data.length) {
-      lastSeenRequestId = data[0].id;
+      for (var i = 0; i < data.length; i++) {
+        lastSeenRequestId = data[i].id;
+        // Store all seen IDs so none trigger on login
+        seenRequestIds[data[i].id] = true;
+      }
     }
-    pollRequests();
+    // Only start polling AFTER we've marked all existing as seen
+    setTimeout(function() {
+      pollRequests();
+      // Now start the interval
+      if (!window._pollInterval) {
+        window._pollInterval = setInterval(pollRequests, 5000);
+      }
+    }, 2000);
   });
 });
 
@@ -569,6 +582,13 @@ document.getElementById('btn-logout').addEventListener('click', function() {
   document.getElementById('login-pw').value = '';
   document.getElementById('screen-app').classList.remove('active');
   document.getElementById('screen-login').classList.add('active');
+  // Stop polling on logout
+  if (window._pollInterval) {
+    clearInterval(window._pollInterval);
+    window._pollInterval = null;
+  }
+  seenRequestIds = {};
+  lastSeenRequestId = null;
   navApp('s-home'); setNav('nav-home');
 });
 
