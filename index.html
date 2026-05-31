@@ -357,15 +357,13 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
   </nav>
 </div>
 
-
   <!-- SHIFT REPORT SCREEN -->
-  <div class="screen" id="screen-report">
+  <div class="screen" id="screen-report" style="height:100vh;max-height:100vh;overflow:hidden">
     <div style="background:#151820;border-bottom:1px solid rgba(255,255,255,0.08);padding:14px 16px;flex-shrink:0">
       <div style="font-family:monospace;font-size:11px;color:#555a6a;margin-bottom:4px">SHIFT COMPLETE</div>
       <div style="font-size:17px;font-weight:700;color:#e8eaf0" id="report-shift-label">Night Shift</div>
       <div style="font-family:monospace;font-size:11px;color:#4da3ff;margin-top:2px" id="report-guard-name"></div>
     </div>
-    <!-- REPORT TAB NAV -->
     <div style="display:flex;background:#151820;border-bottom:1px solid rgba(255,255,255,0.08);flex-shrink:0;overflow-x:auto">
       <button type="button" class="report-tab-btn active" id="rtab-summary" onclick="showReportTab('summary')">SUMMARY</button>
       <button type="button" class="report-tab-btn" id="rtab-checkpoints" onclick="showReportTab('checkpoints')">CHECKPOINTS</button>
@@ -373,9 +371,8 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
       <button type="button" class="report-tab-btn" id="rtab-helpreqs" onclick="showReportTab('helpreqs')">HELP REQS</button>
       <button type="button" class="report-tab-btn" id="rtab-notes" onclick="showReportTab('notes')">SURV NOTES</button>
     </div>
-    <div style="flex:1;overflow-y:auto;padding:14px 16px;-webkit-overflow-scrolling:touch">
+    <div style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 16px;padding-bottom:80px">
 
-      <!-- SUMMARY TAB -->
       <div id="rpanel-summary">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
           <div style="background:#151820;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px;text-align:center">
@@ -401,34 +398,29 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
         </div>
       </div>
 
-      <!-- CHECKPOINTS TAB -->
       <div id="rpanel-checkpoints" style="display:none">
         <div style="font-family:monospace;font-size:11px;color:#555a6a;margin-bottom:12px">All checkpoints during this shift</div>
         <div id="rep-cp-list"></div>
       </div>
 
-      <!-- INCIDENTS TAB -->
       <div id="rpanel-incidents" style="display:none">
         <div style="font-family:monospace;font-size:11px;color:#555a6a;margin-bottom:12px">Incidents logged during this shift</div>
         <div id="rep-incidents-list"><div style="font-size:13px;color:#555a6a;font-family:monospace">No incidents logged.</div></div>
       </div>
 
-      <!-- HELP REQUESTS TAB -->
       <div id="rpanel-helpreqs" style="display:none">
         <div style="font-family:monospace;font-size:11px;color:#555a6a;margin-bottom:12px">Help requests during this shift</div>
         <div id="rep-helpreqs-list"><div style="font-size:13px;color:#555a6a;font-family:monospace">No help requests.</div></div>
       </div>
 
-      <!-- SURVEILLANCE NOTES TAB -->
       <div id="rpanel-notes" style="display:none">
         <div style="font-family:monospace;font-size:11px;color:#555a6a;margin-bottom:12px">Surveillance notes from this shift</div>
         <div id="rep-notes-list"><div style="font-size:13px;color:#555a6a;font-family:monospace">No surveillance notes.</div></div>
       </div>
 
     </div>
-    <!-- LOGOUT BUTTON -->
-    <div style="padding:12px 16px;flex-shrink:0;border-top:1px solid rgba(255,255,255,0.08);background:#151820">
-      <button type="button" onclick="doLogout()" style="width:100%;padding:13px;border-radius:8px;background:#ff4d4d;color:#fff;border:none;font-size:15px;font-weight:700;cursor:pointer;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">Log out</button>
+    <div style="position:absolute;bottom:0;left:0;right:0;padding:12px 16px;background:#151820;border-top:1px solid rgba(255,255,255,0.08)">
+      <button type="button" onclick="doLogout()" style="width:100%;padding:14px;border-radius:8px;background:#ff4d4d;color:#fff;border:none;font-size:15px;font-weight:700;cursor:pointer;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">Log out</button>
     </div>
   </div>
 
@@ -631,9 +623,15 @@ function endShift() {
   if (window._helpInterval) { clearInterval(window._helpInterval); window._helpInterval = null; }
   // Build report
   buildShiftReport();
-  // Show report screen
-  document.getElementById('screen-app').classList.remove('active');
-  document.getElementById('screen-report').classList.add('active');
+  // Show report screen - hide ALL screens first
+  var allScreens = document.querySelectorAll('#root > .screen, #root .screen');
+  for (var i = 0; i < allScreens.length; i++) {
+    allScreens[i].classList.remove('active');
+    allScreens[i].style.display = 'none';
+  }
+  var reportEl = document.getElementById('screen-report');
+  reportEl.classList.add('active');
+  reportEl.style.display = 'flex';
 }
 
 function showReportTab(tab) {
@@ -1014,12 +1012,19 @@ document.getElementById('login-button').addEventListener('click', function() {
 });
 
 // LOGOUT
-document.getElementById('btn-logout').addEventListener('click', function() {
+document.getElementById('btn-logout').addEventListener('click', function() { doLogout(); });
+
+function doLogout() {
   stopScanner();
   document.getElementById('login-pw').value='';
-  document.getElementById('screen-app').classList.remove('active');
-  document.getElementById('screen-shift').classList.remove('active');
+  // Hide all screens
+  var allScreens = document.querySelectorAll('.screen');
+  for (var i = 0; i < allScreens.length; i++) {
+    allScreens[i].classList.remove('active');
+    allScreens[i].style.display = '';
+  }
   document.getElementById('screen-login').classList.add('active');
+  document.getElementById('screen-login').style.display = 'flex';
   if (window._pollInterval) { clearInterval(window._pollInterval); window._pollInterval=null; }
   if (window._helpInterval) { clearInterval(window._helpInterval); window._helpInterval=null; }
   seenRequestIds={};
@@ -1027,7 +1032,7 @@ document.getElementById('btn-logout').addEventListener('click', function() {
   currentShift={type:'',label:'',startDate:'',endDate:''};
   document.getElementById('shift-banner').style.display='none';
   navApp('s-home'); setNav('nav-home');
-});
+}
 
 // NAV
 document.getElementById('btn-scan').addEventListener('click', function(){navApp('s-scan');setNav('nav-scan');updateGPS();});
@@ -1064,7 +1069,7 @@ function stopScanner() {
     html5QrCode.stop().then(function(){
       html5QrCode.clear();scannerRunning=false;
       document.getElementById('scan-idle').style.display='flex';
-      document.getElementById('btn-start-scan').style.display='flex';
+      document.getElementById('btn-start-scan').style.display='block';
       document.getElementById('btn-stop-scan').style.display='none';
     }).catch(function(){});
   }
@@ -1108,7 +1113,7 @@ function onScanSuccess(decodedText) {
 function showScanErr(msg){
   document.getElementById('scan-err').textContent=msg;
   document.getElementById('scan-err').style.display='block';
-  document.getElementById('btn-start-scan').style.display='flex';
+  document.getElementById('btn-start-scan').style.display='block';
   document.getElementById('btn-stop-scan').style.display='none';
   document.getElementById('scan-idle').style.display='flex';
 }
