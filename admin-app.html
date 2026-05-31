@@ -660,30 +660,57 @@ function openProfileModal(key,type){
   document.getElementById('modal-profile').classList.add('open');
 }
 function saveProfile(){
-  var key=document.getElementById('edit-profile-key').value;
-  var type=document.getElementById('edit-profile-type').value;
-  var name=document.getElementById('edit-profile-name').value.trim();
-  var pass=document.getElementById('edit-profile-pass').value;
-  var pass2=document.getElementById('edit-profile-pass2').value;
-  var err=document.getElementById('profile-err');
-  if(!name){err.textContent='Please enter a name.';err.style.display='block';return;}
-  if(pass&&pass!==pass2){err.textContent='Passwords do not match.';err.style.display='block';return;}
-  if(pass&&pass.length<6){err.textContent='Password must be at least 6 characters.';err.style.display='block';return;}
-  err.style.display='none';
-  if(type==='guard'){
-    guardProfiles[key].name=name;
-    if(pass)guardProfiles[key].pass=pass;
-    var gData={name:guardProfiles[key].name,pass:guardProfiles[key].pass,vacant:guardProfiles[key].vacant||false,updated_at:new Date().toISOString()};
-    fetch(SUPABASE_URL+'/rest/v1/guard_profiles?id=eq.'+key,{method:'PATCH',headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},body:JSON.stringify(gData)}).catch(function(){});
+  var key = document.getElementById('edit-profile-key').value;
+  var type = document.getElementById('edit-profile-type').value;
+  var name = document.getElementById('edit-profile-name').value.trim();
+  var pass = document.getElementById('edit-profile-pass').value;
+  var pass2 = document.getElementById('edit-profile-pass2').value;
+  var err = document.getElementById('profile-err');
+
+  // Validate
+  if (!name) { err.textContent='Please enter a name.'; err.style.display='block'; return; }
+  if (pass && pass !== pass2) { err.textContent='Passwords do not match.'; err.style.display='block'; return; }
+  if (pass && pass.length < 6) { err.textContent='Password must be at least 6 characters.'; err.style.display='block'; return; }
+  err.style.display = 'none';
+
+  // Update local state
+  if (type === 'guard') {
+    if (!guardProfiles[key]) guardProfiles[key] = {};
+    guardProfiles[key].name = name;
+    if (pass) guardProfiles[key].pass = pass;
+    // Save to Supabase
+    var gPayload = {name: name, pass: guardProfiles[key].pass, vacant: guardProfiles[key].vacant || false};
+    fetch(SUPABASE_URL + '/rest/v1/guard_profiles?id=eq.' + key, {
+      method: 'PATCH',
+      headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json'},
+      body: JSON.stringify(gPayload)
+    }).then(function(r) {
+      if (r.ok) { showToast('Guard profile updated: ' + name); }
+      else { showToast('Saved locally - sync pending'); }
+    }).catch(function() { showToast('Saved locally - sync pending'); });
   } else {
-    adminProfiles[key].name=name;
-    if(pass)adminProfiles[key].pass=pass;
-    var aData={name:adminProfiles[key].name,pass:adminProfiles[key].pass,role:adminProfiles[key].role,updated_at:new Date().toISOString()};
-    fetch(SUPABASE_URL+'/rest/v1/admin_profiles?id=eq.'+key,{method:'PATCH',headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},body:JSON.stringify(aData)}).catch(function(){});
+    if (!adminProfiles[key]) adminProfiles[key] = {};
+    adminProfiles[key].name = name;
+    if (pass) adminProfiles[key].pass = pass;
+    // Save to Supabase
+    var aPayload = {name: name, pass: adminProfiles[key].pass, role: adminProfiles[key].role || 'admin'};
+    fetch(SUPABASE_URL + '/rest/v1/admin_profiles?id=eq.' + key, {
+      method: 'PATCH',
+      headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json'},
+      body: JSON.stringify(aPayload)
+    }).then(function(r) {
+      if (r.ok) { showToast('Admin profile updated: ' + name); }
+      else { showToast('Saved locally - sync pending'); }
+    }).catch(function() { showToast('Saved locally - sync pending'); });
   }
-  renderProfiles();renderLiveGuards();
+
+  // Close modal immediately and refresh UI
   closeModal('modal-profile');
-  showToast('Profile updated: '+name);
+  document.getElementById('edit-profile-name').value = '';
+  document.getElementById('edit-profile-pass').value = '';
+  document.getElementById('edit-profile-pass2').value = '';
+  renderProfiles();
+  renderLiveGuards();
 }
 
 // ── CHECKPOINTS ──

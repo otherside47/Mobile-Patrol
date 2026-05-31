@@ -8,9 +8,9 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;background:#0d0f12;color:#e8eaf0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:15px;overflow:hidden}
-#root{display:flex;flex-direction:column;height:100vh;max-width:480px;margin:0 auto;background:#0d0f12}
-.screen{display:none;flex:1;flex-direction:column;overflow:hidden}
-.screen.active{display:flex}
+#root{display:flex;flex-direction:column;height:100%;height:100vh;height:-webkit-fill-available;max-width:480px;margin:0 auto;background:#0d0f12;position:fixed;top:0;left:0;right:0;bottom:0}
+.screen{display:none;flex:1;flex-direction:column;overflow:hidden;width:100%}
+.screen.active{display:flex;flex:1}
 .login-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;padding:24px;overflow-y:auto}
 .logo{font-family:monospace;font-size:20px;font-weight:700;color:#00e5a0;letter-spacing:2px;margin-bottom:4px}
 .logo-sub{font-size:11px;color:#555a6a;margin-bottom:28px;letter-spacing:1px;font-family:monospace}
@@ -109,7 +109,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
 <div id="root">
 
 <!-- ── LOGIN ── -->
-<div class="screen active" id="screen-login">
+<div class="screen active" id="screen-login" style="position:relative;z-index:10">
   <div class="login-wrap">
     <div class="logo">MOBILE PATROL</div>
     <div class="logo-sub">GUARD APP</div>
@@ -138,7 +138,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
 </div>
 
 <!-- ── SHIFT SELECTION ── -->
-<div class="screen" id="screen-shift">
+<div class="screen" id="screen-shift" style="position:relative;z-index:10">
   <div class="login-wrap">
     <div class="logo">MOBILE PATROL</div>
     <div class="logo-sub">SELECT SHIFT</div>
@@ -163,7 +163,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
 </div>
 
 <!-- ── GUARD APP ── -->
-<div class="screen" id="screen-app">
+<div class="screen" id="screen-app" style="position:relative;z-index:10">
   <div class="statusbar">
     <span id="status-name">On duty</span>
     <span id="status-sync">Live</span>
@@ -276,7 +276,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
         <button type="button" class="btn" id="btn-skip-surv">Skip</button>
       </div>
       <div class="scan-err" id="scan-err"></div>
-      <button type="button" class="btn btn-p" id="btn-start-scan">Start Scanner</button>
+      <button type="button" class="btn btn-p" id="btn-start-scan" style="display:block!important">Start Scanner</button>
       <button type="button" class="btn" id="btn-stop-scan" style="display:none">Stop Scanner</button>
     </div>
   </div>
@@ -358,7 +358,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
 </div>
 
   <!-- SHIFT REPORT SCREEN -->
-  <div class="screen" id="screen-report" style="height:100vh;max-height:100vh;overflow:hidden">
+  <div class="screen" id="screen-report" style="position:relative;z-index:10">
     <div style="background:#151820;border-bottom:1px solid rgba(255,255,255,0.08);padding:14px 16px;flex-shrink:0">
       <div style="font-family:monospace;font-size:11px;color:#555a6a;margin-bottom:4px">SHIFT COMPLETE</div>
       <div style="font-size:17px;font-weight:700;color:#e8eaf0" id="report-shift-label">Night Shift</div>
@@ -419,8 +419,8 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
       </div>
 
     </div>
-    <div style="position:absolute;bottom:0;left:0;right:0;padding:12px 16px;background:#151820;border-top:1px solid rgba(255,255,255,0.08)">
-      <button type="button" onclick="doLogout()" style="width:100%;padding:14px;border-radius:8px;background:#ff4d4d;color:#fff;border:none;font-size:15px;font-weight:700;cursor:pointer;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">Log out</button>
+    <div style="flex-shrink:0;padding:12px 16px;background:#151820;border-top:1px solid rgba(255,255,255,0.08)">
+      <button type="button" onclick="doLogout()" style="width:100%;padding:14px;border-radius:8px;background:#ff4d4d;color:#fff;border:none;font-size:15px;font-weight:700;cursor:pointer;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;-webkit-appearance:none;display:block">Log out</button>
     </div>
   </div>
 
@@ -624,7 +624,7 @@ function endShift() {
   // Build report
   buildShiftReport();
   // Show report screen - hide ALL screens first
-  var allScreens = document.querySelectorAll('#root > .screen, #root .screen');
+  var allScreens = document.querySelectorAll('.screen');
   for (var i = 0; i < allScreens.length; i++) {
     allScreens[i].classList.remove('active');
     allScreens[i].style.display = 'none';
@@ -962,8 +962,12 @@ function startShift() {
   banner.style.display='block';
   banner.textContent=(type==='night'?'Night: ':'Day: ')+label;
   document.getElementById('tl-header').textContent=label+' · '+currentGuardName;
-  document.getElementById('screen-shift').classList.remove('active');
-  document.getElementById('screen-app').classList.add('active');
+  var shiftEl = document.getElementById('screen-shift');
+  var appEl = document.getElementById('screen-app');
+  shiftEl.classList.remove('active');
+  shiftEl.style.display = 'none';
+  appEl.classList.add('active');
+  appEl.style.display = 'flex';
   renderLists();
   updateGPS();
   showToast('Shift started');
@@ -1005,8 +1009,13 @@ document.getElementById('login-button').addEventListener('click', function() {
   }
   currentGuardName=name;
   document.getElementById('status-name').textContent=name;
-  document.getElementById('screen-login').classList.remove('active');
-  document.getElementById('screen-shift').classList.add('active');
+  // Explicitly hide login and show shift screen
+  var loginEl = document.getElementById('screen-login');
+  var shiftEl = document.getElementById('screen-shift');
+  loginEl.classList.remove('active');
+  loginEl.style.display = 'none';
+  shiftEl.classList.add('active');
+  shiftEl.style.display = 'flex';
   setupShiftScreen();
   showToast('Welcome, '+name);
 });
@@ -1017,14 +1026,16 @@ document.getElementById('btn-logout').addEventListener('click', function() { doL
 function doLogout() {
   stopScanner();
   document.getElementById('login-pw').value='';
-  // Hide all screens
+  // Reset ALL screens - remove active class and inline display styles
   var allScreens = document.querySelectorAll('.screen');
   for (var i = 0; i < allScreens.length; i++) {
     allScreens[i].classList.remove('active');
-    allScreens[i].style.display = '';
+    allScreens[i].style.display = 'none';
   }
-  document.getElementById('screen-login').classList.add('active');
-  document.getElementById('screen-login').style.display = 'flex';
+  // Show only login screen
+  var loginEl = document.getElementById('screen-login');
+  loginEl.classList.add('active');
+  loginEl.style.display = 'flex';
   if (window._pollInterval) { clearInterval(window._pollInterval); window._pollInterval=null; }
   if (window._helpInterval) { clearInterval(window._helpInterval); window._helpInterval=null; }
   seenRequestIds={};
