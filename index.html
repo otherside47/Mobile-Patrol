@@ -553,20 +553,25 @@ function loadHelpRequests() {
     if (!active.length) {
       activeEl.innerHTML='<div style="font-size:13px;color:#555a6a;font-family:monospace">No active requests.</div>';
     } else {
-      activeEl.innerHTML = active.map(function(req) {
+      activeEl.innerHTML = '';
+      for (var ai = 0; ai < active.length; ai++) {
+        var req = active[ai];
         var gpsText = (req.gps_lat&&req.gps_lng)?req.gps_lat.toFixed(5)+' N, '+req.gps_lng.toFixed(5)+' E':'GPS unavailable';
         var time = new Date(req.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
         var urgColor = req.urgency==='critical'?'#ff4d4d':req.urgency==='high'?'#ffb020':'#4da3ff';
-        return '<div style="background:#151820;border:1px solid rgba(255,77,77,0.3);border-radius:10px;padding:14px;margin-bottom:10px">'+
-          '<div style="font-size:14px;font-weight:700;color:'+urgColor+';margin-bottom:6px">🚨 '+req.type+' — '+req.urgency.toUpperCase()+'</div>'+
-          '<div style="font-family:monospace;font-size:11px;color:#8b90a0;line-height:1.8">From: <span style="color:#e8eaf0">'+req.name+'</span><br>'+
-          'Location: <span style="color:#e8eaf0">'+req.loc_desc+'</span><br>'+
-          'GPS: '+gpsText+'<br>'+
-          (req.notes?'Notes: '+req.notes+'<br>':'')+
-          'Time: '+time+'</div>'+
-          '<button type="button" style="margin-top:10px;width:100%;padding:10px;border-radius:8px;background:#00e5a0;color:#000;border:none;font-weight:700;font-size:13px;cursor:pointer" onclick="ackRequest(''+req.id+'')">✓ Acknowledge — Responding</button>'+
-          '</div>';
-      }).join('');
+        var div = document.createElement('div');
+        div.style.cssText = 'background:#151820;border:1px solid rgba(255,77,77,0.3);border-radius:10px;padding:14px;margin-bottom:10px';
+        div.innerHTML = '<div style="font-size:14px;font-weight:700;color:'+urgColor+';margin-bottom:6px">ALERT: '+req.type+' - '+req.urgency.toUpperCase()+'</div>'+
+          '<div style="font-family:monospace;font-size:11px;color:#8b90a0;line-height:1.8">From: '+req.name+'<br>Location: '+req.loc_desc+'<br>GPS: '+gpsText+'<br>'+(req.notes?'Notes: '+req.notes+'<br>':'')+'Time: '+time+'</div>';
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.style.cssText = 'margin-top:10px;width:100%;padding:10px;border-radius:8px;background:#00e5a0;color:#000;border:none;font-weight:700;font-size:13px;cursor:pointer';
+        btn.textContent = 'Acknowledge - Responding';
+        btn.setAttribute('data-id', req.id);
+        btn.addEventListener('click', function() { ackRequest(this.getAttribute('data-id')); });
+        div.appendChild(btn);
+        activeEl.appendChild(div);
+      }
     }
     // Past requests
     var pastEl = document.getElementById('past-requests-list');
