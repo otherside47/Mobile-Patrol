@@ -97,6 +97,12 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
 .req-item.acked{border-color:rgba(255,255,255,0.08);opacity:0.6}
 #toast{display:none;position:fixed;bottom:75px;left:50%;transform:translateX(-50%);background:#151820;border:1px solid rgba(255,255,255,0.14);border-radius:8px;padding:9px 16px;font-family:monospace;font-size:12px;color:#00e5a0;white-space:nowrap;z-index:300;max-width:90vw;text-align:center}
 #screen-flash{display:none;position:fixed;inset:0;background:rgba(255,0,0,0.4);z-index:999;pointer-events:none}
+.report-tab-btn{padding:10px 14px;font-size:10px;font-family:monospace;color:#555a6a;cursor:pointer;border:none;background:none;white-space:nowrap;border-bottom:2px solid transparent;letter-spacing:0.5px}
+.report-tab-btn.active{color:#00e5a0;border-bottom-color:#00e5a0}
+.rep-cp-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06)}
+.rep-cp-item:last-child{border-bottom:none}
+.rep-dot-done{width:28px;height:28px;border-radius:50%;background:rgba(0,229,160,0.12);border:1px solid rgba(0,229,160,0.3);color:#00e5a0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.rep-dot-miss{width:28px;height:28px;border-radius:50%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);color:#555a6a;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0}
 </style>
 </head>
 <body>
@@ -173,6 +179,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
       <span style="font-family:monospace;font-size:12px;font-weight:700;color:#00e5a0">MOBILE PATROL</span>
       <span style="flex:1"></span>
       <span class="badge bg">On duty</span>
+      <button type="button" onclick="confirmEndShift()" style="margin-left:8px;background:rgba(255,77,77,0.15);color:#ff6b6b;border:1px solid rgba(255,77,77,0.3);border-radius:6px;padding:5px 10px;font-size:11px;font-family:monospace;cursor:pointer">End Shift</button>
     </div>
     <div class="content">
       <div id="shift-banner" style="background:rgba(0,119,255,0.1);border:1px solid rgba(0,119,255,0.2);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-family:monospace;font-size:11px;color:#4da3ff;display:none"></div>
@@ -349,6 +356,81 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
     <button type="button" class="nav-btn" id="nav-reports">📊<br>REPORTS</button>
   </nav>
 </div>
+
+
+  <!-- SHIFT REPORT SCREEN -->
+  <div class="screen" id="screen-report">
+    <div style="background:#151820;border-bottom:1px solid rgba(255,255,255,0.08);padding:14px 16px;flex-shrink:0">
+      <div style="font-family:monospace;font-size:11px;color:#555a6a;margin-bottom:4px">SHIFT COMPLETE</div>
+      <div style="font-size:17px;font-weight:700;color:#e8eaf0" id="report-shift-label">Night Shift</div>
+      <div style="font-family:monospace;font-size:11px;color:#4da3ff;margin-top:2px" id="report-guard-name"></div>
+    </div>
+    <!-- REPORT TAB NAV -->
+    <div style="display:flex;background:#151820;border-bottom:1px solid rgba(255,255,255,0.08);flex-shrink:0;overflow-x:auto">
+      <button type="button" class="report-tab-btn active" id="rtab-summary" onclick="showReportTab('summary')">SUMMARY</button>
+      <button type="button" class="report-tab-btn" id="rtab-checkpoints" onclick="showReportTab('checkpoints')">CHECKPOINTS</button>
+      <button type="button" class="report-tab-btn" id="rtab-incidents" onclick="showReportTab('incidents')">INCIDENTS</button>
+      <button type="button" class="report-tab-btn" id="rtab-helpreqs" onclick="showReportTab('helpreqs')">HELP REQS</button>
+      <button type="button" class="report-tab-btn" id="rtab-notes" onclick="showReportTab('notes')">SURV NOTES</button>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:14px 16px;-webkit-overflow-scrolling:touch">
+
+      <!-- SUMMARY TAB -->
+      <div id="rpanel-summary">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+          <div style="background:#151820;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px;text-align:center">
+            <div style="font-family:monospace;font-size:22px;font-weight:500;color:#00e5a0" id="rep-cp-done">0/24</div>
+            <div style="font-family:monospace;font-size:9px;color:#555a6a;margin-top:3px">CHECKPOINTS</div>
+          </div>
+          <div style="background:#151820;border:1px solid rgba(180,0,255,0.2);border-radius:8px;padding:12px;text-align:center">
+            <div style="font-family:monospace;font-size:22px;font-weight:500;color:#cc66ff" id="rep-surv-done">0/3</div>
+            <div style="font-family:monospace;font-size:9px;color:#555a6a;margin-top:3px">SURV POINTS</div>
+          </div>
+          <div style="background:#151820;border:1px solid rgba(0,119,255,0.2);border-radius:8px;padding:12px;text-align:center">
+            <div style="font-family:monospace;font-size:22px;font-weight:500;color:#4da3ff" id="rep-radio-done">0/1</div>
+            <div style="font-family:monospace;font-size:9px;color:#555a6a;margin-top:3px">RADIO</div>
+          </div>
+          <div style="background:#151820;border:1px solid rgba(255,77,77,0.2);border-radius:8px;padding:12px;text-align:center">
+            <div style="font-family:monospace;font-size:22px;font-weight:500;color:#ff6b6b" id="rep-inc-done">0</div>
+            <div style="font-family:monospace;font-size:9px;color:#555a6a;margin-top:3px">INCIDENTS</div>
+          </div>
+        </div>
+        <div style="background:#151820;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px;margin-bottom:12px">
+          <div style="font-family:monospace;font-size:10px;color:#555a6a;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">Shift timeline</div>
+          <div id="rep-timeline"></div>
+        </div>
+      </div>
+
+      <!-- CHECKPOINTS TAB -->
+      <div id="rpanel-checkpoints" style="display:none">
+        <div style="font-family:monospace;font-size:11px;color:#555a6a;margin-bottom:12px">All checkpoints during this shift</div>
+        <div id="rep-cp-list"></div>
+      </div>
+
+      <!-- INCIDENTS TAB -->
+      <div id="rpanel-incidents" style="display:none">
+        <div style="font-family:monospace;font-size:11px;color:#555a6a;margin-bottom:12px">Incidents logged during this shift</div>
+        <div id="rep-incidents-list"><div style="font-size:13px;color:#555a6a;font-family:monospace">No incidents logged.</div></div>
+      </div>
+
+      <!-- HELP REQUESTS TAB -->
+      <div id="rpanel-helpreqs" style="display:none">
+        <div style="font-family:monospace;font-size:11px;color:#555a6a;margin-bottom:12px">Help requests during this shift</div>
+        <div id="rep-helpreqs-list"><div style="font-size:13px;color:#555a6a;font-family:monospace">No help requests.</div></div>
+      </div>
+
+      <!-- SURVEILLANCE NOTES TAB -->
+      <div id="rpanel-notes" style="display:none">
+        <div style="font-family:monospace;font-size:11px;color:#555a6a;margin-bottom:12px">Surveillance notes from this shift</div>
+        <div id="rep-notes-list"><div style="font-size:13px;color:#555a6a;font-family:monospace">No surveillance notes.</div></div>
+      </div>
+
+    </div>
+    <!-- LOGOUT BUTTON -->
+    <div style="padding:12px 16px;flex-shrink:0;border-top:1px solid rgba(255,255,255,0.08);background:#151820">
+      <button type="button" onclick="doLogout()" style="width:100%;padding:13px;border-radius:8px;background:#ff4d4d;color:#fff;border:none;font-size:15px;font-weight:700;cursor:pointer;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">Log out</button>
+    </div>
+  </div>
 
 <!-- ALERT MODAL -->
 <div class="alert-modal" id="alert-modal">
@@ -530,6 +612,123 @@ function playAlert() {
     }
     playOnce();
   }
+}
+
+
+// ── SHIFT REPORT ──
+var shiftEndTime = null;
+
+function confirmEndShift() {
+  if (confirm('Are you sure you want to end your shift?')) {
+    endShift();
+  }
+}
+
+function endShift() {
+  shiftEndTime = new Date();
+  // Stop polling
+  if (window._pollInterval) { clearInterval(window._pollInterval); window._pollInterval = null; }
+  if (window._helpInterval) { clearInterval(window._helpInterval); window._helpInterval = null; }
+  // Build report
+  buildShiftReport();
+  // Show report screen
+  document.getElementById('screen-app').classList.remove('active');
+  document.getElementById('screen-report').classList.add('active');
+}
+
+function showReportTab(tab) {
+  var panels = ['summary','checkpoints','incidents','helpreqs','notes'];
+  for (var i = 0; i < panels.length; i++) {
+    document.getElementById('rpanel-'+panels[i]).style.display = 'none';
+    document.getElementById('rtab-'+panels[i]).classList.remove('active');
+  }
+  document.getElementById('rpanel-'+tab).style.display = 'block';
+  document.getElementById('rtab-'+tab).classList.add('active');
+}
+
+function buildShiftReport() {
+  // Set header info
+  document.getElementById('report-shift-label').textContent = currentShift.label || 'Shift Complete';
+  document.getElementById('report-guard-name').textContent = currentGuardName;
+
+  // Summary stats
+  var cps = checkpoints.filter(function(c){return c.type==='checkpoint';});
+  var survs = checkpoints.filter(function(c){return c.type==='surveillance';});
+  var radios = checkpoints.filter(function(c){return c.type==='radio';});
+  var cpDone = cps.filter(function(c){return sessionScanned[c.id];}).length;
+  var survDone = survs.filter(function(c){return sessionScanned[c.id];}).length;
+  var radioDone = radios.filter(function(c){return sessionScanned[c.id];}).length;
+  document.getElementById('rep-cp-done').textContent = cpDone+'/24';
+  document.getElementById('rep-surv-done').textContent = survDone+'/3';
+  document.getElementById('rep-radio-done').textContent = radioDone+'/1';
+  document.getElementById('rep-inc-done').textContent = incidentCount;
+
+  // Timeline - copy from activity log
+  var tlItems = document.querySelectorAll('#timeline-list .tl-item');
+  var repTl = document.getElementById('rep-timeline');
+  repTl.innerHTML = '';
+  if (tlItems.length === 0) {
+    repTl.innerHTML = '<div style="font-size:13px;color:#555a6a;font-family:monospace">No activity recorded.</div>';
+  } else {
+    for (var i = 0; i < tlItems.length; i++) {
+      var clone = tlItems[i].cloneNode(true);
+      repTl.appendChild(clone);
+    }
+  }
+
+  // Checkpoints list
+  var allCps = checkpoints.filter(function(c){return c.type!==''; });
+  var cpListEl = document.getElementById('rep-cp-list');
+  cpListEl.innerHTML = '';
+  for (var j = 0; j < allCps.length; j++) {
+    var cp = allCps[j];
+    var done = !!sessionScanned[cp.id];
+    var div = document.createElement('div');
+    div.className = 'rep-cp-item';
+    var dotClass = done ? 'rep-dot-done' : 'rep-dot-miss';
+    var dotText = done ? 'OK' : '-';
+    var color = cp.type==='surveillance'?'#cc66ff':cp.type==='radio'?'#4da3ff':'#00e5a0';
+    div.innerHTML = '<div class="'+dotClass+'">'+dotText+'</div>'+
+      '<div style="flex:1">'+
+      '<div style="font-size:13px;font-weight:500;color:'+(done?'#e8eaf0':'#555a6a')+'">'+cp.name+'</div>'+
+      '<div style="font-family:monospace;font-size:10px;color:'+(done?color:'#555a6a')+'">'+
+      (done ? sessionScanned[cp.id]+' · scanned' : 'Not scanned')+
+      '</div></div>';
+    cpListEl.appendChild(div);
+  }
+
+  // Load help requests and notes from Supabase
+  sbGet('help_requests','order=timestamp.desc&limit=50',function(data) {
+    var el = document.getElementById('rep-helpreqs-list');
+    if (!data||!data.length) { el.innerHTML='<div style="font-size:13px;color:#555a6a;font-family:monospace">No help requests.</div>'; return; }
+    el.innerHTML = '';
+    for (var i = 0; i < data.length; i++) {
+      var req = data[i];
+      var gps = (req.gps_lat&&req.gps_lng)?req.gps_lat.toFixed(4)+' N, '+req.gps_lng.toFixed(4)+' E':'GPS unavailable';
+      var time = new Date(req.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+      var div = document.createElement('div');
+      div.style.cssText = 'background:#151820;border:1px solid rgba(255,77,77,0.2);border-radius:10px;padding:12px;margin-bottom:10px';
+      div.innerHTML = '<div style="font-size:13px;font-weight:600;color:'+(req.acked?'#00e5a0':'#ff6b6b')+';margin-bottom:4px">'+(req.acked?'✓ ':'🚨 ')+req.type+'</div>'+
+        '<div style="font-family:monospace;font-size:11px;color:#555a6a;line-height:1.7">From: '+req.name+'<br>Location: '+req.loc_desc+'<br>GPS: '+gps+'<br>Time: '+time+(req.acked?' · Acked by '+req.acked_by:'')+'</div>';
+      el.appendChild(div);
+    }
+  });
+
+  sbGet('surveillance_notes','order=timestamp.desc&limit=50&guard_name=eq.'+encodeURIComponent(currentGuardName),function(data) {
+    var el = document.getElementById('rep-notes-list');
+    if (!data||!data.length) { el.innerHTML='<div style="font-size:13px;color:#555a6a;font-family:monospace">No surveillance notes.</div>'; return; }
+    el.innerHTML = '';
+    for (var i = 0; i < data.length; i++) {
+      var note = data[i];
+      var time = new Date(note.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+      var div = document.createElement('div');
+      div.style.cssText = 'background:#151820;border:1px solid rgba(180,0,255,0.2);border-radius:10px;padding:12px;margin-bottom:10px';
+      div.innerHTML = '<div style="font-size:13px;font-weight:600;color:#cc66ff;margin-bottom:4px">'+note.title+'</div>'+
+        '<div style="font-size:13px;color:#8b90a0;margin-bottom:6px">'+note.body+'</div>'+
+        '<div style="font-family:monospace;font-size:10px;color:#555a6a">'+time+' · '+note.category+'</div>';
+      el.appendChild(div);
+    }
+  });
 }
 
 // POLL
