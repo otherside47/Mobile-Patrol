@@ -94,9 +94,9 @@ select:focus,input:focus{border-color:#00e5a0}
       <div class="err" id="login-err">Incorrect password. Try again.</div>
       <label class="fl">Select account</label>
       <select id="acct-select" onchange="onAcctChange()">
-        <option value="admin1">Admin 1 — R. Fischer (Main)</option>
-        <option value="admin2">Admin 2 — S. Müller</option>
-        <option value="admin3">Admin 3 — Vacant</option>
+        <option value="admin1">R. Fischer (Main Admin)</option>
+        <option value="admin2">S. Müller</option>
+        <option value="admin3">Vacant</option>
       </select>
       <div id="name-fields" style="display:none">
         <label class="fl">First name</label>
@@ -350,6 +350,24 @@ async function loadAllProfiles() {
     adminProfiles = {};
     aData.forEach(a => { adminProfiles[a.id] = {name:a.name, pass:a.pass, role:a.role||'admin'}; });
   }
+  // Update admin login dropdown with latest names
+  var adminSel = document.getElementById('acct-select');
+  if (adminSel) {
+    var adminKeys = Object.keys(adminProfiles);
+    adminSel.innerHTML = '';
+    for (var di = 0; di < adminKeys.length; di++) {
+      var dk = adminKeys[di];
+      var da = adminProfiles[dk];
+      var dopt = document.createElement('option');
+      dopt.value = dk;
+      dopt.textContent = da.name + (da.role==='main' ? ' (Main Admin)' : '');
+      adminSel.appendChild(dopt);
+    }
+    // Show name fields for vacant admin3
+    if (adminProfiles['admin3'] && adminProfiles['admin3'].name === 'Vacant') {
+      // handled by onAcctChange
+    }
+  }
 }
 let checkpoints=JSON.parse(localStorage.getItem('mp_checkpoints')||'null')||[];
 if(checkpoints.length===0){
@@ -465,10 +483,18 @@ function doLogout(){
   document.getElementById('login-pw').value='';
   document.getElementById('screen-app').classList.remove('active');
   document.getElementById('screen-login').classList.add('active');
-  const sel=document.getElementById('acct-select');
-  sel.options[0].text='Admin 1 — '+adminProfiles.admin1.name+' (Main)';
-  sel.options[1].text='Admin 2 — '+adminProfiles.admin2.name;
-  sel.options[2].text='Admin 3 — '+adminProfiles.admin3.name;
+  // Rebuild admin dropdown with just names
+  var adminSel = document.getElementById('acct-select');
+  var adminKeys = Object.keys(adminProfiles);
+  adminSel.innerHTML = '';
+  for (var di = 0; di < adminKeys.length; di++) {
+    var dk = adminKeys[di];
+    var da = adminProfiles[dk];
+    var dopt = document.createElement('option');
+    dopt.value = dk;
+    dopt.textContent = da.name + (da.role==='main' ? ' (Main Admin)' : '');
+    adminSel.appendChild(dopt);
+  }
 }
 
 // ── TABS ──
@@ -586,7 +612,7 @@ function renderProfiles(){
     const isFixed=['guard1','guard2','guard3','guard4','guard5'].includes(k);
     return `<div class="profile-row">
       <div class="avatar">${initials}</div>
-      <div style="flex:1"><div style="font-size:13px;font-weight:500">${g.name} ${g.vacant?'<span class="badge bgr">Vacant</span>':''}</div><div style="font-family:monospace;font-size:10px;color:#555a6a;margin-top:1px">${k} · Pass: ${'●'.repeat(Math.min(g.pass.length,8))}</div></div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:500">${g.name} ${g.vacant?'<span class="badge bgr">Vacant</span>':''}</div><div style="font-family:monospace;font-size:10px;color:#555a6a;margin-top:1px">Pass: ${'●'.repeat(Math.min(g.pass.length,8))}</div></div>
       <div style="display:flex;gap:6px;align-items:center">
         <button type="button" class="btn btn-sm btn-b" onclick="openProfileModal('${k}','guard')">Edit</button>
         ${isMain&&!isFixed?`<button type="button" class="btn btn-sm" style="background:none;color:#ff6b6b;border-color:rgba(255,77,77,0.3)" onclick="removeProfile('${k}','guard')">✕</button>`:''}
@@ -600,7 +626,7 @@ function renderProfiles(){
     const isFixed=['admin1','admin2','admin3'].includes(k);
     return `<div class="profile-row">
       <div class="avatar ${isMainProfile?'gold':''}">${initials}</div>
-      <div style="flex:1"><div style="font-size:13px;font-weight:500">${a.name} ${isMainProfile?'<span class="badge bgold">MAIN</span>':''}</div><div style="font-family:monospace;font-size:10px;color:#555a6a;margin-top:1px">${k} · Pass: ${'●'.repeat(Math.min(a.pass.length,8))}</div></div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:500">${a.name} ${isMainProfile?'<span class="badge bgold">MAIN</span>':''}</div><div style="font-family:monospace;font-size:10px;color:#555a6a;margin-top:1px">Pass: ${'●'.repeat(Math.min(a.pass.length,8))}</div></div>
       <div style="display:flex;gap:6px;align-items:center">
         ${canEdit?`<button type="button" class="btn btn-sm" style="background:rgba(255,200,0,0.1);color:#ffc800;border-color:rgba(255,200,0,0.3)" onclick="openProfileModal('${k}','admin')">Edit</button>`:`<span class="locked-badge">🔒</span>`}
         ${isMain&&!isMainProfile&&!isFixed?`<button type="button" class="btn btn-sm" style="background:none;color:#ff6b6b;border-color:rgba(255,77,77,0.3)" onclick="removeProfile('${k}','admin')">✕</button>`:''}

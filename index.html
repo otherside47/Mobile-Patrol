@@ -480,7 +480,8 @@ function updateLoginDropdown() {
     var g = guardProfiles[k];
     var opt = document.createElement('option');
     opt.value = k;
-    opt.textContent = g.vacant ? k + ' — Replacement (Vacant)' : k.replace('guard', 'Guard ') + ' — ' + g.name;
+    // Show just the name/initials - no ID prefix
+    opt.textContent = g.vacant ? 'Replacement (Vacant)' : g.name;
     sel.appendChild(opt);
   }
 }
