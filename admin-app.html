@@ -234,9 +234,9 @@ select:focus,input:focus{border-color:#00e5a0}
     <label class="fl">Full name</label>
     <input type="text" id="add-profile-name" placeholder="First and last name">
     <label class="fl">Password</label>
-    <input type="text" id="add-profile-pass" placeholder="Enter password" style="-webkit-text-security:disc" autocomplete="off">
+    <input type="password" id="add-profile-pass" placeholder="Enter password" autocomplete="new-password">
     <label class="fl">Confirm password</label>
-    <input type="text" id="add-profile-pass2" placeholder="Confirm password" style="-webkit-text-security:disc" autocomplete="off">
+    <input type="password" id="add-profile-pass2" placeholder="Confirm password" autocomplete="new-password">
     <div class="err" id="add-profile-err">Please fill in all fields.</div>
     <div class="modal-btns">
       <button type="button" style="background:#1c2030;color:#8b90a0;border:1px solid rgba(255,255,255,0.08)" onclick="closeModal('modal-add-profile')">Cancel</button>
@@ -254,9 +254,9 @@ select:focus,input:focus{border-color:#00e5a0}
     <label class="fl">Full name</label>
     <input type="text" id="edit-profile-name" placeholder="First and last name">
     <label class="fl">New password (leave blank to keep current)</label>
-    <input type="text" id="edit-profile-pass" placeholder="Enter new password" style="-webkit-text-security:disc" autocomplete="off">
+    <input type="password" id="edit-profile-pass" placeholder="Enter new password (leave blank to keep current)" autocomplete="new-password">
     <label class="fl">Confirm new password</label>
-    <input type="text" id="edit-profile-pass2" placeholder="Confirm new password" style="-webkit-text-security:disc" autocomplete="off">
+    <input type="password" id="edit-profile-pass2" placeholder="Confirm new password" autocomplete="new-password">
     <div class="err" id="profile-err">Passwords do not match.</div>
     <div class="modal-btns">
       <button type="button" style="background:#1c2030;color:#8b90a0;border:1px solid rgba(255,255,255,0.08)" onclick="closeModal('modal-profile')">Cancel</button>
@@ -436,29 +436,30 @@ setInterval(pollRequests,5000);
 
 // ── LOGIN ──
 function onAcctChange(){document.getElementById('name-fields').style.display=document.getElementById('acct-select').value==='admin3'?'block':'none';}
-async function doLogin(){
-  const k=document.getElementById('acct-select').value;
-  const p=document.getElementById('login-pw').value;
-  // Load latest profiles from Supabase before login
-  await loadAllProfiles();
-  const acc=adminProfiles[k];
-  const err=document.getElementById('login-err');
-  if(p!==acc.pass){err.style.display='block';return;}
-  err.style.display='none';
-  let name=acc.name;
-  if(k==='admin3'&&(name==='Vacant'||!name)){
-    const fn=document.getElementById('input-fn').value.trim();
-    const ln=document.getElementById('input-ln').value.trim();
-    if(!fn||!ln){err.textContent='Please enter your name.';err.style.display='block';return;}
-    name=fn+' '+ln;
-  }
-  currentAdminKey=k;currentAdminRole=acc.role;
-  document.getElementById('status-name').textContent='● '+name+(acc.role==='main'?' (Main Admin)':' (Admin)');
-  document.getElementById('admin-role-badge').textContent=acc.role==='main'?'MAIN ADMIN':'ADMIN';
-  document.getElementById('screen-login').classList.remove('active');
-  document.getElementById('screen-app').classList.add('active');
-  loadLiveData();pollRequests();
-  showToast('Welcome, '+name);
+function doLogin(){
+  var k=document.getElementById('acct-select').value;
+  var p=document.getElementById('login-pw').value;
+  var err=document.getElementById('login-err');
+  // Load latest from Supabase then validate
+  loadAllProfiles().then(function(){
+    var acc=adminProfiles[k];
+    if(!acc||p!==acc.pass){err.style.display='block';return;}
+    err.style.display='none';
+    var name=acc.name;
+    if(k==='admin3'&&(name==='Vacant'||!name)){
+      var fn=document.getElementById('input-fn').value.trim();
+      var ln=document.getElementById('input-ln').value.trim();
+      if(!fn||!ln){err.textContent='Please enter your name.';err.style.display='block';return;}
+      name=fn+' '+ln;
+    }
+    currentAdminKey=k;currentAdminRole=acc.role;
+    document.getElementById('status-name').textContent='● '+name+(acc.role==='main'?' (Main Admin)':' (Admin)');
+    document.getElementById('admin-role-badge').textContent=acc.role==='main'?'MAIN ADMIN':'ADMIN';
+    document.getElementById('screen-login').classList.remove('active');
+    document.getElementById('screen-app').classList.add('active');
+    loadLiveData();pollRequests();
+    showToast('Welcome, '+name);
+  });
 }
 function doLogout(){
   document.getElementById('login-pw').value='';
@@ -617,34 +618,35 @@ function openAddProfileModal(type){
   document.getElementById('add-profile-err').style.display='none';
   document.getElementById('modal-add-profile').classList.add('open');
 }
-async function saveNewProfile(){
-  const type=document.getElementById('add-profile-type').value;
-  const name=document.getElementById('add-profile-name').value.trim();
-  const pass=document.getElementById('add-profile-pass').value;
-  const pass2=document.getElementById('add-profile-pass2').value;
-  const err=document.getElementById('add-profile-err');
+function saveNewProfile(){
+  var type=document.getElementById('add-profile-type').value;
+  var name=document.getElementById('add-profile-name').value.trim();
+  var pass=document.getElementById('add-profile-pass').value;
+  var pass2=document.getElementById('add-profile-pass2').value;
+  var err=document.getElementById('add-profile-err');
   if(!name){err.textContent='Please enter a name.';err.style.display='block';return;}
   if(!pass){err.textContent='Please enter a password.';err.style.display='block';return;}
   if(pass!==pass2){err.textContent='Passwords do not match.';err.style.display='block';return;}
   if(pass.length<6){err.textContent='Password must be at least 6 characters.';err.style.display='block';return;}
   err.style.display='none';
-  const newKey=(type==='guard'?'guard':'admin')+Date.now();
+  var newKey=(type==='guard'?'guard':'admin')+Date.now();
   if(type==='guard'){
-    guardProfiles[newKey]={name,pass};
-    await insertGuardProfile(newKey,{name,pass});
+    guardProfiles[newKey]={name:name,pass:pass};
+    fetch(SUPABASE_URL+'/rest/v1/guard_profiles',{method:'POST',headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({id:newKey,name:name,pass:pass,vacant:false})}).catch(function(){});
   } else {
-    adminProfiles[newKey]={name,pass,role:'admin'};
-    await insertAdminProfile(newKey,{name,pass,role:'admin'});
+    adminProfiles[newKey]={name:name,pass:pass,role:'admin'};
+    fetch(SUPABASE_URL+'/rest/v1/admin_profiles',{method:'POST',headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({id:newKey,name:name,pass:pass,role:'admin'})}).catch(function(){});
   }
   renderProfiles();closeModal('modal-add-profile');
-  showToast('✓ '+name+' added');
+  showToast(name+' added');
 }
-async function removeProfile(key,type){
-  const profile=type==='guard'?guardProfiles[key]:adminProfiles[key];
+function removeProfile(key,type){
+  var profile=type==='guard'?guardProfiles[key]:adminProfiles[key];
   if(!confirm('Remove profile for '+profile.name+'?'))return;
-  await deleteProfile(key,type);
+  var table=type==='guard'?'guard_profiles':'admin_profiles';
+  fetch(SUPABASE_URL+'/rest/v1/'+table+'?id=eq.'+key,{method:'DELETE',headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}}).catch(function(){});
   if(type==='guard')delete guardProfiles[key];else delete adminProfiles[key];
-  renderProfiles();showToast('✓ Profile removed: '+profile.name);
+  renderProfiles();showToast('Profile removed: '+profile.name);
 }
 function openProfileModal(key,type){
   const profile=type==='guard'?guardProfiles[key]:adminProfiles[key];
@@ -657,13 +659,13 @@ function openProfileModal(key,type){
   document.getElementById('profile-modal-title').textContent='Edit '+(type==='guard'?'Guard':'Admin')+' — '+profile.name;
   document.getElementById('modal-profile').classList.add('open');
 }
-async function saveProfile(){
-  const key=document.getElementById('edit-profile-key').value;
-  const type=document.getElementById('edit-profile-type').value;
-  const name=document.getElementById('edit-profile-name').value.trim();
-  const pass=document.getElementById('edit-profile-pass').value;
-  const pass2=document.getElementById('edit-profile-pass2').value;
-  const err=document.getElementById('profile-err');
+function saveProfile(){
+  var key=document.getElementById('edit-profile-key').value;
+  var type=document.getElementById('edit-profile-type').value;
+  var name=document.getElementById('edit-profile-name').value.trim();
+  var pass=document.getElementById('edit-profile-pass').value;
+  var pass2=document.getElementById('edit-profile-pass2').value;
+  var err=document.getElementById('profile-err');
   if(!name){err.textContent='Please enter a name.';err.style.display='block';return;}
   if(pass&&pass!==pass2){err.textContent='Passwords do not match.';err.style.display='block';return;}
   if(pass&&pass.length<6){err.textContent='Password must be at least 6 characters.';err.style.display='block';return;}
@@ -671,14 +673,17 @@ async function saveProfile(){
   if(type==='guard'){
     guardProfiles[key].name=name;
     if(pass)guardProfiles[key].pass=pass;
-    await saveGuardProfile(key);
+    var gData={name:guardProfiles[key].name,pass:guardProfiles[key].pass,vacant:guardProfiles[key].vacant||false,updated_at:new Date().toISOString()};
+    fetch(SUPABASE_URL+'/rest/v1/guard_profiles?id=eq.'+key,{method:'PATCH',headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},body:JSON.stringify(gData)}).catch(function(){});
   } else {
     adminProfiles[key].name=name;
     if(pass)adminProfiles[key].pass=pass;
-    await saveAdminProfile(key);
+    var aData={name:adminProfiles[key].name,pass:adminProfiles[key].pass,role:adminProfiles[key].role,updated_at:new Date().toISOString()};
+    fetch(SUPABASE_URL+'/rest/v1/admin_profiles?id=eq.'+key,{method:'PATCH',headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},body:JSON.stringify(aData)}).catch(function(){});
   }
   renderProfiles();renderLiveGuards();
-  closeModal('modal-profile');showToast('✓ Profile updated: '+name);
+  closeModal('modal-profile');
+  showToast('Profile updated: '+name);
 }
 
 // ── CHECKPOINTS ──
