@@ -325,18 +325,32 @@ async function sbPatch(table,id,data){
 }
 
 // ── STATE ──
-let adminProfiles=JSON.parse(localStorage.getItem('mp_admin_profiles')||'null')||{
+let adminProfiles={
   admin1:{name:'R. Fischer',pass:'admin1pass',role:'main'},
   admin2:{name:'S. Müller',pass:'admin2pass',role:'admin'},
   admin3:{name:'Vacant',pass:'adminpass',role:'admin'}
 };
-let guardProfiles=JSON.parse(localStorage.getItem('mp_guard_profiles')||'null')||{
+let guardProfiles={
   guard1:{name:'A. Weber',pass:'guard1pass'},
   guard2:{name:'M. Kowalski',pass:'guard2pass'},
   guard3:{name:'J. Schmidt',pass:'guard3pass'},
   guard4:{name:'T. Bauer',pass:'guard4pass'},
   guard5:{name:'Replacement',pass:'guardpass',vacant:true}
 };
+
+// Load all profiles from Supabase
+async function loadAllProfiles() {
+  const gData = await sbGet('guard_profiles','order=id.asc');
+  if (Array.isArray(gData) && gData.length) {
+    guardProfiles = {};
+    gData.forEach(g => { guardProfiles[g.id] = {name:g.name, pass:g.pass, vacant:g.vacant||false}; });
+  }
+  const aData = await sbGet('admin_profiles','order=id.asc');
+  if (Array.isArray(aData) && aData.length) {
+    adminProfiles = {};
+    aData.forEach(a => { adminProfiles[a.id] = {name:a.name, pass:a.pass, role:a.role||'admin'}; });
+  }
+}
 let checkpoints=JSON.parse(localStorage.getItem('mp_checkpoints')||'null')||[];
 if(checkpoints.length===0){
   for(let i=1;i<=24;i++) checkpoints.push({id:'CP-'+String(i).padStart(3,'0'),name:'Checkpoint '+i,type:'checkpoint',route:'Main Patrol',gps:null,anchored:false});
@@ -349,14 +363,56 @@ let currentAdminRole=null;
 let lastSeenRequestId=localStorage.getItem('mp_admin_last_req')||null;
 
 function saveAll(){
-  localStorage.setItem('mp_admin_profiles',JSON.stringify(adminProfiles));
-  localStorage.setItem('mp_guard_profiles',JSON.stringify(guardProfiles));
   localStorage.setItem('mp_checkpoints',JSON.stringify(checkpoints));
+}
+
+async function saveGuardProfile(key) {
+  const g = guardProfiles[key];
+  await fetch(SUPABASE_URL+'/rest/v1/guard_profiles?id=eq.'+key, {
+    method:'PATCH',
+    headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},
+    body:JSON.stringify({name:g.name, pass:g.pass, vacant:g.vacant||false, updated_at:new Date().toISOString()})
+  });
+}
+
+async function saveAdminProfile(key) {
+  const a = adminProfiles[key];
+  await fetch(SUPABASE_URL+'/rest/v1/admin_profiles?id=eq.'+key, {
+    method:'PATCH',
+    headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},
+    body:JSON.stringify({name:a.name, pass:a.pass, role:a.role, updated_at:new Date().toISOString()})
+  });
+}
+
+async function insertGuardProfile(key, data) {
+  await fetch(SUPABASE_URL+'/rest/v1/guard_profiles', {
+    method:'POST',
+    headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+    body:JSON.stringify({id:key, name:data.name, pass:data.pass, vacant:data.vacant||false})
+  });
+}
+
+async function insertAdminProfile(key, data) {
+  await fetch(SUPABASE_URL+'/rest/v1/admin_profiles', {
+    method:'POST',
+    headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+    body:JSON.stringify({id:key, name:data.name, pass:data.pass, role:data.role||'admin'})
+  });
+}
+
+async function deleteProfile(key, type) {
+  const table = type==='guard' ? 'guard_profiles' : 'admin_profiles';
+  await fetch(SUPABASE_URL+'/rest/v1/'+table+'?id=eq.'+key, {
+    method:'DELETE',
+    headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+  });
 }
 
 // ── CLOCK ──
 function updateClock(){document.getElementById('status-time').textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});}
 setInterval(updateClock,1000);updateClock();
+// Load profiles from Supabase on page load
+loadAllProfiles();
 
 // ── POLL REQUESTS ──
 async function pollRequests(){
@@ -380,11 +436,11 @@ setInterval(pollRequests,5000);
 
 // ── LOGIN ──
 function onAcctChange(){document.getElementById('name-fields').style.display=document.getElementById('acct-select').value==='admin3'?'block':'none';}
-function doLogin(){
+async function doLogin(){
   const k=document.getElementById('acct-select').value;
   const p=document.getElementById('login-pw').value;
-  const profiles=JSON.parse(localStorage.getItem('mp_admin_profiles')||'null')||adminProfiles;
-  adminProfiles=profiles;
+  // Load latest profiles from Supabase before login
+  await loadAllProfiles();
   const acc=adminProfiles[k];
   const err=document.getElementById('login-err');
   if(p!==acc.pass){err.style.display='block';return;}
@@ -561,7 +617,7 @@ function openAddProfileModal(type){
   document.getElementById('add-profile-err').style.display='none';
   document.getElementById('modal-add-profile').classList.add('open');
 }
-function saveNewProfile(){
+async function saveNewProfile(){
   const type=document.getElementById('add-profile-type').value;
   const name=document.getElementById('add-profile-name').value.trim();
   const pass=document.getElementById('add-profile-pass').value;
@@ -573,16 +629,22 @@ function saveNewProfile(){
   if(pass.length<6){err.textContent='Password must be at least 6 characters.';err.style.display='block';return;}
   err.style.display='none';
   const newKey=(type==='guard'?'guard':'admin')+Date.now();
-  if(type==='guard') guardProfiles[newKey]={name,pass};
-  else adminProfiles[newKey]={name,pass,role:'admin'};
-  saveAll();renderProfiles();closeModal('modal-add-profile');
+  if(type==='guard'){
+    guardProfiles[newKey]={name,pass};
+    await insertGuardProfile(newKey,{name,pass});
+  } else {
+    adminProfiles[newKey]={name,pass,role:'admin'};
+    await insertAdminProfile(newKey,{name,pass,role:'admin'});
+  }
+  renderProfiles();closeModal('modal-add-profile');
   showToast('✓ '+name+' added');
 }
-function removeProfile(key,type){
+async function removeProfile(key,type){
   const profile=type==='guard'?guardProfiles[key]:adminProfiles[key];
   if(!confirm('Remove profile for '+profile.name+'?'))return;
+  await deleteProfile(key,type);
   if(type==='guard')delete guardProfiles[key];else delete adminProfiles[key];
-  saveAll();renderProfiles();showToast('✓ Profile removed: '+profile.name);
+  renderProfiles();showToast('✓ Profile removed: '+profile.name);
 }
 function openProfileModal(key,type){
   const profile=type==='guard'?guardProfiles[key]:adminProfiles[key];
@@ -595,7 +657,7 @@ function openProfileModal(key,type){
   document.getElementById('profile-modal-title').textContent='Edit '+(type==='guard'?'Guard':'Admin')+' — '+profile.name;
   document.getElementById('modal-profile').classList.add('open');
 }
-function saveProfile(){
+async function saveProfile(){
   const key=document.getElementById('edit-profile-key').value;
   const type=document.getElementById('edit-profile-type').value;
   const name=document.getElementById('edit-profile-name').value.trim();
@@ -606,13 +668,16 @@ function saveProfile(){
   if(pass&&pass!==pass2){err.textContent='Passwords do not match.';err.style.display='block';return;}
   if(pass&&pass.length<6){err.textContent='Password must be at least 6 characters.';err.style.display='block';return;}
   err.style.display='none';
-  if(type==='guard'){guardProfiles[key].name=name;if(pass)guardProfiles[key].pass=pass;}
-  else{adminProfiles[key].name=name;if(pass)adminProfiles[key].pass=pass;}
-  saveAll();renderProfiles();
-  const sel=document.getElementById('acct-select');
-  sel.options[0].text='Admin 1 — '+adminProfiles.admin1.name+' (Main)';
-  sel.options[1].text='Admin 2 — '+adminProfiles.admin2.name;
-  sel.options[2].text='Admin 3 — '+adminProfiles.admin3.name;
+  if(type==='guard'){
+    guardProfiles[key].name=name;
+    if(pass)guardProfiles[key].pass=pass;
+    await saveGuardProfile(key);
+  } else {
+    adminProfiles[key].name=name;
+    if(pass)adminProfiles[key].pass=pass;
+    await saveAdminProfile(key);
+  }
+  renderProfiles();renderLiveGuards();
   closeModal('modal-profile');showToast('✓ Profile updated: '+name);
 }
 
