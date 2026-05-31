@@ -152,6 +152,11 @@ select:focus,input:focus{border-color:#00e5a0}
         <div class="clabel" style="margin-bottom:10px">Recent activity</div>
         <div id="live-activity-list"><div style="font-size:13px;color:#555a6a;font-family:monospace">Loading...</div></div>
       </div>
+      <div class="card">
+        <div class="clabel" style="margin-bottom:10px">Checkpoint scan status</div>
+        <div style="font-size:12px;color:#555a6a;font-family:monospace;margin-bottom:10px">Scanned checkpoints are marked with superscript <sup style="color:#00e5a0;font-weight:700">s</sup></div>
+        <div id="cp-scan-status" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+      </div>
     </div>
 
     <!-- REQUESTS -->
@@ -587,6 +592,43 @@ function loadLiveData(){
   }).catch(function(){
     document.getElementById('live-notes').textContent = '0';
   });
+
+  // Fetch checkpoint scan status
+  fetch(SUPABASE_URL+'/rest/v1/patrol_scans?order=timestamp.desc&limit=200', {
+    headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+  }).then(function(r){ return r.json(); }).then(function(scans) {
+    if (!Array.isArray(scans)) scans = [];
+    renderCheckpointScanStatus(scans);
+  }).catch(function(){});
+}
+
+function renderCheckpointScanStatus(scans) {
+  var el = document.getElementById('cp-scan-status');
+  if (!el) return;
+  // Build set of scanned checkpoint IDs
+  var scannedIds = {};
+  for (var i = 0; i < scans.length; i++) {
+    if (scans[i].checkpoint_id) {
+      scannedIds[scans[i].checkpoint_id] = scans[i].guard_name || '';
+    }
+  }
+  // Render all checkpoints
+  el.innerHTML = '';
+  for (var j = 0; j < checkpoints.length; j++) {
+    var cp = checkpoints[j];
+    var isScanned = !!scannedIds[cp.id];
+    var guardName = isScanned ? scannedIds[cp.id] : '';
+    var initials = guardName ? guardName.split(' ').map(function(w){return w[0];}).join('').toUpperCase() : '';
+    var div = document.createElement('div');
+    div.title = cp.name + (isScanned ? ' — scanned by ' + guardName : ' — not scanned');
+    div.style.cssText = 'background:' + (isScanned ? 'rgba(0,229,160,0.1)' : '#1c2030') + ';' +
+      'border:1px solid ' + (isScanned ? 'rgba(0,229,160,0.3)' : 'rgba(255,255,255,0.06)') + ';' +
+      'border-radius:6px;padding:6px 8px;font-family:monospace;font-size:12px;' +
+      'color:' + (isScanned ? '#00e5a0' : '#555a6a') + ';' +
+      'position:relative;cursor:default;white-space:nowrap';
+    div.innerHTML = cp.id + (isScanned ? '<sup style="font-size:8px;color:#00e5a0;font-weight:700;margin-left:1px">' + (initials || 's') + '</sup>' : '');
+    el.appendChild(div);
+  }
 }
 setInterval(loadLiveData, 30000);
 
