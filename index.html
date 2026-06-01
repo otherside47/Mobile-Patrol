@@ -978,9 +978,11 @@ function startShift() {
   appEl.classList.add('active');
   appEl.style.display = 'flex';
   renderLists();
-  // Save shift status to Supabase so admin can see who is on duty
+  // Save shift to Supabase immediately
+  var shiftId = 'SHIFT-' + Date.now();
+  window._shiftId = shiftId;
   var shiftRecord = {
-    id: 'SHIFT-'+Date.now(),
+    id: shiftId,
     guard_name: currentGuardName,
     shift_type: currentShift.type,
     shift_label: currentShift.label,
@@ -993,8 +995,11 @@ function startShift() {
     method: 'POST',
     headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer '+SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal'},
     body: JSON.stringify(shiftRecord)
+  }).then(function(r) {
+    if (r.ok || r.status === 201) {
+      showToast('Shift started - now visible to admin');
+    }
   }).catch(function(){});
-  window._shiftId = shiftRecord.id;
   updateGPS();
   showToast('Shift started');
   sbGet('help_requests','order=timestamp.desc&limit=50',function(data) {
