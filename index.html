@@ -349,11 +349,11 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
   </div>
 
   <nav class="bottom-nav">
-    <button type="button" class="nav-btn active" id="nav-home">🏠<br>PATROL</button>
+    <button type="button" class="nav-btn active" id="nav-home"><br>PATROL</button>
     <button type="button" class="nav-btn" id="nav-scan">📷<br>SCAN</button>
-    <button type="button" class="nav-btn" id="nav-incident">⚠<br>INCIDENT</button>
-    <button type="button" class="nav-btn" id="nav-timeline">📋<br>LOG</button>
-    <button type="button" class="nav-btn" id="nav-reports">📊<br>REPORTS</button>
+    <button type="button" class="nav-btn" id="nav-incident">!<br>INCIDENT</button>
+    <button type="button" class="nav-btn" id="nav-timeline"><br>LOG</button>
+    <button type="button" class="nav-btn" id="nav-reports"><br>REPORTS</button>
   </nav>
 </div>
 
@@ -707,7 +707,7 @@ function buildShiftReport() {
       var time = new Date(req.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
       var div = document.createElement('div');
       div.style.cssText = 'background:#151820;border:1px solid rgba(255,77,77,0.2);border-radius:10px;padding:12px;margin-bottom:10px';
-      div.innerHTML = '<div style="font-size:13px;font-weight:600;color:'+(req.acked?'#00e5a0':'#ff6b6b')+';margin-bottom:4px">'+(req.acked?'✓ ':'🚨 ')+req.type+'</div>'+
+      div.innerHTML = '<div style="font-size:13px;font-weight:600;color:'+(req.acked?'#00e5a0':'#ff6b6b')+';margin-bottom:4px">'+(req.acked?'OK ':'! ')+req.type+'</div>'+
         '<div style="font-family:monospace;font-size:11px;color:#555a6a;line-height:1.7">From: '+req.name+'<br>Location: '+req.loc_desc+'<br>GPS: '+gps+'<br>Time: '+time+(req.acked?' · Acked by '+req.acked_by:'')+'</div>';
       el.appendChild(div);
     }
@@ -820,7 +820,7 @@ function loadHelpRequests() {
         var gpsText = (req.gps_lat&&req.gps_lng)?req.gps_lat.toFixed(4)+' N, '+req.gps_lng.toFixed(4)+' E':'GPS unavailable';
         var time = new Date(req.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
         return '<div style="background:#151820;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px;margin-bottom:8px;opacity:0.7">'+
-          '<div style="font-size:13px;font-weight:600;color:#00e5a0;margin-bottom:4px">✓ '+req.type+'</div>'+
+          '<div style="font-size:13px;font-weight:600;color:#00e5a0;margin-bottom:4px">OK '+req.type+'</div>'+
           '<div style="font-family:monospace;font-size:11px;color:#555a6a;line-height:1.7">From: '+req.name+'<br>Location: '+req.loc_desc+'<br>GPS: '+gpsText+'<br>Time: '+time+' · Acked by '+req.acked_by+'</div>'+
           '</div>';
       }).join('');
@@ -829,7 +829,7 @@ function loadHelpRequests() {
     el.innerHTML = data.slice(0,10).map(function(req) {
       var time = new Date(req.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
       return '<div class="req-item '+(req.acked?'acked':'')+'">'+
-        '<div style="font-size:13px;font-weight:600;color:'+(req.acked?'#00e5a0':'#ff6b6b')+';margin-bottom:4px">'+(req.acked?'✓ ':'🚨 ')+req.type+'</div>'+
+        '<div style="font-size:13px;font-weight:600;color:'+(req.acked?'#00e5a0':'#ff6b6b')+';margin-bottom:4px">'+(req.acked?'OK ':'! ')+req.type+'</div>'+
         '<div style="font-family:monospace;font-size:11px;color:#555a6a;line-height:1.6">From: '+req.name+' · '+time+(req.acked?' · <span style="color:#00e5a0">Acked</span>':'')+'</div></div>';
     }).join('');
   });

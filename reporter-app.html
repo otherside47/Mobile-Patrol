@@ -64,9 +64,9 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
 
       <label class="fl">Urgency level</label>
       <select id="urgency">
-        <option value="critical">🔴 Critical — immediate response needed</option>
-        <option value="high">🟠 High — respond as soon as possible</option>
-        <option value="medium">🟡 Medium — non-urgent assistance</option>
+        <option value="critical">Critical — immediate response needed</option>
+        <option value="high">High — respond as soon as possible</option>
+        <option value="medium">Medium — non-urgent assistance</option>
       </select>
 
       <label class="fl">Your location (describe)</label>
@@ -81,12 +81,12 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
         <button type="button" onclick="retryGPS()" style="background:rgba(255,176,32,0.2);color:#ffb020;border:1px solid rgba(255,176,32,0.3);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:monospace;white-space:nowrap">Retry GPS</button>
       </div>
 
-      <button type="button" class="btn btn-red" onclick="submitRequest()">🚨 Send Help Request</button>
+      <button type="button" class="btn btn-red" onclick="submitRequest()">! Send Help Request</button>
       <button type="button" class="btn btn-gray" onclick="clearForm()">Clear form</button>
     </div>
 
     <div class="success-screen" id="success-section">
-      <div style="font-size:64px;margin-bottom:16px">✅</div>
+      <div style="font-size:64px;margin-bottom:16px">OK</div>
       <div style="font-size:20px;font-weight:700;color:#00e5a0;margin-bottom:8px">Help request sent!</div>
       <div style="font-size:14px;color:#8b90a0;margin-bottom:24px;line-height:1.6">Mobile patrol has been alerted with your location.<br>Please stay where you are and wait for assistance.</div>
       <button type="button" class="btn btn-red" onclick="resetForm()">Send another request</button>
