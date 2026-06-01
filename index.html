@@ -619,6 +619,14 @@ function confirmEndShift() {
 
 function endShift() {
   shiftEndTime = new Date();
+  // Mark shift as ended in Supabase
+  if (window._shiftId) {
+    fetch(SUPABASE_URL+'/rest/v1/active_shifts?id=eq.'+window._shiftId, {
+      method: 'PATCH',
+      headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer '+SUPABASE_KEY, 'Content-Type': 'application/json'},
+      body: JSON.stringify({status: 'ended', ended_at: new Date().toISOString()})
+    }).catch(function(){});
+  }
   // Stop polling
   if (window._pollInterval) { clearInterval(window._pollInterval); window._pollInterval = null; }
   if (window._helpInterval) { clearInterval(window._helpInterval); window._helpInterval = null; }
@@ -970,6 +978,23 @@ function startShift() {
   appEl.classList.add('active');
   appEl.style.display = 'flex';
   renderLists();
+  // Save shift status to Supabase so admin can see who is on duty
+  var shiftRecord = {
+    id: 'SHIFT-'+Date.now(),
+    guard_name: currentGuardName,
+    shift_type: currentShift.type,
+    shift_label: currentShift.label,
+    start_date: currentShift.startDate,
+    end_date: currentShift.endDate,
+    started_at: new Date().toISOString(),
+    status: 'active'
+  };
+  fetch(SUPABASE_URL+'/rest/v1/active_shifts', {
+    method: 'POST',
+    headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer '+SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal'},
+    body: JSON.stringify(shiftRecord)
+  }).catch(function(){});
+  window._shiftId = shiftRecord.id;
   updateGPS();
   showToast('Shift started');
   sbGet('help_requests','order=timestamp.desc&limit=50',function(data) {
