@@ -577,6 +577,119 @@ function playAlert() {
   }
 }
 
+// SHIFT REPORT
+var shiftEndTime = null;
+
+function confirmEndShift() {
+  if (confirm('Are you sure you want to end your shift?')) {
+    endShift();
+  }
+}
+
+function endShift() {
+  shiftEndTime = new Date();
+  if (window._pollInterval) { clearInterval(window._pollInterval); window._pollInterval = null; }
+  if (window._helpInterval) { clearInterval(window._helpInterval); window._helpInterval = null; }
+  // Mark shift as ended in Supabase
+  if (window._shiftId) {
+    fetch(SUPABASE_URL+'/rest/v1/active_shifts?id=eq.'+window._shiftId, {
+      method: 'PATCH',
+      headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},
+      body: JSON.stringify({status:'ended', ended_at: new Date().toISOString()})
+    }).catch(function(){});
+  }
+  buildShiftReport();
+  var allScreens = document.querySelectorAll('.screen');
+  for (var i = 0; i < allScreens.length; i++) {
+    allScreens[i].classList.remove('active');
+    allScreens[i].style.display = 'none';
+  }
+  var reportEl = document.getElementById('screen-report');
+  reportEl.classList.add('active');
+  reportEl.style.display = 'flex';
+}
+
+function showReportTab(tab) {
+  var panels = ['summary','checkpoints','incidents','helpreqs','notes'];
+  for (var i = 0; i < panels.length; i++) {
+    document.getElementById('rpanel-'+panels[i]).style.display = 'none';
+    document.getElementById('rtab-'+panels[i]).classList.remove('active');
+  }
+  document.getElementById('rpanel-'+tab).style.display = 'block';
+  document.getElementById('rtab-'+tab).classList.add('active');
+}
+
+function buildShiftReport() {
+  document.getElementById('report-shift-label').textContent = currentShift.label || 'Shift Complete';
+  document.getElementById('report-guard-name').textContent = currentGuardName;
+  var cps = checkpoints.filter(function(c){return c.type==='checkpoint';});
+  var survs = checkpoints.filter(function(c){return c.type==='surveillance';});
+  var radios = checkpoints.filter(function(c){return c.type==='radio';});
+  var cpDone = cps.filter(function(c){return sessionScanned[c.id];}).length;
+  var survDone = survs.filter(function(c){return sessionScanned[c.id];}).length;
+  var radioDone = radios.filter(function(c){return sessionScanned[c.id];}).length;
+  document.getElementById('rep-cp-done').textContent = cpDone+'/24';
+  document.getElementById('rep-surv-done').textContent = survDone+'/3';
+  document.getElementById('rep-radio-done').textContent = radioDone+'/1';
+  document.getElementById('rep-inc-done').textContent = incidentCount;
+  // Copy timeline
+  var tlItems = document.querySelectorAll('#timeline-list .tl-item');
+  var repTl = document.getElementById('rep-timeline');
+  repTl.innerHTML = '';
+  if (tlItems.length === 0) {
+    repTl.innerHTML = '<div style="font-size:13px;color:#555a6a;font-family:monospace">No activity recorded.</div>';
+  } else {
+    for (var i = 0; i < tlItems.length; i++) {
+      repTl.appendChild(tlItems[i].cloneNode(true));
+    }
+  }
+  // Checkpoints list
+  var cpListEl = document.getElementById('rep-cp-list');
+  cpListEl.innerHTML = '';
+  for (var j = 0; j < checkpoints.length; j++) {
+    var cp = checkpoints[j];
+    var done = !!sessionScanned[cp.id];
+    var div = document.createElement('div');
+    div.className = 'rep-cp-item';
+    var color = cp.type==='surveillance'?'#cc66ff':cp.type==='radio'?'#4da3ff':'#00e5a0';
+    div.innerHTML = '<div class="'+(done?'rep-dot-done':'rep-dot-miss')+'">'+(done?'OK':'-')+'</div>'+
+      '<div style="flex:1"><div style="font-size:13px;font-weight:500;color:'+(done?'#e8eaf0':'#555a6a')+'">'+cp.name+'</div>'+
+      '<div style="font-family:monospace;font-size:10px;color:'+(done?color:'#555a6a')+'">'+(done?sessionScanned[cp.id]+' scanned':'Not scanned')+'</div></div>';
+    cpListEl.appendChild(div);
+  }
+  // Load help requests
+  sbGet('help_requests','order=timestamp.desc&limit=50',function(data) {
+    var el = document.getElementById('rep-helpreqs-list');
+    if (!data||!data.length){el.innerHTML='<div style="font-size:13px;color:#555a6a;font-family:monospace">No help requests.</div>';return;}
+    el.innerHTML='';
+    for(var i=0;i<data.length;i++){
+      var req=data[i];
+      var time=new Date(req.timestamp).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+      var div=document.createElement('div');
+      div.style.cssText='background:#151820;border:1px solid rgba(255,77,77,0.2);border-radius:10px;padding:12px;margin-bottom:10px';
+      div.innerHTML='<div style="font-size:13px;font-weight:600;color:'+(req.acked?'#00e5a0':'#ff6b6b')+';margin-bottom:4px">'+(req.acked?'OK ':'! ')+req.type+'</div>'+
+        '<div style="font-family:monospace;font-size:11px;color:#555a6a;line-height:1.7">From: '+req.name+'<br>Location: '+req.loc_desc+'<br>Time: '+time+'</div>';
+      el.appendChild(div);
+    }
+  });
+  // Load surveillance notes
+  sbGet('surveillance_notes','order=timestamp.desc&limit=50',function(data) {
+    var el = document.getElementById('rep-notes-list');
+    if (!data||!data.length){el.innerHTML='<div style="font-size:13px;color:#555a6a;font-family:monospace">No surveillance notes.</div>';return;}
+    el.innerHTML='';
+    for(var i=0;i<data.length;i++){
+      var note=data[i];
+      var time=new Date(note.timestamp).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+      var div=document.createElement('div');
+      div.style.cssText='background:#151820;border:1px solid rgba(180,0,255,0.2);border-radius:10px;padding:12px;margin-bottom:10px';
+      div.innerHTML='<div style="font-size:13px;font-weight:600;color:#cc66ff;margin-bottom:4px">'+note.title+'</div>'+
+        '<div style="font-size:13px;color:#8b90a0;margin-bottom:6px">'+note.body+'</div>'+
+        '<div style="font-family:monospace;font-size:10px;color:#555a6a">'+time+' · '+note.category+'</div>';
+      el.appendChild(div);
+    }
+  });
+}
+
 // POLL
 function pollRequests() {
   sbGet('help_requests','order=timestamp.desc&limit=1',function(data) {
@@ -595,7 +708,7 @@ function showHelpAlert(req) {
   var urgLabel = req.urgency==='critical'?'CRITICAL':req.urgency==='high'?'HIGH':'MEDIUM';
   document.getElementById('alert-urgency').textContent = urgLabel;
   var gpsText = (req.gps_lat&&req.gps_lng) ? req.gps_lat.toFixed(5)+' N, '+req.gps_lng.toFixed(5)+' E' : 'GPS unavailable';
-  var time = new Date(req.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  var time = new Date(req.timestamp).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
   document.getElementById('alert-info').innerHTML =
     '<span>From:</span> '+req.name+'<br>'+
     '<span>Type:</span> '+req.type+'<br>'+
@@ -642,7 +755,7 @@ function loadHelpRequests() {
       for (var ai = 0; ai < active.length; ai++) {
         var req = active[ai];
         var gpsText = (req.gps_lat&&req.gps_lng)?req.gps_lat.toFixed(5)+' N, '+req.gps_lng.toFixed(5)+' E':'GPS unavailable';
-        var time = new Date(req.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+        var time = new Date(req.timestamp).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
         var urgColor = req.urgency==='critical'?'#ff4d4d':req.urgency==='high'?'#ffb020':'#4da3ff';
         var div = document.createElement('div');
         div.style.cssText = 'background:#151820;border:1px solid rgba(255,77,77,0.3);border-radius:10px;padding:14px;margin-bottom:10px';
@@ -665,7 +778,7 @@ function loadHelpRequests() {
     } else {
       pastEl.innerHTML = past.map(function(req) {
         var gpsText = (req.gps_lat&&req.gps_lng)?req.gps_lat.toFixed(4)+' N, '+req.gps_lng.toFixed(4)+' E':'GPS unavailable';
-        var time = new Date(req.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+        var time = new Date(req.timestamp).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
         return '<div style="background:#151820;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px;margin-bottom:8px;opacity:0.7">'+
           '<div style="font-size:13px;font-weight:600;color:#00e5a0;margin-bottom:4px">OK '+req.type+'</div>'+
           '<div style="font-family:monospace;font-size:11px;color:#555a6a;line-height:1.7">From: '+req.name+'<br>Location: '+req.loc_desc+'<br>GPS: '+gpsText+'<br>Time: '+time+' · Acked by '+req.acked_by+'</div>'+
@@ -674,7 +787,7 @@ function loadHelpRequests() {
     }
     // Also update old help-list
     el.innerHTML = data.slice(0,10).map(function(req) {
-      var time = new Date(req.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+      var time = new Date(req.timestamp).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
       return '<div class="req-item '+(req.acked?'acked':'')+'">'+
         '<div style="font-size:13px;font-weight:600;color:'+(req.acked?'#00e5a0':'#ff6b6b')+';margin-bottom:4px">'+(req.acked?'OK ':'! ')+req.type+'</div>'+
         '<div style="font-family:monospace;font-size:11px;color:#555a6a;line-height:1.6">From: '+req.name+' · '+time+(req.acked?' · <span style="color:#00e5a0">Acked</span>':'')+'</div></div>';
@@ -1007,7 +1120,7 @@ document.getElementById('btn-submit-surv').addEventListener('click', function(){
   var category=document.getElementById('surv-category').value;
   var now=new Date();
   sbPost('surveillance_notes',{id:'NOTE-'+Date.now(),guard_name:currentGuardName,checkpoint:currentScanCP?currentScanCP.name:'Unknown',title:title,body:body,category:category,photos:0,gps_lat:currentGPS?currentGPS.lat:null,gps_lng:currentGPS?currentGPS.lng:null,shift_type:currentShift.type,shift_label:currentShift.label},null);
-  addTL('Surveillance note submitted',now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+' · '+category);
+  addTL('Surveillance note submitted',now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})+' · '+category);
   document.getElementById('surv-form').style.display='none';
   showToast('Observation note submitted');
   setTimeout(function(){navApp('s-home');setNav('nav-home');document.getElementById('scan-result').style.display='none';},1500);
@@ -1023,7 +1136,7 @@ document.getElementById('btn-submit-incident').addEventListener('click', functio
   sessionStorage.setItem('mp_incidents',incidentCount);
   renderLists();
   showToast('Incident report submitted');
-  addTL('Incident logged',new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}));
+  addTL('Incident logged',new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}));
   setTimeout(function(){navApp('s-home');setNav('nav-home');},1200);
 });
 
