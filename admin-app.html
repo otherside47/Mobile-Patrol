@@ -333,35 +333,49 @@ let adminProfiles = {};
 let guardProfiles = {};
 
 // Load all profiles from Supabase
-async function loadAllProfiles() {
-  const gData = await sbGet('guard_profiles','order=id.asc');
-  if (Array.isArray(gData) && gData.length) {
-    guardProfiles = {};
-    gData.forEach(g => { guardProfiles[g.id] = {name:g.name, pass:g.pass, vacant:g.vacant||false}; });
-  }
-  const aData = await sbGet('admin_profiles','order=id.asc');
-  if (Array.isArray(aData) && aData.length) {
-    adminProfiles = {};
-    aData.forEach(a => { adminProfiles[a.id] = {name:a.name, pass:a.pass, role:a.role||'admin'}; });
-  }
-  // Update admin login dropdown with latest names
-  var adminSel = document.getElementById('acct-select');
-  if (adminSel) {
-    var adminKeys = Object.keys(adminProfiles);
-    adminSel.innerHTML = '';
-    for (var di = 0; di < adminKeys.length; di++) {
-      var dk = adminKeys[di];
-      var da = adminProfiles[dk];
-      var dopt = document.createElement('option');
-      dopt.value = dk;
-      dopt.textContent = da.name + (da.role==='main' ? ' (Main Admin)' : '');
-      adminSel.appendChild(dopt);
-    }
-    // Show name fields for vacant admin3
-    if (adminProfiles['admin3'] && adminProfiles['admin3'].name === 'Vacant') {
-      // handled by onAcctChange
-    }
-  }
+function loadAllProfiles() {
+  return new Promise(function(resolve) {
+    // Load guard profiles
+    fetch(SUPABASE_URL + '/rest/v1/guard_profiles?order=id.asc', {
+      headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY}
+    }).then(function(r) { return r.json(); }).then(function(gData) {
+      if (Array.isArray(gData) && gData.length) {
+        guardProfiles = {};
+        for (var i = 0; i < gData.length; i++) {
+          guardProfiles[gData[i].id] = {name:gData[i].name, pass:gData[i].pass, vacant:gData[i].vacant||false};
+        }
+      }
+    }).catch(function(){});
+
+    // Load admin profiles
+    fetch(SUPABASE_URL + '/rest/v1/admin_profiles?order=id.asc', {
+      headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY}
+    }).then(function(r) { return r.json(); }).then(function(aData) {
+      if (Array.isArray(aData) && aData.length) {
+        adminProfiles = {};
+        for (var i = 0; i < aData.length; i++) {
+          adminProfiles[aData[i].id] = {name:aData[i].name, pass:aData[i].pass, role:aData[i].role||'admin'};
+        }
+      }
+      // Update dropdown
+      var adminSel = document.getElementById('acct-select');
+      if (adminSel) {
+        var keys = Object.keys(adminProfiles);
+        if (keys.length > 0) {
+          adminSel.innerHTML = '';
+          for (var j = 0; j < keys.length; j++) {
+            var k = keys[j];
+            var a = adminProfiles[k];
+            var opt = document.createElement('option');
+            opt.value = k;
+            opt.textContent = a.name + (a.role === 'main' ? ' (Main Admin)' : '');
+            adminSel.appendChild(opt);
+          }
+        }
+      }
+      resolve();
+    }).catch(function(){ resolve(); });
+  });
 }
 let checkpoints=JSON.parse(localStorage.getItem('mp_checkpoints')||'null')||[];
 if(checkpoints.length===0){

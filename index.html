@@ -443,23 +443,24 @@ var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSI
 var guardProfiles = {};
 
 function loadGuardProfiles(cb) {
-  sbGet('guard_profiles', 'order=id.asc', function(data) {
-    if (data && data.length) {
-      var profiles = {};
+  fetch(SUPABASE_URL + '/rest/v1/guard_profiles?order=id.asc', {
+    headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY}
+  }).then(function(r) {
+    return r.json();
+  }).then(function(data) {
+    if (Array.isArray(data) && data.length > 0) {
+      guardProfiles = {};
       for (var i = 0; i < data.length; i++) {
-        profiles[data[i].id] = {
+        guardProfiles[data[i].id] = {
           name: data[i].name,
           pass: data[i].pass,
           vacant: data[i].vacant || false
         };
       }
-      guardProfiles = profiles;
       updateLoginDropdown();
-    } else {
-      // If no data loaded, show error
-      var sel = document.getElementById('acct-select');
-      if (sel) sel.innerHTML = '<option value="">Unable to load accounts</option>';
     }
+    if (cb) cb();
+  }).catch(function() {
     if (cb) cb();
   });
 }
