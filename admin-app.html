@@ -430,12 +430,19 @@ loadAllProfiles();
 function refreshActiveShifts() {
   var el = document.getElementById('active-shifts-list');
   if (!el) return;
-  fetch(SUPABASE_URL+'/rest/v1/active_shifts?status=eq.active&order=started_at.desc&limit=20', {
-    headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
-  }).then(function(r){
-    if (!r.ok) throw new Error('Network error');
-    return r.json();
-  }).then(function(shifts) {
+  var url = SUPABASE_URL + '/rest/v1/active_shifts?select=*&status=eq.active&order=started_at.desc&limit=20';
+  fetch(url, {
+    method: 'GET',
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Accept': 'application/json'
+    }
+  }).then(function(r) {
+    return r.text();
+  }).then(function(text) {
+    var shifts = [];
+    try { shifts = JSON.parse(text); } catch(e) { shifts = []; }
     if (!Array.isArray(shifts) || shifts.length === 0) {
       el.innerHTML = '<div style="font-size:13px;color:#555a6a;font-family:monospace;padding:8px 0">No guards currently on duty.</div>';
       return;
@@ -443,24 +450,24 @@ function refreshActiveShifts() {
     var html = '';
     for (var i = 0; i < shifts.length; i++) {
       var s = shifts[i];
-      var startTime = new Date(s.started_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-      var startDate = new Date(s.started_at).toLocaleDateString([],{day:'2-digit',month:'short'});
+      var startTime = s.started_at ? new Date(s.started_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '--:--';
+      var startDate = s.started_at ? new Date(s.started_at).toLocaleDateString([],{day:'2-digit',month:'short'}) : '';
       var shiftColor = s.shift_type==='night' ? '#4da3ff' : '#ffb020';
       var shiftTypeLabel = s.shift_type==='night' ? 'NIGHT SHIFT' : 'DAY SHIFT';
       html += '<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.08)">' +
-        '<div style="width:10px;height:10px;border-radius:50%;background:#00e5a0;flex-shrink:0;box-shadow:0 0 6px rgba(0,229,160,0.6)"></div>' +
+        '<div style="width:10px;height:10px;border-radius:50%;background:#00e5a0;flex-shrink:0"></div>' +
         '<div style="flex:1">' +
-        '<div style="font-size:15px;font-weight:700;color:#e8eaf0">'+s.guard_name+'</div>' +
-        '<div style="font-family:monospace;font-size:11px;color:'+shiftColor+';margin-top:3px;font-weight:600">'+shiftTypeLabel+'</div>' +
-        '<div style="font-family:monospace;font-size:10px;color:#8b90a0;margin-top:2px">'+s.shift_label+'</div>' +
-        '<div style="font-family:monospace;font-size:10px;color:#555a6a;margin-top:1px">Started '+startDate+' at '+startTime+'</div>' +
+        '<div style="font-size:15px;font-weight:700;color:#e8eaf0">' + (s.guard_name||'Unknown') + '</div>' +
+        '<div style="font-family:monospace;font-size:11px;color:'+shiftColor+';margin-top:3px;font-weight:600">' + shiftTypeLabel + '</div>' +
+        '<div style="font-family:monospace;font-size:10px;color:#8b90a0;margin-top:2px">' + (s.shift_label||'') + '</div>' +
+        '<div style="font-family:monospace;font-size:10px;color:#555a6a;margin-top:1px">Started ' + startDate + ' at ' + startTime + '</div>' +
         '</div>' +
-        '<div style="font-family:monospace;font-size:11px;font-weight:700;color:#00e5a0;text-align:center">ON<br>DUTY</div>' +
+        '<div style="font-family:monospace;font-size:11px;font-weight:700;color:#00e5a0;text-align:center;padding:4px 8px;border:1px solid rgba(0,229,160,0.3);border-radius:4px">ON DUTY</div>' +
         '</div>';
     }
     el.innerHTML = html;
-  }).catch(function(){
-    el.innerHTML = '<div style="font-size:13px;color:#555a6a;font-family:monospace;padding:8px 0">Unable to load shift status.</div>';
+  }).catch(function(err) {
+    el.innerHTML = '<div style="font-size:13px;color:#ff6b6b;font-family:monospace;padding:8px 0">Connection error. Tap Refresh to retry.</div>';
   });
 }
 
