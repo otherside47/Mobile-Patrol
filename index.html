@@ -166,7 +166,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
   </div>
   <div id="sound-banner" style="background:rgba(255,176,32,0.12);border-bottom:1px solid rgba(255,176,32,0.25);padding:8px 16px;display:flex;align-items:center;justify-content:space-between;font-size:12px;color:#ffb020;font-family:monospace;flex-shrink:0">
     <span>Tap to enable alerts</span>
-    <button type="button" id="enable-alerts-btn" style="background:#ffb020;color:#000;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer">Enable Alerts</button>
+    <button type="button" onclick="enableSound()" style="background:#ffb020;color:#000;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer">Enable Alerts</button>
   </div>
 
   <!-- PATROL HOME -->
@@ -528,56 +528,27 @@ function sbPatch(table, id, data) {
 var audioCtx = null;
 var audioReady = false;
 
-document.getElementById('enable-alerts-btn').addEventListener('click', function() {
+function enableSound() {
   document.getElementById('sound-banner').style.display = 'none';
-  try {
-    var AC = window.AudioContext || window.webkitAudioContext;
-    if (AC) {
-      audioCtx = new AC();
-      // Play short test beep immediately on tap to confirm audio works
-      var osc = audioCtx.createOscillator();
-      var gain = audioCtx.createGain();
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.type = 'sine';
-      osc.frequency.value = 880;
-      gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
-      osc.start(audioCtx.currentTime);
-      osc.stop(audioCtx.currentTime + 0.5);
-      audioReady = true;
-    }
-  } catch(e) {}
+  var AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) { showToast('Alerts enabled'); return; }
+  audioCtx = new AC();
+  audioReady = true;
+  // Immediate test beep
+  var o = audioCtx.createOscillator();
+  var g = audioCtx.createGain();
+  o.connect(g); g.connect(audioCtx.destination);
+  o.frequency.value = 880;
+  g.gain.setValueAtTime(0.8, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.6);
+  o.start(audioCtx.currentTime);
+  o.stop(audioCtx.currentTime + 0.6);
   if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
   showToast('Alerts enabled');
-});
+}
 
 function playAlert() {
   if (navigator.vibrate) navigator.vibrate([800,200,800,200,800,200,800,200,800,200,800,200,800]);
-  if (audioReady && audioCtx) {
-    try {
-      if (audioCtx.state === 'suspended') audioCtx.resume();
-      var now = audioCtx.currentTime;
-      for (var c = 0; c < 6; c++) {
-        (function(t) {
-          var osc = audioCtx.createOscillator();
-          var gain = audioCtx.createGain();
-          osc.connect(gain);
-          gain.connect(audioCtx.destination);
-          osc.type = 'square';
-          osc.frequency.setValueAtTime(600, now + t);
-          osc.frequency.linearRampToValueAtTime(1200, now + t + 0.4);
-          osc.frequency.linearRampToValueAtTime(600, now + t + 0.8);
-          gain.gain.setValueAtTime(0, now + t);
-          gain.gain.linearRampToValueAtTime(1.0, now + t + 0.05);
-          gain.gain.setValueAtTime(1.0, now + t + 0.75);
-          gain.gain.linearRampToValueAtTime(0, now + t + 0.8);
-          osc.start(now + t);
-          osc.stop(now + t + 0.85);
-        })(c * 0.8);
-      }
-    } catch(e) {}
-  }
   var flash = document.getElementById('screen-flash');
   var count = 0;
   var iv = setInterval(function() {
@@ -585,6 +556,25 @@ function playAlert() {
     count++;
     if (count > 20) { clearInterval(iv); flash.style.display = 'none'; }
   }, 200);
+  if (!audioReady || !audioCtx) return;
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  var now = audioCtx.currentTime;
+  for (var c = 0; c < 6; c++) {
+    (function(t) {
+      var o = audioCtx.createOscillator();
+      var g = audioCtx.createGain();
+      o.connect(g); g.connect(audioCtx.destination);
+      o.type = 'square';
+      o.frequency.setValueAtTime(600, now+t);
+      o.frequency.linearRampToValueAtTime(1200, now+t+0.4);
+      o.frequency.linearRampToValueAtTime(600, now+t+0.8);
+      g.gain.setValueAtTime(0, now+t);
+      g.gain.linearRampToValueAtTime(1.0, now+t+0.05);
+      g.gain.setValueAtTime(1.0, now+t+0.75);
+      g.gain.linearRampToValueAtTime(0, now+t+0.8);
+      o.start(now+t); o.stop(now+t+0.85);
+    })(c * 0.8);
+  }
 }
 
 // POLL
