@@ -929,7 +929,35 @@ function startShift() {
   shiftEl.style.display = 'none';
   appEl.classList.add('active');
   appEl.style.display = 'flex';
-  renderLists();
+  updateGPS();
+  // Load existing scans for this shift from Supabase BEFORE rendering
+  document.getElementById('cp-list').innerHTML = '<div style="font-size:13px;color:#555a6a;font-family:monospace;padding:8px 0">Loading...</div>';
+  var sinceDate = currentShift.startDate + 'T00:00:00.000Z';
+  var shiftType = currentShift.type;
+  fetch(SUPABASE_URL+'/rest/v1/patrol_scans?timestamp=gte.'+sinceDate+'&shift_type=eq.'+shiftType+'&order=timestamp.asc&limit=200', {
+    headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+  }).then(function(r){return r.json();}).then(function(scans){
+    if (Array.isArray(scans) && scans.length > 0) {
+      var loaded = 0;
+      for (var i = 0; i < scans.length; i++) {
+        var s = scans[i];
+        if (s.checkpoint_id && !sessionScanned[s.checkpoint_id]) {
+          var t = new Date(s.timestamp).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+          sessionScanned[s.checkpoint_id] = t;
+          loaded++;
+        }
+      }
+      sessionStorage.setItem('mp_scanned',JSON.stringify(sessionScanned));
+      if (loaded > 0) { showToast(loaded+' checkpoints already scanned'); }
+      else { showToast('Shift started'); }
+    } else {
+      showToast('Shift started');
+    }
+    renderLists();
+  }).catch(function(){
+    renderLists();
+    showToast('Shift started');
+  });
   // Save shift to Supabase immediately
   var shiftId = 'SHIFT-' + Date.now();
   window._shiftId = shiftId;
