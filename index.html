@@ -1074,6 +1074,9 @@ function showToast(msg){
   window._tt=setTimeout(function(){t.style.display='none';},2500);
 }
 
+// INIT - Load profiles on page load
+loadGuardProfiles(null);
+
 // OFFLINE
 window.addEventListener('offline',function(){document.getElementById('offline-bar').style.display='flex';document.getElementById('status-sync').textContent='Offline';});
 window.addEventListener('online',function(){document.getElementById('offline-bar').style.display='none';document.getElementById('status-sync').textContent='Live';showToast('Back online');});
