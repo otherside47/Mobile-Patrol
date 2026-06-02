@@ -118,11 +118,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
       <div class="err" id="login-err">Incorrect password. Try again.</div>
       <label class="fl">Account</label>
       <select id="acct-select">
-        <option value="guard1">Guard 1</option>
-        <option value="guard2">Guard 2</option>
-        <option value="guard3">Guard 3</option>
-        <option value="guard4">Guard 4</option>
-        <option value="guard5">Guard 5 — Replacement</option>
+        <option value="">Loading accounts...</option>
       </select>
       <div id="name-fields" style="display:none">
         <label class="fl">First name</label>
@@ -443,14 +439,8 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
 var SUPABASE_URL = 'https://hzvegzkjogcjqzogxvvm.supabase.co';
 var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh6dmVnemtqb2djanF6b2d4dnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwOTA3NjgsImV4cCI6MjA5NTY2Njc2OH0.jDvCtntJjFd0tp9h5vFHm3xKa6s5HOGAschU-QrnmAE';
 
-// Guard profiles loaded from Supabase
-var guardProfiles = {
-  guard1:{name:'A. Weber',pass:'guard1pass'},
-  guard2:{name:'M. Kowalski',pass:'guard2pass'},
-  guard3:{name:'J. Schmidt',pass:'guard3pass'},
-  guard4:{name:'T. Bauer',pass:'guard4pass'},
-  guard5:{name:'Replacement',pass:'guardpass',vacant:true}
-};
+// Guard profiles - loaded exclusively from Supabase
+var guardProfiles = {};
 
 function loadGuardProfiles(cb) {
   sbGet('guard_profiles', 'order=id.asc', function(data) {
@@ -464,8 +454,11 @@ function loadGuardProfiles(cb) {
         };
       }
       guardProfiles = profiles;
-      // Update dropdown with latest names
       updateLoginDropdown();
+    } else {
+      // If no data loaded, show error
+      var sel = document.getElementById('acct-select');
+      if (sel) sel.innerHTML = '<option value="">Unable to load accounts</option>';
     }
     if (cb) cb();
   });
@@ -997,7 +990,7 @@ function startShift() {
     body: JSON.stringify(shiftRecord)
   }).then(function(r) {
     if (r.ok || r.status === 201) {
-      showToast('Shift started - now visible to admin');
+      showToast('Shift started');
     }
   }).catch(function(){});
   updateGPS();
