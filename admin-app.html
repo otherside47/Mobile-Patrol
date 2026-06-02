@@ -444,26 +444,9 @@ loadAllProfiles();
 function refreshActiveShifts() {
   var el = document.getElementById('active-shifts-list');
   if (!el) return;
-  el.innerHTML = '<div style="font-size:11px;color:#555a6a;font-family:monospace">Checking...</div>';
-  // Query ALL shifts and filter - bypass potential RLS issues
-  var url = SUPABASE_URL + '/rest/v1/active_shifts?select=id,guard_name,shift_type,shift_label,started_at,status&order=started_at.desc&limit=50';
-  fetch(url, {
-    method: 'GET',
-    headers: {
-      'apikey': SUPABASE_KEY,
-      'Authorization': 'Bearer ' + SUPABASE_KEY,
-      'Content-Type': 'application/json'
-    }
-  }).then(function(r) {
-    return r.json();
-  }).then(function(data) {
-    if (!Array.isArray(data)) {
-      el.innerHTML = '<div style="font-size:11px;color:#ff6b6b;font-family:monospace">Error: unexpected response</div>';
-      return;
-    }
-    // Filter active shifts client-side
-    var shifts = data.filter(function(s) { return s.status === 'active'; });
-    if (shifts.length === 0) {
+
+  function renderShifts(shifts) {
+    if (!shifts || shifts.length === 0) {
       el.innerHTML = '<div style="font-size:13px;color:#555a6a;font-family:monospace;padding:8px 0">No guards currently on duty.</div>';
       return;
     }
@@ -486,9 +469,45 @@ function refreshActiveShifts() {
         '</div>';
     }
     el.innerHTML = html;
-  }).catch(function(err) {
-    el.innerHTML = '<div style="font-size:11px;color:#ff6b6b;font-family:monospace;padding:8px 0">Error: ' + err.message + '</div>';
-  });
+  }
+
+  // Try active_shifts table first
+  fetch(SUPABASE_URL + '/rest/v1/active_shifts?order=started_at.desc&limit=50', {
+    headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY}
+  }).then(function(r) {
+    return r.json();
+  }).then(function(data) {
+    if (!Array.isArray(data)) { renderShifts([]); return; }
+    var active = data.filter(function(s) { return s.status === 'active'; });
+    if (active.length > 0) {
+      renderShifts(active);
+    } else {
+      // Fallback: check patrol_scans from last 12 hours to infer who is on duty
+      var since = new Date(Date.now() - 12*60*60*1000).toISOString();
+      fetch(SUPABASE_URL + '/rest/v1/patrol_scans?order=timestamp.desc&limit=100&timestamp=gte.' + since, {
+        headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY}
+      }).then(function(r2) { return r2.json(); }).then(function(scans) {
+        if (!Array.isArray(scans) || scans.length === 0) { renderShifts([]); return; }
+        // Get unique guards from recent scans
+        var seen = {};
+        var guards = [];
+        for (var i = 0; i < scans.length; i++) {
+          var s = scans[i];
+          if (s.guard_name && !seen[s.guard_name]) {
+            seen[s.guard_name] = true;
+            guards.push({
+              guard_name: s.guard_name,
+              shift_type: s.shift_type || 'day',
+              shift_label: s.shift_label || 'Active patrol',
+              started_at: s.timestamp,
+              status: 'active'
+            });
+          }
+        }
+        renderShifts(guards);
+      }).catch(function() { renderShifts([]); });
+    }
+  }).catch(function() { renderShifts([]); });
 }
 
 // Start refreshing active shifts every 5 seconds after login
