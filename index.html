@@ -931,10 +931,12 @@ function startShift() {
   appEl.style.display = 'flex';
   updateGPS();
   // Load existing scans for this shift from Supabase BEFORE rendering
+  // For night shifts spanning two days, load from startDate to endDate+1
   document.getElementById('cp-list').innerHTML = '<div style="font-size:13px;color:#555a6a;font-family:monospace;padding:8px 0">Loading...</div>';
   var sinceDate = currentShift.startDate + 'T00:00:00.000Z';
+  var untilDate = currentShift.endDate + 'T23:59:59.000Z';
   var shiftType = currentShift.type;
-  fetch(SUPABASE_URL+'/rest/v1/patrol_scans?timestamp=gte.'+sinceDate+'&shift_type=eq.'+shiftType+'&order=timestamp.asc&limit=200', {
+  fetch(SUPABASE_URL+'/rest/v1/patrol_scans?timestamp=gte.'+sinceDate+'&timestamp=lte.'+untilDate+'&shift_type=eq.'+shiftType+'&order=timestamp.asc&limit=200', {
     headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
   }).then(function(r){return r.json();}).then(function(scans){
     if (Array.isArray(scans) && scans.length > 0) {
