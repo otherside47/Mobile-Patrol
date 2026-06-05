@@ -962,7 +962,6 @@ function qrCanvasToSVG(canvas, cpId) {
 
   // Build boolean grid: true = black pixel
   var grid = [];
-  var i;
   for (var y = 0; y < h; y++) {
     grid[y] = [];
     for (var x = 0; x < w; x++) {
@@ -970,34 +969,20 @@ function qrCanvasToSVG(canvas, cpId) {
     }
   }
 
-  // Track used pixels to avoid double-counting
-  var used = [];
-  for (var y = 0; y < h; y++) {
-    used[y] = [];
-    for (var x = 0; x < w; x++) used[y][x] = false;
-  }
-
-  // Greedy rectangle merging: extend right then down
-  var rects = [];
+  // Build a single SVG <path> using even-odd fill rule.
+  // Each black pixel contributes a clockwise sub-path rectangle.
+  // All sub-paths are combined into one <path d="..."> element —
+  // SolidWorks/DXF import sees this as a single compound shape.
+  var pathParts = [];
   for (var y = 0; y < h; y++) {
     for (var x = 0; x < w; x++) {
-      if (!grid[y][x] || used[y][x]) continue;
-      // Extend right as far as possible
-      var x2 = x;
-      while (x2 + 1 < w && grid[y][x2 + 1] && !used[y][x2 + 1]) x2++;
-      // Extend down: every row must have same solid run from x to x2
-      var y2 = y;
-      var canExpand = true;
-      while (canExpand && y2 + 1 < h) {
-        for (var cx = x; cx <= x2; cx++) {
-          if (!grid[y2 + 1][cx] || used[y2 + 1][cx]) { canExpand = false; break; }
-        }
-        if (canExpand) y2++;
-      }
-      // Mark all covered pixels as used
-      for (var ry = y; ry <= y2; ry++)
-        for (var rx = x; rx <= x2; rx++) used[ry][rx] = true;
-      rects.push([x, y, x2 - x + 1, y2 - y + 1]);
+      if (!grid[y][x]) continue;
+      var x0 = (x * px).toFixed(4);
+      var y0 = (y * px).toFixed(4);
+      var x1 = ((x + 1) * px).toFixed(4);
+      var y1 = ((y + 1) * px).toFixed(4);
+      // Clockwise rectangle sub-path: M top-left → right → down → left → close
+      pathParts.push('M' + x0 + ',' + y0 + ' L' + x1 + ',' + y0 + ' L' + x1 + ',' + y1 + ' L' + x0 + ',' + y1 + ' Z');
     }
   }
 
@@ -1006,16 +991,8 @@ function qrCanvasToSVG(canvas, cpId) {
   parts.push(' width="' + size + 'mm" height="' + size + 'mm"');
   parts.push(' viewBox="0 0 ' + size + ' ' + size + '">');
   parts.push('<rect width="' + size + '" height="' + size + '" fill="white"/>');
-  parts.push('<g fill="black">');
-  for (i = 0; i < rects.length; i++) {
-    var r = rects[i];
-    var rx = (r[0] * px).toFixed(3);
-    var ry = (r[1] * px).toFixed(3);
-    var rw = (r[2] * px).toFixed(3);
-    var rh = (r[3] * px).toFixed(3);
-    parts.push('<rect x="' + rx + '" y="' + ry + '" width="' + rw + '" height="' + rh + '"/>');
-  }
-  parts.push('</g></svg>');
+  parts.push('<path fill-rule="evenodd" fill="black" d="' + pathParts.join(' ') + '"/>');
+  parts.push('</svg>');
   return parts.join('');
 }
 
