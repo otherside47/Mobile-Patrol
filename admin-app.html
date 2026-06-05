@@ -389,6 +389,39 @@ if(checkpoints.length===0){
   checkpoints.push({id:'RC-001',name:'Radio Check — Base',type:'radio',route:'Main Patrol',gps:null,anchored:false,range:500});
   localStorage.setItem('mp_checkpoints',JSON.stringify(checkpoints));
 }
+
+// Restore GPS anchors from Supabase — uses ALL-TIME earliest scan per checkpoint
+// so anchor data survives across shifts and browser clears
+function loadAnchorsFromSupabase() {
+  fetch(SUPABASE_URL+'/rest/v1/patrol_scans?order=timestamp.asc&limit=2000&select=checkpoint_id,gps_lat,gps_lng', {
+    headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+  }).then(function(r){return r.json();}).then(function(scans){
+    if (!Array.isArray(scans)) return;
+    var anchorMap = {};
+    for (var i=0;i<scans.length;i++){
+      var s=scans[i];
+      if(s.checkpoint_id && s.gps_lat && s.gps_lng && !anchorMap[s.checkpoint_id]){
+        anchorMap[s.checkpoint_id]={lat:s.gps_lat,lng:s.gps_lng};
+      }
+    }
+    var changed=false;
+    for(var j=0;j<checkpoints.length;j++){
+      var cp=checkpoints[j];
+      if(anchorMap[cp.id]){
+        if(!cp.anchored || !cp.gps){
+          cp.gps=anchorMap[cp.id];
+          cp.anchored=true;
+          changed=true;
+        }
+      }
+    }
+    if(changed){
+      localStorage.setItem('mp_checkpoints',JSON.stringify(checkpoints));
+      renderCheckpoints();
+    }
+  }).catch(function(){});
+}
+
 let currentAdminKey=null;
 let currentAdminRole=null;
 let lastSeenRequestId=localStorage.getItem('mp_admin_last_req')||null;
@@ -566,7 +599,7 @@ function doLogin(){
     document.getElementById('admin-role-badge').textContent=acc.role==='main'?'MAIN ADMIN':'ADMIN';
     document.getElementById('screen-login').classList.remove('active');
     document.getElementById('screen-app').classList.add('active');
-    loadLiveData();pollRequests();startShiftPolling();
+    loadLiveData();pollRequests();startShiftPolling();loadAnchorsFromSupabase();
     showToast('Welcome, '+name);
   });
 }
@@ -969,100 +1002,69 @@ function qrCanvasToSVG(canvas, cpId) {
     }
   }
 
-  function isBlack(x, y) {
+  function G(x, y) {
     if (x < 0 || y < 0 || x >= w || y >= h) return false;
     return grid[y][x];
   }
 
-  // Collect all boundary edges between black and white pixels.
-  // Each edge is a horizontal or vertical unit segment on the pixel grid.
-  // We store edges as strings "x1,y1,x2,y2" in a set for fast lookup/deletion.
-  var edgeSet = {};
+  // Directed-edge boundary tracing.
+  // For each black pixel, emit directed edges only on borders with white pixels.
+  // Direction chosen so the black pixel is always to the LEFT of the edge direction.
+  // This gives consistent winding and clean closed contours with no internal seams.
+  var nextV = {};
+  function addEdge(x1,y1,x2,y2){
+    var k=x1+','+y1;
+    nextV[k]=[x2,y2];
+  }
   for (var y = 0; y < h; y++) {
     for (var x = 0; x < w; x++) {
       if (!grid[y][x]) continue;
-      // top edge
-      if (!isBlack(x, y-1)) { var k='H'+x+','+(y)+','+(x+1)+','+y; edgeSet[k]=[x,y,x+1,y]; }
-      // bottom edge
-      if (!isBlack(x, y+1)) { var k='H'+x+','+(y+1)+','+(x+1)+','+(y+1); edgeSet[k]=[x,y+1,x+1,y+1]; }
-      // left edge
-      if (!isBlack(x-1, y)) { var k='V'+x+','+y+','+x+','+(y+1); edgeSet[k]=[x,y,x,y+1]; }
-      // right edge
-      if (!isBlack(x+1, y)) { var k='V'+(x+1)+','+y+','+(x+1)+','+(y+1); edgeSet[k]=[x+1,y,x+1,y+1]; }
+      if (!G(x,y-1)) addEdge(x,  y,   x+1,y  ); // top    → rightward
+      if (!G(x+1,y)) addEdge(x+1,y,   x+1,y+1); // right  → downward
+      if (!G(x,y+1)) addEdge(x+1,y+1, x,  y+1); // bottom → leftward
+      if (!G(x-1,y)) addEdge(x,  y+1, x,  y  ); // left   → upward
     }
   }
 
-  // Build adjacency: for each vertex, which edges start or end there
-  var vertexEdges = {};
-  function addToVertex(vk, ek) {
-    if (!vertexEdges[vk]) vertexEdges[vk] = [];
-    vertexEdges[vk].push(ek);
-  }
-  for (var ek in edgeSet) {
-    var e = edgeSet[ek];
-    var v1 = e[0]+','+e[1];
-    var v2 = e[2]+','+e[3];
-    addToVertex(v1, ek);
-    addToVertex(v2, ek);
-  }
-
-  // Trace closed contours by following connected edges
-  var usedEdges = {};
+  // Walk contours
+  var visited = {};
   var contours = [];
-
-  for (var startEk in edgeSet) {
-    if (usedEdges[startEk]) continue;
-    var contour = [];
-    var e = edgeSet[startEk];
-    var cx = e[0], cy = e[1];
-    contour.push([cx, cy]);
-    usedEdges[startEk] = true;
-    var prevEk = startEk;
-    var nx = e[2], ny = e[3];
-
-    while (nx !== contour[0][0] || ny !== contour[0][1]) {
-      contour.push([nx, ny]);
-      var vk = nx+','+ny;
-      var edges = vertexEdges[vk];
-      var found = false;
-      for (var ei = 0; ei < edges.length; ei++) {
-        var nek = edges[ei];
-        if (usedEdges[nek] || nek === prevEk) continue;
-        usedEdges[nek] = true;
-        var ne = edgeSet[nek];
-        // next vertex is the other end of this edge
-        if (ne[0] === nx && ne[1] === ny) { nx = ne[2]; ny = ne[3]; }
-        else { nx = ne[0]; ny = ne[1]; }
-        prevEk = nek;
-        found = true;
-        break;
-      }
-      if (!found) break;
+  for (var startKey in nextV) {
+    if (visited[startKey]) continue;
+    var pts = [];
+    var cur = startKey;
+    var safety = 0;
+    while (!visited[cur] && safety++ < 200000) {
+      visited[cur] = true;
+      var sp = cur.split(',');
+      pts.push([+sp[0], +sp[1]]);
+      var nv = nextV[cur];
+      if (!nv) break;
+      cur = nv[0]+','+nv[1];
     }
-    contours.push(contour);
+    if (pts.length > 2) contours.push(pts);
   }
 
-  // Build single SVG path: all contours combined, scaled to mm
+  // Build single SVG <path> with all contours — evenodd handles holes automatically
   var dParts = [];
   for (var ci = 0; ci < contours.length; ci++) {
     var pts = contours[ci];
-    if (pts.length < 2) continue;
-    var d = 'M' + (pts[0][0]*px).toFixed(4) + ',' + (pts[0][1]*px).toFixed(4);
+    var d = 'M'+(pts[0][0]*px).toFixed(4)+','+(pts[0][1]*px).toFixed(4);
     for (var pi = 1; pi < pts.length; pi++) {
-      d += ' L' + (pts[pi][0]*px).toFixed(4) + ',' + (pts[pi][1]*px).toFixed(4);
+      d += 'L'+(pts[pi][0]*px).toFixed(4)+','+(pts[pi][1]*px).toFixed(4);
     }
-    d += ' Z';
+    d += 'Z';
     dParts.push(d);
   }
 
-  var parts = [];
-  parts.push('<svg xmlns="http://www.w3.org/2000/svg"');
-  parts.push(' width="' + size + 'mm" height="' + size + 'mm"');
-  parts.push(' viewBox="0 0 ' + size + ' ' + size + '">');
-  parts.push('<rect width="' + size + '" height="' + size + '" fill="white"/>');
-  parts.push('<path fill-rule="evenodd" fill="black" d="' + dParts.join(' ') + '"/>');
-  parts.push('</svg>');
-  return parts.join('');
+  var svgParts = [];
+  svgParts.push('<svg xmlns="http://www.w3.org/2000/svg"');
+  svgParts.push(' width="'+size+'mm" height="'+size+'mm"');
+  svgParts.push(' viewBox="0 0 '+size+' '+size+'">');
+  svgParts.push('<rect width="'+size+'" height="'+size+'" fill="white"/>');
+  svgParts.push('<path fill-rule="evenodd" fill="black" d="'+dParts.join('')+'"/>');
+  svgParts.push('</svg>');
+  return svgParts.join('');
 }
 
 function downloadSVG(cpId) {
