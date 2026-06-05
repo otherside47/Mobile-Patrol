@@ -1002,68 +1002,50 @@ function qrCanvasToSVG(canvas, cpId) {
     }
   }
 
-  function G(x, y) {
-    if (x < 0 || y < 0 || x >= w || y >= h) return false;
-    return grid[y][x];
+  // Greedy rectangle merging:
+  // Scan left-to-right, top-to-bottom.
+  // For each unvisited black pixel, extend right as far as possible,
+  // then extend the whole row downward as long as the same width run continues.
+  // This produces the minimum number of clean non-overlapping rectangles
+  // with zero diagonal artifacts — safe and reliable for SolidWorks/DXF.
+  var used = [];
+  for (var y = 0; y < h; y++) {
+    used[y] = [];
+    for (var x = 0; x < w; x++) used[y][x] = false;
   }
 
-  // Directed-edge boundary tracing.
-  // For each black pixel, emit directed edges only on borders with white pixels.
-  // Direction chosen so the black pixel is always to the LEFT of the edge direction.
-  // This gives consistent winding and clean closed contours with no internal seams.
-  var nextV = {};
-  function addEdge(x1,y1,x2,y2){
-    var k=x1+','+y1;
-    nextV[k]=[x2,y2];
-  }
+  var rects = [];
   for (var y = 0; y < h; y++) {
     for (var x = 0; x < w; x++) {
-      if (!grid[y][x]) continue;
-      if (!G(x,y-1)) addEdge(x,  y,   x+1,y  ); // top    → rightward
-      if (!G(x+1,y)) addEdge(x+1,y,   x+1,y+1); // right  → downward
-      if (!G(x,y+1)) addEdge(x+1,y+1, x,  y+1); // bottom → leftward
-      if (!G(x-1,y)) addEdge(x,  y+1, x,  y  ); // left   → upward
+      if (!grid[y][x] || used[y][x]) continue;
+      // extend right
+      var x2 = x;
+      while (x2+1 < w && grid[y][x2+1] && !used[y][x2+1]) x2++;
+      // extend down
+      var y2 = y;
+      var ok = true;
+      while (ok && y2+1 < h) {
+        for (var cx = x; cx <= x2; cx++) {
+          if (!grid[y2+1][cx] || used[y2+1][cx]) { ok = false; break; }
+        }
+        if (ok) y2++;
+      }
+      // mark used
+      for (var ry = y; ry <= y2; ry++)
+        for (var rx = x; rx <= x2; rx++) used[ry][rx] = true;
+      rects.push([x, y, x2-x+1, y2-y+1]);
     }
-  }
-
-  // Walk contours
-  var visited = {};
-  var contours = [];
-  for (var startKey in nextV) {
-    if (visited[startKey]) continue;
-    var pts = [];
-    var cur = startKey;
-    var safety = 0;
-    while (!visited[cur] && safety++ < 200000) {
-      visited[cur] = true;
-      var sp = cur.split(',');
-      pts.push([+sp[0], +sp[1]]);
-      var nv = nextV[cur];
-      if (!nv) break;
-      cur = nv[0]+','+nv[1];
-    }
-    if (pts.length > 2) contours.push(pts);
-  }
-
-  // Build single SVG <path> with all contours — evenodd handles holes automatically
-  var dParts = [];
-  for (var ci = 0; ci < contours.length; ci++) {
-    var pts = contours[ci];
-    var d = 'M'+(pts[0][0]*px).toFixed(4)+','+(pts[0][1]*px).toFixed(4);
-    for (var pi = 1; pi < pts.length; pi++) {
-      d += 'L'+(pts[pi][0]*px).toFixed(4)+','+(pts[pi][1]*px).toFixed(4);
-    }
-    d += 'Z';
-    dParts.push(d);
   }
 
   var svgParts = [];
-  svgParts.push('<svg xmlns="http://www.w3.org/2000/svg"');
-  svgParts.push(' width="'+size+'mm" height="'+size+'mm"');
-  svgParts.push(' viewBox="0 0 '+size+' '+size+'">');
+  svgParts.push('<svg xmlns="http://www.w3.org/2000/svg" width="'+size+'mm" height="'+size+'mm" viewBox="0 0 '+size+' '+size+'">');
   svgParts.push('<rect width="'+size+'" height="'+size+'" fill="white"/>');
-  svgParts.push('<path fill-rule="evenodd" fill="black" d="'+dParts.join('')+'"/>');
-  svgParts.push('</svg>');
+  svgParts.push('<g fill="black">');
+  for (var i = 0; i < rects.length; i++) {
+    var r = rects[i];
+    svgParts.push('<rect x="'+(r[0]*px).toFixed(4)+'" y="'+(r[1]*px).toFixed(4)+'" width="'+(r[2]*px).toFixed(4)+'" height="'+(r[3]*px).toFixed(4)+'"/>');
+  }
+  svgParts.push('</g></svg>');
   return svgParts.join('');
 }
 
