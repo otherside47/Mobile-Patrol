@@ -201,9 +201,10 @@ select:focus,input:focus{border-color:#00e5a0}
     <!-- QR CODES -->
     <div class="tab-panel" id="tab-qr">
       <div style="font-size:13px;color:#8b90a0;margin-bottom:12px">Print and place at each location. First scan locks GPS.</div>
-      <div style="display:flex;gap:8px;margin-bottom:12px">
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
         <button type="button" class="btn btn-p" style="margin-bottom:0" onclick="window.print()">Print all</button>
         <button type="button" class="btn btn-b" style="margin-bottom:0" onclick="generateQRCodes()">Refresh</button>
+        <button type="button" class="btn" style="margin-bottom:0;color:#cc66ff;border-color:rgba(180,0,255,0.3);background:rgba(180,0,255,0.1)" onclick="downloadAllSVGs()">Download All SVGs</button>
       </div>
       <div class="qr-grid" id="qr-grid"></div>
     </div>
@@ -680,8 +681,9 @@ function loadLiveData(){
     document.getElementById('live-notes').textContent = '0';
   });
 
-  // Fetch checkpoint scan status
-  fetch(SUPABASE_URL+'/rest/v1/patrol_scans?order=timestamp.desc&limit=200', {
+  // Fetch checkpoint scan status - only last 12 hours (current shift period)
+  var twelveHoursAgo = new Date(Date.now() - 12*60*60*1000).toISOString();
+  fetch(SUPABASE_URL+'/rest/v1/patrol_scans?timestamp=gte.'+twelveHoursAgo+'&order=timestamp.desc&limit=200', {
     headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
   }).then(function(r){ return r.json(); }).then(function(scans) {
     if (!Array.isArray(scans)) scans = [];
@@ -950,10 +952,62 @@ function openGPSModal(idx){
 function resetGPSAnchor(){const idx=parseInt(document.getElementById('gps-cp-index').value);checkpoints[idx].gps=null;checkpoints[idx].anchored=false;saveAll();renderCheckpoints();closeModal('modal-gps');showToast('OK GPS anchor reset');}
 
 // ── QR CODES ──
+function qrCanvasToSVG(canvas, cpId) {
+  var ctx = canvas.getContext('2d');
+  var w = canvas.width;
+  var h = canvas.height;
+  var imgData = ctx.getImageData(0, 0, w, h);
+  var size = 55;
+  var px = size / w;
+  var parts = [];
+  parts.push('<svg xmlns="http://www.w3.org/2000/svg"');
+  parts.push(' width="' + size + 'mm" height="' + size + 'mm"');
+  parts.push(' viewBox="0 0 ' + size + ' ' + size + '">');
+  parts.push('<rect width="' + size + '" height="' + size + '" fill="white"/>');
+  parts.push('<g fill="black">');
+  for (var y = 0; y < h; y++) {
+    for (var x = 0; x < w; x++) {
+      var idx = (y * w + x) * 4;
+      if (imgData.data[idx] < 128) {
+        var rx = (x * px).toFixed(3);
+        var ry = (y * px).toFixed(3);
+        var rw = px.toFixed(3);
+        parts.push('<rect x="' + rx + '" y="' + ry + '" width="' + rw + '" height="' + rw + '"/>');
+      }
+    }
+  }
+  parts.push('</g></svg>');
+  return parts.join('');
+}
+
+function downloadSVG(cpId) {
+  var qrDiv = document.getElementById('qr-' + cpId);
+  if (!qrDiv) return;
+  var canvas = qrDiv.querySelector('canvas');
+  if (!canvas) return;
+  var svg = qrCanvasToSVG(canvas, cpId);
+  var blob = new Blob([svg], {type: 'image/svg+xml'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = cpId + '.svg';
+  a.click();
+}
+
+function downloadAllSVGs() {
+  var idx = 0;
+  function next() {
+    if (idx >= checkpoints.length) { showToast('All SVGs downloaded'); return; }
+    downloadSVG(checkpoints[idx].id);
+    idx++;
+    setTimeout(next, 400);
+  }
+  next();
+}
+
 function generateQRCodes(){
   const grid=document.getElementById('qr-grid');grid.innerHTML='';
-  // Fetch latest scans to show superscript
-  fetch(SUPABASE_URL+'/rest/v1/patrol_scans?order=timestamp.desc&limit=200', {
+  var twelveHoursAgo2 = new Date(Date.now() - 12*60*60*1000).toISOString();
+  fetch(SUPABASE_URL+'/rest/v1/patrol_scans?timestamp=gte.'+twelveHoursAgo2+'&order=timestamp.desc&limit=200', {
     headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
   }).then(function(r){return r.json();}).then(function(scans){
     if (!Array.isArray(scans)) scans=[];
@@ -961,7 +1015,9 @@ function generateQRCodes(){
     for (var i=0; i<scans.length; i++) {
       if (scans[i].checkpoint_id) {
         var gn = scans[i].guard_name || '';
-        scannedIds[scans[i].checkpoint_id] = gn.split(' ').map(function(w){return w[0];}).join('').toUpperCase() || 'S';
+        var parts = gn.split(' ').filter(function(w){return w.length>0;});
+        var initials = parts.length>=2 ? (parts[0][0]+parts[parts.length-1][0]).toUpperCase() : gn.slice(0,2).toUpperCase();
+        scannedIds[scans[i].checkpoint_id] = initials || 'SC';
       }
     }
     checkpoints.forEach(function(cp){
@@ -982,23 +1038,37 @@ function generateQRCodes(){
         sup.textContent=guardInitials;
         titleWrap.appendChild(sup);
       }
-      var qrDiv=document.createElement('div');qrDiv.id='qr-'+cp.id;
+      var qrDiv=document.createElement('div');
+      qrDiv.id='qr-'+cp.id;
       var sub=document.createElement('div');
       sub.className='qr-card-sub';
       sub.textContent=cp.id+' · '+(cp.type==='checkpoint'?'20m':cp.type==='surveillance'?'Surv 500m':'Radio 500m');
-      card.appendChild(titleWrap);card.appendChild(qrDiv);card.appendChild(sub);
+      // Download SVG button
+      var dlBtn=document.createElement('button');
+      dlBtn.type='button';
+      dlBtn.style.cssText='margin-top:4px;background:#0066cc;color:#fff;border:none;border-radius:3px;padding:2px 8px;font-size:9px;cursor:pointer;font-family:monospace';
+      dlBtn.textContent='SVG';
+      dlBtn.onclick=(function(id){return function(){downloadSVG(id);};})(cp.id);
+      card.appendChild(titleWrap);
+      card.appendChild(qrDiv);
+      card.appendChild(sub);
+      card.appendChild(dlBtn);
       grid.appendChild(card);
-      try{new QRCode(qrDiv,{text:cp.id,width:110,height:110,colorDark:'#000000',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.H});}catch(e){}
+      try{new QRCode(qrDiv,{text:cp.id,width:200,height:200,colorDark:'#000000',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.H});}catch(e){}
     });
   }).catch(function(){
-    // Fallback - show without scan status
     checkpoints.forEach(function(cp){
       var card=document.createElement('div');card.className='qr-card';
       var title=document.createElement('div');title.className='qr-card-title';title.textContent=cp.name;
       var qrDiv=document.createElement('div');qrDiv.id='qr-'+cp.id;
       var sub=document.createElement('div');sub.className='qr-card-sub';sub.textContent=cp.id;
-      card.appendChild(title);card.appendChild(qrDiv);card.appendChild(sub);grid.appendChild(card);
-      try{new QRCode(qrDiv,{text:cp.id,width:110,height:110,colorDark:'#000000',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.H});}catch(e){}
+      var dlBtn=document.createElement('button');
+      dlBtn.type='button';
+      dlBtn.style.cssText='margin-top:4px;background:#0066cc;color:#fff;border:none;border-radius:3px;padding:2px 8px;font-size:9px;cursor:pointer;font-family:monospace';
+      dlBtn.textContent='SVG';
+      dlBtn.onclick=(function(id){return function(){downloadSVG(id);};})(cp.id);
+      card.appendChild(title);card.appendChild(qrDiv);card.appendChild(sub);card.appendChild(dlBtn);grid.appendChild(card);
+      try{new QRCode(qrDiv,{text:cp.id,width:200,height:200,colorDark:'#000000',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.H});}catch(e){}
     });
   });
 }
