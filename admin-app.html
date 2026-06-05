@@ -960,7 +960,7 @@ function qrCanvasToSVG(canvas, cpId) {
   var size = 55;
   var px = size / w;
 
-  // Build boolean grid: true = black pixel
+  // Build boolean grid
   var grid = [];
   for (var y = 0; y < h; y++) {
     grid[y] = [];
@@ -969,21 +969,90 @@ function qrCanvasToSVG(canvas, cpId) {
     }
   }
 
-  // Build a single SVG <path> using even-odd fill rule.
-  // Each black pixel contributes a clockwise sub-path rectangle.
-  // All sub-paths are combined into one <path d="..."> element —
-  // SolidWorks/DXF import sees this as a single compound shape.
-  var pathParts = [];
+  function isBlack(x, y) {
+    if (x < 0 || y < 0 || x >= w || y >= h) return false;
+    return grid[y][x];
+  }
+
+  // Collect all boundary edges between black and white pixels.
+  // Each edge is a horizontal or vertical unit segment on the pixel grid.
+  // We store edges as strings "x1,y1,x2,y2" in a set for fast lookup/deletion.
+  var edgeSet = {};
   for (var y = 0; y < h; y++) {
     for (var x = 0; x < w; x++) {
       if (!grid[y][x]) continue;
-      var x0 = (x * px).toFixed(4);
-      var y0 = (y * px).toFixed(4);
-      var x1 = ((x + 1) * px).toFixed(4);
-      var y1 = ((y + 1) * px).toFixed(4);
-      // Clockwise rectangle sub-path: M top-left → right → down → left → close
-      pathParts.push('M' + x0 + ',' + y0 + ' L' + x1 + ',' + y0 + ' L' + x1 + ',' + y1 + ' L' + x0 + ',' + y1 + ' Z');
+      // top edge
+      if (!isBlack(x, y-1)) { var k='H'+x+','+(y)+','+(x+1)+','+y; edgeSet[k]=[x,y,x+1,y]; }
+      // bottom edge
+      if (!isBlack(x, y+1)) { var k='H'+x+','+(y+1)+','+(x+1)+','+(y+1); edgeSet[k]=[x,y+1,x+1,y+1]; }
+      // left edge
+      if (!isBlack(x-1, y)) { var k='V'+x+','+y+','+x+','+(y+1); edgeSet[k]=[x,y,x,y+1]; }
+      // right edge
+      if (!isBlack(x+1, y)) { var k='V'+(x+1)+','+y+','+(x+1)+','+(y+1); edgeSet[k]=[x+1,y,x+1,y+1]; }
     }
+  }
+
+  // Build adjacency: for each vertex, which edges start or end there
+  var vertexEdges = {};
+  function addToVertex(vk, ek) {
+    if (!vertexEdges[vk]) vertexEdges[vk] = [];
+    vertexEdges[vk].push(ek);
+  }
+  for (var ek in edgeSet) {
+    var e = edgeSet[ek];
+    var v1 = e[0]+','+e[1];
+    var v2 = e[2]+','+e[3];
+    addToVertex(v1, ek);
+    addToVertex(v2, ek);
+  }
+
+  // Trace closed contours by following connected edges
+  var usedEdges = {};
+  var contours = [];
+
+  for (var startEk in edgeSet) {
+    if (usedEdges[startEk]) continue;
+    var contour = [];
+    var e = edgeSet[startEk];
+    var cx = e[0], cy = e[1];
+    contour.push([cx, cy]);
+    usedEdges[startEk] = true;
+    var prevEk = startEk;
+    var nx = e[2], ny = e[3];
+
+    while (nx !== contour[0][0] || ny !== contour[0][1]) {
+      contour.push([nx, ny]);
+      var vk = nx+','+ny;
+      var edges = vertexEdges[vk];
+      var found = false;
+      for (var ei = 0; ei < edges.length; ei++) {
+        var nek = edges[ei];
+        if (usedEdges[nek] || nek === prevEk) continue;
+        usedEdges[nek] = true;
+        var ne = edgeSet[nek];
+        // next vertex is the other end of this edge
+        if (ne[0] === nx && ne[1] === ny) { nx = ne[2]; ny = ne[3]; }
+        else { nx = ne[0]; ny = ne[1]; }
+        prevEk = nek;
+        found = true;
+        break;
+      }
+      if (!found) break;
+    }
+    contours.push(contour);
+  }
+
+  // Build single SVG path: all contours combined, scaled to mm
+  var dParts = [];
+  for (var ci = 0; ci < contours.length; ci++) {
+    var pts = contours[ci];
+    if (pts.length < 2) continue;
+    var d = 'M' + (pts[0][0]*px).toFixed(4) + ',' + (pts[0][1]*px).toFixed(4);
+    for (var pi = 1; pi < pts.length; pi++) {
+      d += ' L' + (pts[pi][0]*px).toFixed(4) + ',' + (pts[pi][1]*px).toFixed(4);
+    }
+    d += ' Z';
+    dParts.push(d);
   }
 
   var parts = [];
@@ -991,7 +1060,7 @@ function qrCanvasToSVG(canvas, cpId) {
   parts.push(' width="' + size + 'mm" height="' + size + 'mm"');
   parts.push(' viewBox="0 0 ' + size + ' ' + size + '">');
   parts.push('<rect width="' + size + '" height="' + size + '" fill="white"/>');
-  parts.push('<path fill-rule="evenodd" fill="black" d="' + pathParts.join(' ') + '"/>');
+  parts.push('<path fill-rule="evenodd" fill="black" d="' + dParts.join(' ') + '"/>');
   parts.push('</svg>');
   return parts.join('');
 }
