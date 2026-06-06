@@ -1006,19 +1006,17 @@ function qrCanvasToSVG(canvas, cpId) {
     return grid[y][x];
   }
 
-  // Scale factor: multiply all pixel coords by SC so we work in integers only
-  // This completely eliminates floating point gaps
   var SC = 100;
 
-  // Collect directed boundary edges in scaled integer coords
+  // Directed boundary edges: black pixel to the LEFT of travel direction
   var edges = [];
   for (var y = 0; y < h; y++) {
     for (var x = 0; x < w; x++) {
       if (!grid[y][x]) continue;
-      if (!G(x,   y-1)) edges.push([x*SC,   y*SC,   (x+1)*SC, y*SC    ]);
-      if (!G(x+1, y  )) edges.push([(x+1)*SC, y*SC, (x+1)*SC, (y+1)*SC]);
-      if (!G(x,   y+1)) edges.push([(x+1)*SC, (y+1)*SC, x*SC, (y+1)*SC]);
-      if (!G(x-1, y  )) edges.push([x*SC, (y+1)*SC,   x*SC,   y*SC    ]);
+      if (!G(x,   y-1)) edges.push([x*SC,     y*SC,     (x+1)*SC, y*SC    ]);
+      if (!G(x+1, y  )) edges.push([(x+1)*SC, y*SC,     (x+1)*SC, (y+1)*SC]);
+      if (!G(x,   y+1)) edges.push([(x+1)*SC, (y+1)*SC, x*SC,     (y+1)*SC]);
+      if (!G(x-1, y  )) edges.push([x*SC,     (y+1)*SC, x*SC,     y*SC    ]);
     }
   }
 
@@ -1064,42 +1062,60 @@ function qrCanvasToSVG(canvas, cpId) {
     if (pts.length > 2) contours.push(pts);
   }
 
-  // Build path with corner-only simplification
-  // viewBox uses scaled integer coords, physical size set via width/height
-  var vbW = w * SC;
-  var vbH = h * SC;
-
-  var dParts = [];
-  for (var ci = 0; ci < contours.length; ci++) {
-    var pts = contours[ci];
+  // Compute signed area to determine winding (positive = CCW = hole, negative = CW = outer)
+  function signedArea(pts) {
+    var area = 0;
     var n = pts.length;
+    for (var i = 0; i < n; i++) {
+      var j = (i+1) % n;
+      area += pts[i][0] * pts[j][1];
+      area -= pts[j][0] * pts[i][1];
+    }
+    return area / 2;
+  }
 
-    // Extract corners only
+  // Build corner-simplified path string for one contour
+  function contourToPath(pts) {
+    var n = pts.length;
     var corners = [];
     for (var pi = 0; pi < n; pi++) {
-      var prev = pts[(pi + n - 1) % n];
+      var prev = pts[(pi+n-1)%n];
       var curr = pts[pi];
-      var next = pts[(pi + 1) % n];
+      var next = pts[(pi+1)%n];
       var d1x = curr[0]-prev[0], d1y = curr[1]-prev[1];
       var d2x = next[0]-curr[0], d2y = next[1]-curr[1];
       if (d1x !== d2x || d1y !== d2y) corners.push(curr);
     }
-    if (corners.length < 3) continue;
-
-    // Build path with explicit close back to start point
+    if (corners.length < 3) return null;
     var d = 'M'+corners[0][0]+' '+corners[0][1];
     for (var ki = 1; ki < corners.length; ki++) {
       d += ' L'+corners[ki][0]+' '+corners[ki][1];
     }
-    // Explicitly return to start before Z for SolidWorks compatibility
-    d += ' L'+corners[0][0]+' '+corners[0][1]+'Z';
-    dParts.push(d);
+    d += ' L'+corners[0][0]+' '+corners[0][1]+' Z';
+    return d;
+  }
+
+  var vbW = w * SC;
+  var vbH = h * SC;
+
+  // Output each contour as a SEPARATE <path> element
+  // SolidWorks handles topology from individual closed paths
+  var pathElements = [];
+  for (var ci = 0; ci < contours.length; ci++) {
+    var pts = contours[ci];
+    var area = signedArea(pts);
+    var d = contourToPath(pts);
+    if (!d) continue;
+    // Outer contours (CW, negative area) = filled black
+    // Inner contours (CCW, positive area) = white holes
+    var fillColor = area < 0 ? 'black' : 'white';
+    pathElements.push('<path fill="'+fillColor+'" d="'+d+'"/>');
   }
 
   var svgParts = [];
   svgParts.push('<svg xmlns="http://www.w3.org/2000/svg" width="'+size+'mm" height="'+size+'mm" viewBox="0 0 '+vbW+' '+vbH+'">');
   svgParts.push('<rect width="'+vbW+'" height="'+vbH+'" fill="white"/>');
-  svgParts.push('<path fill-rule="evenodd" fill="black" d="'+dParts.join(' ')+'"/>');
+  svgParts.push(pathElements.join(''));
   svgParts.push('</svg>');
   return svgParts.join('');
 }
