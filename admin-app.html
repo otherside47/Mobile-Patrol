@@ -991,6 +991,7 @@ function qrCanvasToSVG(canvas, cpId) {
   var h = canvas.height;
   var imgData = ctx.getImageData(0, 0, w, h);
   var size = 55;
+  var px = size / w;
 
   // Build boolean grid
   var grid = [];
@@ -1001,21 +1002,94 @@ function qrCanvasToSVG(canvas, cpId) {
     }
   }
 
-  // Output one rect per black pixel, sized 1.02x1.02 with 0.01 overlap on each side.
-  // viewBox in pixel units so coords are integers.
-  // Overlap of 0.02px completely eliminates all gaps at any zoom level.
-  var svgParts = [];
-  svgParts.push('<svg xmlns="http://www.w3.org/2000/svg" width="'+size+'mm" height="'+size+'mm" viewBox="0 0 '+w+' '+h+'">');
-  svgParts.push('<rect width="'+w+'" height="'+h+'" fill="white"/>');
-  svgParts.push('<g fill="black" stroke="none">');
+  function G(x, y) {
+    if (x < 0 || y < 0 || x >= w || y >= h) return false;
+    return grid[y][x];
+  }
+
+  // Collect directed boundary edges.
+  // Rule: black pixel must be to the LEFT of travel direction.
+  var edges = [];
   for (var y = 0; y < h; y++) {
     for (var x = 0; x < w; x++) {
       if (!grid[y][x]) continue;
-      // Slightly oversized rects eliminate all sub-pixel gaps
-      svgParts.push('<rect x="'+(x-0.1)+'" y="'+(y-0.1)+'" width="1.2" height="1.2"/>');
+      if (!G(x,   y-1)) edges.push([x,   y,   x+1, y  ]); // top
+      if (!G(x+1, y  )) edges.push([x+1, y,   x+1, y+1]); // right
+      if (!G(x,   y+1)) edges.push([x+1, y+1, x,   y+1]); // bottom
+      if (!G(x-1, y  )) edges.push([x,   y+1, x,   y  ]); // left
     }
   }
-  svgParts.push('</g></svg>');
+
+  // Build adjacency map: from-vertex -> array of to-vertices
+  var adj = {};
+  for (var ei = 0; ei < edges.length; ei++) {
+    var e = edges[ei];
+    var k = e[0]+','+e[1];
+    if (!adj[k]) adj[k] = [];
+    adj[k].push([e[2], e[3]]);
+  }
+
+  // Walk all contours, consuming each edge exactly once
+  var usedEdges = {};
+  var contours = [];
+
+  for (var ei = 0; ei < edges.length; ei++) {
+    var e = edges[ei];
+    var ek = e[0]+','+e[1]+','+e[2]+','+e[3];
+    if (usedEdges[ek]) continue;
+
+    var pts = [[e[0], e[1]]];
+    usedEdges[ek] = true;
+    var cur = [e[2], e[3]];
+    var safety = 0;
+
+    while ((cur[0] !== e[0] || cur[1] !== e[1]) && safety++ < 200000) {
+      pts.push(cur);
+      var ck = cur[0]+','+cur[1];
+      var nexts = adj[ck];
+      var moved = false;
+      if (nexts) {
+        for (var ni = 0; ni < nexts.length; ni++) {
+          var nxt = nexts[ni];
+          var nek = cur[0]+','+cur[1]+','+nxt[0]+','+nxt[1];
+          if (!usedEdges[nek]) {
+            usedEdges[nek] = true;
+            cur = nxt;
+            moved = true;
+            break;
+          }
+        }
+      }
+      if (!moved) break;
+    }
+    if (pts.length > 2) contours.push(pts);
+  }
+
+  // Build SVG path — skip collinear intermediate points for smaller file
+  var dParts = [];
+  for (var ci = 0; ci < contours.length; ci++) {
+    var pts = contours[ci];
+    var n = pts.length;
+    var d = 'M'+(pts[0][0]*px).toFixed(3)+','+(pts[0][1]*px).toFixed(3);
+    for (var pi = 1; pi < n; pi++) {
+      var prev = pts[pi-1];
+      var curr = pts[pi];
+      var next = pts[(pi+1) % n];
+      var d1x = curr[0]-prev[0], d1y = curr[1]-prev[1];
+      var d2x = next[0]-curr[0], d2y = next[1]-curr[1];
+      if (d1x !== d2x || d1y !== d2y) {
+        d += 'L'+(curr[0]*px).toFixed(3)+','+(curr[1]*px).toFixed(3);
+      }
+    }
+    d += 'Z';
+    dParts.push(d);
+  }
+
+  var svgParts = [];
+  svgParts.push('<svg xmlns="http://www.w3.org/2000/svg" width="'+size+'mm" height="'+size+'mm" viewBox="0 0 '+size+' '+size+'">');
+  svgParts.push('<rect width="'+size+'" height="'+size+'" fill="white"/>');
+  svgParts.push('<path fill-rule="evenodd" fill="black" d="'+dParts.join('')+'"/>');
+  svgParts.push('</svg>');
   return svgParts.join('');
 }
 
