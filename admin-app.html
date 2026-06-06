@@ -991,7 +991,9 @@ function qrCanvasToSVG(canvas, cpId) {
   var h = canvas.height;
   var imgData = ctx.getImageData(0, 0, w, h);
   var size = 55;
-  var px = size / w;
+
+  // Work entirely in pixel-grid integers — no floating point until final output.
+  // This guarantees zero gaps between adjacent rectangles.
 
   // Build boolean grid
   var grid = [];
@@ -1002,7 +1004,7 @@ function qrCanvasToSVG(canvas, cpId) {
     }
   }
 
-  // Build horizontal runs per row: array of [x_start, x_end] for each row
+  // Build horizontal runs per row
   var runs = [];
   for (var y = 0; y < h; y++) {
     runs[y] = [];
@@ -1015,19 +1017,21 @@ function qrCanvasToSVG(canvas, cpId) {
     if (inRun) runs[y].push([runStart, w-1]);
   }
 
-  // Merge runs vertically: if same run exists in next row, extend height
+  // Merge runs vertically
   var used = [];
-  for (var y = 0; y < h; y++) used[y] = new Array(runs[y].length).fill(false);
+  for (var y = 0; y < h; y++) {
+    used[y] = [];
+    for (var ri = 0; ri < runs[y].length; ri++) used[y][ri] = false;
+  }
 
+  // Store rects as integer pixel coords [x, y, w, h]
   var rects = [];
   for (var y = 0; y < h; y++) {
     for (var ri = 0; ri < runs[y].length; ri++) {
       if (used[y][ri]) continue;
       var r = runs[y][ri];
       var y2 = y;
-      // Try to extend downward
       outer: while (y2+1 < h) {
-        // Find exact matching run in next row
         for (var ni = 0; ni < runs[y2+1].length; ni++) {
           if (!used[y2+1][ni] && runs[y2+1][ni][0]===r[0] && runs[y2+1][ni][1]===r[1]) {
             y2++;
@@ -1038,18 +1042,20 @@ function qrCanvasToSVG(canvas, cpId) {
         break;
       }
       used[y][ri] = true;
+      // Integer pixel coords — guaranteed gap-free
       rects.push([r[0], y, r[1]-r[0]+1, y2-y+1]);
     }
   }
 
-  // Output as SVG with merged rectangles — no stroke, touching edges = solid appearance
+  // Scale: use viewBox in pixel units, set physical size via width/height attributes
+  // This way all coords are integers — zero rounding error, zero gaps
   var svgParts = [];
-  svgParts.push('<svg xmlns="http://www.w3.org/2000/svg" width="'+size+'mm" height="'+size+'mm" viewBox="0 0 '+size+' '+size+'">');
-  svgParts.push('<rect width="'+size+'" height="'+size+'" fill="white"/>');
-  svgParts.push('<g fill="black" stroke="none">');
+  svgParts.push('<svg xmlns="http://www.w3.org/2000/svg" width="'+size+'mm" height="'+size+'mm" viewBox="0 0 '+w+' '+h+'">');
+  svgParts.push('<rect width="'+w+'" height="'+h+'" fill="white"/>');
+  svgParts.push('<g fill="black" stroke="black" stroke-width="0.01">');
   for (var i = 0; i < rects.length; i++) {
     var rc = rects[i];
-    svgParts.push('<rect x="'+(rc[0]*px).toFixed(4)+'" y="'+(rc[1]*px).toFixed(4)+'" width="'+(rc[2]*px).toFixed(4)+'" height="'+(rc[3]*px).toFixed(4)+'"/>');
+    svgParts.push('<rect x="'+rc[0]+'" y="'+rc[1]+'" width="'+rc[2]+'" height="'+rc[3]+'"/>');
   }
   svgParts.push('</g></svg>');
   return svgParts.join('');
