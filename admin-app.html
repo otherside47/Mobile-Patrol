@@ -1007,20 +1007,19 @@ function qrCanvasToSVG(canvas, cpId) {
     return grid[y][x];
   }
 
-  // Collect directed boundary edges.
-  // Rule: black pixel must be to the LEFT of travel direction.
+  // Collect directed boundary edges (black pixel always to the left of travel)
   var edges = [];
   for (var y = 0; y < h; y++) {
     for (var x = 0; x < w; x++) {
       if (!grid[y][x]) continue;
-      if (!G(x,   y-1)) edges.push([x,   y,   x+1, y  ]); // top
-      if (!G(x+1, y  )) edges.push([x+1, y,   x+1, y+1]); // right
-      if (!G(x,   y+1)) edges.push([x+1, y+1, x,   y+1]); // bottom
-      if (!G(x-1, y  )) edges.push([x,   y+1, x,   y  ]); // left
+      if (!G(x,   y-1)) edges.push([x,   y,   x+1, y  ]);
+      if (!G(x+1, y  )) edges.push([x+1, y,   x+1, y+1]);
+      if (!G(x,   y+1)) edges.push([x+1, y+1, x,   y+1]);
+      if (!G(x-1, y  )) edges.push([x,   y+1, x,   y  ]);
     }
   }
 
-  // Build adjacency map: from-vertex -> array of to-vertices
+  // Build adjacency
   var adj = {};
   for (var ei = 0; ei < edges.length; ei++) {
     var e = edges[ei];
@@ -1029,20 +1028,17 @@ function qrCanvasToSVG(canvas, cpId) {
     adj[k].push([e[2], e[3]]);
   }
 
-  // Walk all contours, consuming each edge exactly once
+  // Walk contours
   var usedEdges = {};
   var contours = [];
-
   for (var ei = 0; ei < edges.length; ei++) {
     var e = edges[ei];
     var ek = e[0]+','+e[1]+','+e[2]+','+e[3];
     if (usedEdges[ek]) continue;
-
     var pts = [[e[0], e[1]]];
     usedEdges[ek] = true;
     var cur = [e[2], e[3]];
     var safety = 0;
-
     while ((cur[0] !== e[0] || cur[1] !== e[1]) && safety++ < 200000) {
       pts.push(cur);
       var ck = cur[0]+','+cur[1];
@@ -1065,21 +1061,24 @@ function qrCanvasToSVG(canvas, cpId) {
     if (pts.length > 2) contours.push(pts);
   }
 
-  // Build SVG path — skip collinear intermediate points for smaller file
+  // Build path — CORNERS ONLY (skip collinear intermediate points)
   var dParts = [];
   for (var ci = 0; ci < contours.length; ci++) {
     var pts = contours[ci];
     var n = pts.length;
-    var d = 'M'+(pts[0][0]*px).toFixed(3)+','+(pts[0][1]*px).toFixed(3);
-    for (var pi = 1; pi < n; pi++) {
-      var prev = pts[pi-1];
+    var corners = [];
+    for (var pi = 0; pi < n; pi++) {
+      var prev = pts[(pi + n - 1) % n];
       var curr = pts[pi];
-      var next = pts[(pi+1) % n];
-      var d1x = curr[0]-prev[0], d1y = curr[1]-prev[1];
-      var d2x = next[0]-curr[0], d2y = next[1]-curr[1];
-      if (d1x !== d2x || d1y !== d2y) {
-        d += 'L'+(curr[0]*px).toFixed(3)+','+(curr[1]*px).toFixed(3);
-      }
+      var next = pts[(pi + 1) % n];
+      var d1x = curr[0] - prev[0], d1y = curr[1] - prev[1];
+      var d2x = next[0] - curr[0], d2y = next[1] - curr[1];
+      if (d1x !== d2x || d1y !== d2y) corners.push(curr);
+    }
+    if (corners.length < 3) continue;
+    var d = 'M'+(corners[0][0]*px).toFixed(3)+','+(corners[0][1]*px).toFixed(3);
+    for (var ki = 1; ki < corners.length; ki++) {
+      d += 'L'+(corners[ki][0]*px).toFixed(3)+','+(corners[ki][1]*px).toFixed(3);
     }
     d += 'Z';
     dParts.push(d);
