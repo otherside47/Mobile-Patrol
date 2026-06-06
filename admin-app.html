@@ -991,6 +991,7 @@ function qrCanvasToSVG(canvas, cpId) {
   var h = canvas.height;
   var imgData = ctx.getImageData(0, 0, w, h);
   var size = 55;
+  var SC = 100;
 
   // Build boolean grid
   var grid = [];
@@ -1006,9 +1007,7 @@ function qrCanvasToSVG(canvas, cpId) {
     return grid[y][x];
   }
 
-  var SC = 100;
-
-  // Directed boundary edges: black pixel to the LEFT of travel direction
+  // Directed boundary edges
   var edges = [];
   for (var y = 0; y < h; y++) {
     for (var x = 0; x < w; x++) {
@@ -1062,7 +1061,7 @@ function qrCanvasToSVG(canvas, cpId) {
     if (pts.length > 2) contours.push(pts);
   }
 
-  // Compute signed area to determine winding (positive = CCW = hole, negative = CW = outer)
+  // Signed area: negative = CW = outer black region, positive = CCW = hole
   function signedArea(pts) {
     var area = 0;
     var n = pts.length;
@@ -1074,8 +1073,18 @@ function qrCanvasToSVG(canvas, cpId) {
     return area / 2;
   }
 
-  // Build corner-simplified path string for one contour
-  function contourToPath(pts) {
+  function getBBox(pts) {
+    var minX=pts[0][0], minY=pts[0][1], maxX=pts[0][0], maxY=pts[0][1];
+    for (var i=1; i<pts.length; i++) {
+      if (pts[i][0]<minX) minX=pts[i][0];
+      if (pts[i][1]<minY) minY=pts[i][1];
+      if (pts[i][0]>maxX) maxX=pts[i][0];
+      if (pts[i][1]>maxY) maxY=pts[i][1];
+    }
+    return [minX, minY, maxX, maxY];
+  }
+
+  function toPathD(pts) {
     var n = pts.length;
     var corners = [];
     for (var pi = 0; pi < n; pi++) {
@@ -1086,30 +1095,54 @@ function qrCanvasToSVG(canvas, cpId) {
       var d2x = next[0]-curr[0], d2y = next[1]-curr[1];
       if (d1x !== d2x || d1y !== d2y) corners.push(curr);
     }
-    if (corners.length < 3) return null;
+    if (corners.length < 3) return '';
     var d = 'M'+corners[0][0]+' '+corners[0][1];
     for (var ki = 1; ki < corners.length; ki++) {
       d += ' L'+corners[ki][0]+' '+corners[ki][1];
     }
-    d += ' L'+corners[0][0]+' '+corners[0][1]+' Z';
+    d += ' Z';
     return d;
   }
 
+  // Separate outers and holes
+  var outers = [];
+  var holes = [];
+  for (var ci = 0; ci < contours.length; ci++) {
+    var area = signedArea(contours[ci]);
+    if (area < 0) outers.push({pts: contours[ci], bb: getBBox(contours[ci]), holes: []});
+    else if (area > 0) holes.push({pts: contours[ci], bb: getBBox(contours[ci])});
+  }
+
+  // Assign each hole to its smallest containing outer contour
+  for (var hi = 0; hi < holes.length; hi++) {
+    var hbb = holes[hi].bb;
+    var hcx = (hbb[0]+hbb[2])/2;
+    var hcy = (hbb[1]+hbb[3])/2;
+    var bestOuter = -1;
+    var bestArea = Infinity;
+    for (var oi = 0; oi < outers.length; oi++) {
+      var obb = outers[oi].bb;
+      if (hcx >= obb[0] && hcx <= obb[2] && hcy >= obb[1] && hcy <= obb[3]) {
+        var oa = Math.abs(signedArea(outers[oi].pts));
+        if (oa < bestArea) { bestArea = oa; bestOuter = oi; }
+      }
+    }
+    if (bestOuter >= 0) outers[bestOuter].holes.push(holes[hi].pts);
+  }
+
+  // Build one compound <path> per outer contour (outer + its holes combined)
   var vbW = w * SC;
   var vbH = h * SC;
-
-  // Output each contour as a SEPARATE <path> element
-  // SolidWorks handles topology from individual closed paths
   var pathElements = [];
-  for (var ci = 0; ci < contours.length; ci++) {
-    var pts = contours[ci];
-    var area = signedArea(pts);
-    var d = contourToPath(pts);
+
+  for (var oi = 0; oi < outers.length; oi++) {
+    var d = toPathD(outers[oi].pts);
     if (!d) continue;
-    // Outer contours (CW, negative area) = filled black
-    // Inner contours (CCW, positive area) = white holes
-    var fillColor = area < 0 ? 'black' : 'white';
-    pathElements.push('<path fill="'+fillColor+'" d="'+d+'"/>');
+    for (var hj = 0; hj < outers[oi].holes.length; hj++) {
+      var hd = toPathD(outers[oi].holes[hj]);
+      if (hd) d += ' ' + hd;
+    }
+    pathElements.push('<path fill="black" fill-rule="evenodd" d="'+d+'"/>');
   }
 
   var svgParts = [];
