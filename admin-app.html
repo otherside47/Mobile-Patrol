@@ -992,9 +992,6 @@ function qrCanvasToSVG(canvas, cpId) {
   var imgData = ctx.getImageData(0, 0, w, h);
   var size = 55;
 
-  // Work entirely in pixel-grid integers — no floating point until final output.
-  // This guarantees zero gaps between adjacent rectangles.
-
   // Build boolean grid
   var grid = [];
   for (var y = 0; y < h; y++) {
@@ -1004,58 +1001,19 @@ function qrCanvasToSVG(canvas, cpId) {
     }
   }
 
-  // Build horizontal runs per row
-  var runs = [];
-  for (var y = 0; y < h; y++) {
-    runs[y] = [];
-    var inRun = false;
-    var runStart = 0;
-    for (var x = 0; x < w; x++) {
-      if (grid[y][x] && !inRun) { inRun = true; runStart = x; }
-      else if (!grid[y][x] && inRun) { inRun = false; runs[y].push([runStart, x-1]); }
-    }
-    if (inRun) runs[y].push([runStart, w-1]);
-  }
-
-  // Merge runs vertically
-  var used = [];
-  for (var y = 0; y < h; y++) {
-    used[y] = [];
-    for (var ri = 0; ri < runs[y].length; ri++) used[y][ri] = false;
-  }
-
-  // Store rects as integer pixel coords [x, y, w, h]
-  var rects = [];
-  for (var y = 0; y < h; y++) {
-    for (var ri = 0; ri < runs[y].length; ri++) {
-      if (used[y][ri]) continue;
-      var r = runs[y][ri];
-      var y2 = y;
-      outer: while (y2+1 < h) {
-        for (var ni = 0; ni < runs[y2+1].length; ni++) {
-          if (!used[y2+1][ni] && runs[y2+1][ni][0]===r[0] && runs[y2+1][ni][1]===r[1]) {
-            y2++;
-            used[y2][ni] = true;
-            continue outer;
-          }
-        }
-        break;
-      }
-      used[y][ri] = true;
-      // Integer pixel coords — guaranteed gap-free
-      rects.push([r[0], y, r[1]-r[0]+1, y2-y+1]);
-    }
-  }
-
-  // Scale: use viewBox in pixel units, set physical size via width/height attributes
-  // This way all coords are integers — zero rounding error, zero gaps
+  // Output one rect per black pixel, sized 1.02x1.02 with 0.01 overlap on each side.
+  // viewBox in pixel units so coords are integers.
+  // Overlap of 0.02px completely eliminates all gaps at any zoom level.
   var svgParts = [];
   svgParts.push('<svg xmlns="http://www.w3.org/2000/svg" width="'+size+'mm" height="'+size+'mm" viewBox="0 0 '+w+' '+h+'">');
   svgParts.push('<rect width="'+w+'" height="'+h+'" fill="white"/>');
-  svgParts.push('<g fill="black" stroke="black" stroke-width="0.01">');
-  for (var i = 0; i < rects.length; i++) {
-    var rc = rects[i];
-    svgParts.push('<rect x="'+rc[0]+'" y="'+rc[1]+'" width="'+rc[2]+'" height="'+rc[3]+'"/>');
+  svgParts.push('<g fill="black" stroke="none">');
+  for (var y = 0; y < h; y++) {
+    for (var x = 0; x < w; x++) {
+      if (!grid[y][x]) continue;
+      // Slightly oversized rects eliminate all sub-pixel gaps
+      svgParts.push('<rect x="'+(x-0.1)+'" y="'+(y-0.1)+'" width="1.2" height="1.2"/>');
+    }
   }
   svgParts.push('</g></svg>');
   return svgParts.join('');
