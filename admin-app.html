@@ -992,8 +992,8 @@ function qrCanvasToSVG(canvas, cpId) {
   var imgData = ctx.getImageData(0, 0, w, h);
   var size = 55;
   var SC = 100;
+  var GAP = 1; // 1 unit = 0.01mm gap at diagonal touch points
 
-  // Build boolean grid
   var grid = [];
   for (var y = 0; y < h; y++) {
     grid[y] = [];
@@ -1007,19 +1007,78 @@ function qrCanvasToSVG(canvas, cpId) {
     return grid[y][x];
   }
 
-  // Directed boundary edges
+  // Detect all diagonal touch points — corners where 3+ segments meet
+  // At pixel corner (x,y), check if it is a diagonal touch:
+  // Type A: NW and SE black, NE and SW white → segments meet diagonally
+  // Type B: NE and SW black, NW and SE white → segments meet diagonally
+  var diagTouch = {};
+  for (var y = 0; y <= h; y++) {
+    for (var x = 0; x <= w; x++) {
+      var nw = G(x-1, y-1);
+      var ne = G(x,   y-1);
+      var sw = G(x-1, y  );
+      var se = G(x,   y  );
+      var typeA = nw && se && !ne && !sw;
+      var typeB = ne && sw && !nw && !se;
+      if (typeA || typeB) {
+        diagTouch[(x*SC)+','+(y*SC)] = typeA ? 'A' : 'B';
+      }
+    }
+  }
+
+  // Modified edge emitter: at diagonal touch points, offset the shared corner
+  // by GAP units to break the shared vertex into two distinct points
+  function adjX(cx, cy, dx, dy) {
+    // cx,cy = corner in scaled coords, dx,dy = direction of travel
+    var k = cx+','+cy;
+    if (!diagTouch[k]) return cx;
+    var type = diagTouch[k];
+    // Nudge perpendicular to travel direction to break the shared point
+    if (type === 'A') {
+      // NW-SE diagonal: nudge along travel direction
+      return cx + dy * GAP;
+    } else {
+      return cx - dy * GAP;
+    }
+  }
+  function adjY(cx, cy, dx, dy) {
+    var k = cx+','+cy;
+    if (!diagTouch[k]) return cy;
+    var type = diagTouch[k];
+    if (type === 'A') {
+      return cy - dx * GAP;
+    } else {
+      return cy + dx * GAP;
+    }
+  }
+
+  // Collect directed boundary edges with diagonal touch point adjustment
   var edges = [];
   for (var y = 0; y < h; y++) {
     for (var x = 0; x < w; x++) {
       if (!grid[y][x]) continue;
-      if (!G(x,   y-1)) edges.push([x*SC,     y*SC,     (x+1)*SC, y*SC    ]);
-      if (!G(x+1, y  )) edges.push([(x+1)*SC, y*SC,     (x+1)*SC, (y+1)*SC]);
-      if (!G(x,   y+1)) edges.push([(x+1)*SC, (y+1)*SC, x*SC,     (y+1)*SC]);
-      if (!G(x-1, y  )) edges.push([x*SC,     (y+1)*SC, x*SC,     y*SC    ]);
+      var x0 = x*SC, y0 = y*SC, x1 = (x+1)*SC, y1 = (y+1)*SC;
+
+      if (!G(x, y-1)) { // top edge: travel right
+        edges.push([adjX(x0,y0,1,0), adjY(x0,y0,1,0),
+                    adjX(x1,y0,1,0), adjY(x1,y0,1,0)]);
+      }
+      if (!G(x+1, y)) { // right edge: travel down
+        edges.push([adjX(x1,y0,0,1), adjY(x1,y0,0,1),
+                    adjX(x1,y1,0,1), adjY(x1,y1,0,1)]);
+      }
+      if (!G(x, y+1)) { // bottom edge: travel left
+        edges.push([adjX(x1,y1,-1,0), adjY(x1,y1,-1,0),
+                    adjX(x0,y1,-1,0), adjY(x0,y1,-1,0)]);
+      }
+      if (!G(x-1, y)) { // left edge: travel up
+        edges.push([adjX(x0,y1,0,-1), adjY(x0,y1,0,-1),
+                    adjX(x0,y0,0,-1), adjY(x0,y0,0,-1)]);
+      }
     }
   }
 
-  // Build adjacency
+  // Build adjacency using string keys
   var adj = {};
   for (var ei = 0; ei < edges.length; ei++) {
     var e = edges[ei];
@@ -1061,10 +1120,8 @@ function qrCanvasToSVG(canvas, cpId) {
     if (pts.length > 2) contours.push(pts);
   }
 
-  // Signed area: negative = CW = outer black region, positive = CCW = hole
   function signedArea(pts) {
-    var area = 0;
-    var n = pts.length;
+    var area = 0, n = pts.length;
     for (var i = 0; i < n; i++) {
       var j = (i+1) % n;
       area += pts[i][0] * pts[j][1];
@@ -1073,15 +1130,15 @@ function qrCanvasToSVG(canvas, cpId) {
     return area / 2;
   }
 
-  function getBBox(pts) {
-    var minX=pts[0][0], minY=pts[0][1], maxX=pts[0][0], maxY=pts[0][1];
-    for (var i=1; i<pts.length; i++) {
-      if (pts[i][0]<minX) minX=pts[i][0];
-      if (pts[i][1]<minY) minY=pts[i][1];
-      if (pts[i][0]>maxX) maxX=pts[i][0];
-      if (pts[i][1]>maxY) maxY=pts[i][1];
+  function pointInPolygon(px, py, pts) {
+    var inside = false, n = pts.length;
+    for (var i = 0, j = n-1; i < n; j = i++) {
+      var xi = pts[i][0], yi = pts[i][1];
+      var xj = pts[j][0], yj = pts[j][1];
+      if (((yi > py) !== (yj > py)) && (px < (xj-xi)*(py-yi)/(yj-yi)+xi))
+        inside = !inside;
     }
-    return [minX, minY, maxX, maxY];
+    return inside;
   }
 
   function toPathD(pts) {
@@ -1097,44 +1154,33 @@ function qrCanvasToSVG(canvas, cpId) {
     }
     if (corners.length < 3) return '';
     var d = 'M'+corners[0][0]+' '+corners[0][1];
-    for (var ki = 1; ki < corners.length; ki++) {
+    for (var ki = 1; ki < corners.length; ki++)
       d += ' L'+corners[ki][0]+' '+corners[ki][1];
-    }
     d += ' Z';
     return d;
   }
 
-  // Separate outers and holes
-  var outers = [];
-  var holes = [];
+  var outers = [], holes = [];
   for (var ci = 0; ci < contours.length; ci++) {
     var area = signedArea(contours[ci]);
-    if (area < 0) outers.push({pts: contours[ci], bb: getBBox(contours[ci]), holes: []});
-    else if (area > 0) holes.push({pts: contours[ci], bb: getBBox(contours[ci])});
+    if (area < 0) outers.push({pts: contours[ci], holes: []});
+    else if (area > 0) holes.push(contours[ci]);
   }
 
-  // Assign each hole to its smallest containing outer contour
   for (var hi = 0; hi < holes.length; hi++) {
-    var hbb = holes[hi].bb;
-    var hcx = (hbb[0]+hbb[2])/2;
-    var hcy = (hbb[1]+hbb[3])/2;
-    var bestOuter = -1;
-    var bestArea = Infinity;
+    var testPt = holes[hi][0];
+    var bestOuter = -1, bestArea = Infinity;
     for (var oi = 0; oi < outers.length; oi++) {
-      var obb = outers[oi].bb;
-      if (hcx >= obb[0] && hcx <= obb[2] && hcy >= obb[1] && hcy <= obb[3]) {
+      if (pointInPolygon(testPt[0], testPt[1], outers[oi].pts)) {
         var oa = Math.abs(signedArea(outers[oi].pts));
         if (oa < bestArea) { bestArea = oa; bestOuter = oi; }
       }
     }
-    if (bestOuter >= 0) outers[bestOuter].holes.push(holes[hi].pts);
+    if (bestOuter >= 0) outers[bestOuter].holes.push(holes[hi]);
   }
 
-  // Build one compound <path> per outer contour (outer + its holes combined)
-  var vbW = w * SC;
-  var vbH = h * SC;
+  var vbW = w * SC, vbH = h * SC;
   var pathElements = [];
-
   for (var oi = 0; oi < outers.length; oi++) {
     var d = toPathD(outers[oi].pts);
     if (!d) continue;
