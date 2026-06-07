@@ -993,7 +993,6 @@ function qrCanvasToSVG(canvas, cpId) {
   var size = 55;
   var SC = 100;
 
-  // Build boolean grid
   var grid = [];
   for (var y = 0; y < h; y++) {
     grid[y] = [];
@@ -1002,91 +1001,46 @@ function qrCanvasToSVG(canvas, cpId) {
     }
   }
 
-  // Detect quiet zone and module size
-  var firstBlackRow = 0, firstBlackCol = 0;
-  outer1: for (var y = 0; y < h; y++) {
-    for (var x = 0; x < w; x++) {
-      if (grid[y][x]) { firstBlackRow = y; break outer1; }
-    }
-  }
-  outer2: for (var x = 0; x < w; x++) {
-    for (var y = 0; y < h; y++) {
-      if (grid[y][x]) { firstBlackCol = x; break outer2; }
-    }
-  }
-  var moduleSize = 1;
-  for (var x = firstBlackCol; x < w; x++) {
-    if (!grid[firstBlackRow][x]) { moduleSize = x - firstBlackCol; break; }
-  }
-  if (moduleSize < 1) moduleSize = 1;
-
-  var qrX0 = firstBlackCol;
-  var qrY0 = firstBlackRow;
-  var modules = Math.round((w - qrX0 * 2) / moduleSize);
-
-  // Build module grid by sampling center of each module
-  var modGrid = [];
-  for (var my = 0; my < modules; my++) {
-    modGrid[my] = [];
-    for (var mx = 0; mx < modules; mx++) {
-      var px = Math.floor(qrX0 + (mx + 0.5) * moduleSize);
-      var py = Math.floor(qrY0 + (my + 0.5) * moduleSize);
-      if (px >= w) px = w-1;
-      if (py >= h) py = h-1;
-      modGrid[my][mx] = grid[py][px];
-    }
-  }
-
-  // Greedy rectangle merging on module grid
+  // Greedy rectangle merging - no shrinking, full size rects
   var used = [];
-  for (var my = 0; my < modules; my++) {
-    used[my] = [];
-    for (var mx = 0; mx < modules; mx++) used[my][mx] = false;
+  for (var y = 0; y < h; y++) {
+    used[y] = [];
+    for (var x = 0; x < w; x++) used[y][x] = false;
   }
+
   var rects = [];
-  for (var my = 0; my < modules; my++) {
-    for (var mx = 0; mx < modules; mx++) {
-      if (!modGrid[my][mx] || used[my][mx]) continue;
-      var mx2 = mx;
-      while (mx2+1 < modules && modGrid[my][mx2+1] && !used[my][mx2+1]) mx2++;
-      var my2 = my;
+  for (var y = 0; y < h; y++) {
+    for (var x = 0; x < w; x++) {
+      if (!grid[y][x] || used[y][x]) continue;
+      var x2 = x;
+      while (x2+1 < w && grid[y][x2+1] && !used[y][x2+1]) x2++;
+      var y2 = y;
       var ok = true;
-      while (ok && my2+1 < modules) {
-        for (var cx = mx; cx <= mx2; cx++) {
-          if (!modGrid[my2+1][cx] || used[my2+1][cx]) { ok=false; break; }
+      while (ok && y2+1 < h) {
+        for (var cx = x; cx <= x2; cx++) {
+          if (!grid[y2+1][cx] || used[y2+1][cx]) { ok=false; break; }
         }
-        if (ok) my2++;
+        if (ok) y2++;
       }
-      for (var ry = my; ry <= my2; ry++)
-        for (var rx = mx; rx <= mx2; rx++) used[ry][rx] = true;
-      rects.push([mx, my, mx2-mx+1, my2-my+1]);
+      for (var ry = y; ry <= y2; ry++)
+        for (var rx = x; rx <= x2; rx++) used[ry][rx] = true;
+      rects.push([x, y, x2-x+1, y2-y+1]);
     }
   }
 
-  // Find all diagonal touch corners in module grid
-  // A diagonal touch at module corner (mx,my) means:
-  // modGrid[my-1][mx-1] && modGrid[my][mx] && !modGrid[my-1][mx] && !modGrid[my][mx-1]  (type A)
-  // modGrid[my-1][mx] && modGrid[my][mx-1] && !modGrid[my-1][mx-1] && !modGrid[my][mx]  (type B)
-  function MG(x,y) {
-    if (x<0||y<0||x>=modules||y>=modules) return false;
-    return modGrid[y][x];
-  }
+  // Detect diagonal touch corners in pixel grid
   var diagCorners = {};
-  for (var my = 0; my <= modules; my++) {
-    for (var mx = 0; mx <= modules; mx++) {
-      var nw=MG(mx-1,my-1), ne=MG(mx,my-1), sw=MG(mx-1,my), se=MG(mx,my);
-      if ((nw&&se&&!ne&&!sw)||(ne&&sw&&!nw&&!se)) {
-        diagCorners[mx+','+my] = true;
-      }
+  for (var y = 0; y <= h; y++) {
+    for (var x = 0; x <= w; x++) {
+      function PG(px,py){ return px>=0&&py>=0&&px<w&&py<h&&grid[py][px]; }
+      var nw=PG(x-1,y-1),ne=PG(x,y-1),sw=PG(x-1,y),se=PG(x,y);
+      if((nw&&se&&!ne&&!sw)||(ne&&sw&&!nw&&!se))
+        diagCorners[x+','+y]=true;
     }
   }
 
-  // For each rect, check its 4 corners. If a corner is a diagonal touch,
-  // clip that specific corner by a tiny amount (0.5 units = 0.005mm)
-  var CLIP = 0.5;
-  var vbW = modules * SC;
-  var vbH = modules * SC;
-
+  var CLIP = 0.3; // tiny clip only at diagonal corners
+  var vbW = w*SC, vbH = h*SC;
   var svgParts = [];
   svgParts.push('<svg xmlns="http://www.w3.org/2000/svg" width="'+size+'mm" height="'+size+'mm" viewBox="0 0 '+vbW+' '+vbH+'">');
   svgParts.push('<rect width="'+vbW+'" height="'+vbH+'" fill="white"/>');
@@ -1094,40 +1048,29 @@ function qrCanvasToSVG(canvas, cpId) {
 
   for (var i = 0; i < rects.length; i++) {
     var r = rects[i];
-    var x0 = r[0]*SC, y0 = r[1]*SC;
-    var x1 = (r[0]+r[2])*SC, y1 = (r[1]+r[3])*SC;
+    var x0=r[0]*SC, y0=r[1]*SC;
+    var x1=(r[0]+r[2])*SC, y1=(r[1]+r[3])*SC;
+    var tl=diagCorners[r[0]+','+r[1]];
+    var tr=diagCorners[(r[0]+r[2])+','+r[1]];
+    var br=diagCorners[(r[0]+r[2])+','+(r[1]+r[3])];
+    var bl=diagCorners[r[0]+','+(r[1]+r[3])];
 
-    // Check each corner: top-left, top-right, bottom-right, bottom-left
-    var tlDiag = diagCorners[r[0]+','+(r[1])];
-    var trDiag = diagCorners[(r[0]+r[2])+','+(r[1])];
-    var brDiag = diagCorners[(r[0]+r[2])+','+(r[1]+r[3])];
-    var blDiag = diagCorners[r[0]+','+(r[1]+r[3])];
-
-    // If no diagonal corners, output plain rect
-    if (!tlDiag && !trDiag && !brDiag && !blDiag) {
+    if (!tl&&!tr&&!br&&!bl) {
+      // No diagonal corners - plain full-size rect
       svgParts.push('<rect x="'+x0+'" y="'+y0+'" width="'+(x1-x0)+'" height="'+(y1-y0)+'"/>');
     } else {
-      // Use polygon, clipping only the diagonal corners
-      var tlx0=x0, tly0=y0, tlx1=x0, tly1=y0;
-      var trx0=x1, try0=y0, trx1=x1, try1=y0;
-      var brx0=x1, bry0=y1, brx1=x1, bry1=y1;
-      var blx0=x0, bly0=y1, blx1=x0, bly1=y1;
-
-      if (tlDiag) { tlx0+=CLIP; tly1+=CLIP; }
-      if (trDiag) { trx0-=CLIP; try1+=CLIP; }
-      if (brDiag) { brx0-=CLIP; bry0-=CLIP; }
-      if (blDiag) { blx0+=CLIP; bly0-=CLIP; }
-
-      var pts = '';
-      pts += tlx0+','+y0+' ';
-      pts += trx0+','+y0+' ';
-      pts += x1+','+try1+' ';
-      pts += x1+','+bry0+' ';
-      pts += brx0+','+y1+' ';
-      pts += blx0+','+y1+' ';
-      pts += x0+','+bly0+' ';
-      pts += x0+','+tly1+' ';
-      svgParts.push('<polygon points="'+pts.trim()+'"/>');
+      // Octagon-style: clip only the diagonal corners by tiny amount
+      var pts = [
+        (tl?x0+CLIP:x0)+','+(y0),
+        (tr?x1-CLIP:x1)+','+(y0),
+        (x1)+','+(tr?y0+CLIP:y0),
+        (x1)+','+(br?y1-CLIP:y1),
+        (br?x1-CLIP:x1)+','+(y1),
+        (bl?x0+CLIP:x0)+','+(y1),
+        (x0)+','+(bl?y1-CLIP:y1),
+        (x0)+','+(tl?y0+CLIP:y0)
+      ];
+      svgParts.push('<polygon points="'+pts.join(' ')+'"/>');
     }
   }
 
