@@ -992,8 +992,8 @@ function qrCanvasToSVG(canvas, cpId) {
   var imgData = ctx.getImageData(0, 0, w, h);
   var size = 55;
   var SC = 100;
-  var GAP = 1; // 1 unit = 0.01mm gap at diagonal touch points
 
+  // Build boolean grid
   var grid = [];
   for (var y = 0; y < h; y++) {
     grid[y] = [];
@@ -1007,78 +1007,22 @@ function qrCanvasToSVG(canvas, cpId) {
     return grid[y][x];
   }
 
-  // Detect all diagonal touch points — corners where 3+ segments meet
-  // At pixel corner (x,y), check if it is a diagonal touch:
-  // Type A: NW and SE black, NE and SW white → segments meet diagonally
-  // Type B: NE and SW black, NW and SE white → segments meet diagonally
-  var diagTouch = {};
-  for (var y = 0; y <= h; y++) {
-    for (var x = 0; x <= w; x++) {
-      var nw = G(x-1, y-1);
-      var ne = G(x,   y-1);
-      var sw = G(x-1, y  );
-      var se = G(x,   y  );
-      var typeA = nw && se && !ne && !sw;
-      var typeB = ne && sw && !nw && !se;
-      if (typeA || typeB) {
-        diagTouch[(x*SC)+','+(y*SC)] = typeA ? 'A' : 'B';
-      }
-    }
-  }
-
-  // Modified edge emitter: at diagonal touch points, offset the shared corner
-  // by GAP units to break the shared vertex into two distinct points
-  function adjX(cx, cy, dx, dy) {
-    // cx,cy = corner in scaled coords, dx,dy = direction of travel
-    var k = cx+','+cy;
-    if (!diagTouch[k]) return cx;
-    var type = diagTouch[k];
-    // Nudge perpendicular to travel direction to break the shared point
-    if (type === 'A') {
-      // NW-SE diagonal: nudge along travel direction
-      return cx + dy * GAP;
-    } else {
-      return cx - dy * GAP;
-    }
-  }
-  function adjY(cx, cy, dx, dy) {
-    var k = cx+','+cy;
-    if (!diagTouch[k]) return cy;
-    var type = diagTouch[k];
-    if (type === 'A') {
-      return cy - dx * GAP;
-    } else {
-      return cy + dx * GAP;
-    }
-  }
-
-  // Collect directed boundary edges with diagonal touch point adjustment
+  // Collect directed boundary edges - clean version, no diagonal adjustments
   var edges = [];
   for (var y = 0; y < h; y++) {
     for (var x = 0; x < w; x++) {
       if (!grid[y][x]) continue;
-      var x0 = x*SC, y0 = y*SC, x1 = (x+1)*SC, y1 = (y+1)*SC;
-
-      if (!G(x, y-1)) { // top edge: travel right
-        edges.push([adjX(x0,y0,1,0), adjY(x0,y0,1,0),
-                    adjX(x1,y0,1,0), adjY(x1,y0,1,0)]);
-      }
-      if (!G(x+1, y)) { // right edge: travel down
-        edges.push([adjX(x1,y0,0,1), adjY(x1,y0,0,1),
-                    adjX(x1,y1,0,1), adjY(x1,y1,0,1)]);
-      }
-      if (!G(x, y+1)) { // bottom edge: travel left
-        edges.push([adjX(x1,y1,-1,0), adjY(x1,y1,-1,0),
-                    adjX(x0,y1,-1,0), adjY(x0,y1,-1,0)]);
-      }
-      if (!G(x-1, y)) { // left edge: travel up
-        edges.push([adjX(x0,y1,0,-1), adjY(x0,y1,0,-1),
-                    adjX(x0,y0,0,-1), adjY(x0,y0,0,-1)]);
-      }
+      if (!G(x,   y-1)) edges.push([x*SC,     y*SC,     (x+1)*SC, y*SC    ]);
+      if (!G(x+1, y  )) edges.push([(x+1)*SC, y*SC,     (x+1)*SC, (y+1)*SC]);
+      if (!G(x,   y+1)) edges.push([(x+1)*SC, (y+1)*SC, x*SC,     (y+1)*SC]);
+      if (!G(x-1, y  )) edges.push([x*SC,     (y+1)*SC, x*SC,     y*SC    ]);
     }
   }
 
-  // Build adjacency using string keys
+  // Build adjacency - KEY FIX: at diagonal touch points, multiple edges share
+  // the same vertex. We must pick the correct next edge by choosing the one
+  // that keeps the black region to the LEFT of travel (consistent winding).
+  // We do this by sorting candidate next-edges by turn angle (always turn left).
   var adj = {};
   for (var ei = 0; ei < edges.length; ei++) {
     var e = edges[ei];
@@ -1087,56 +1031,73 @@ function qrCanvasToSVG(canvas, cpId) {
     adj[k].push([e[2], e[3]]);
   }
 
-  // Walk contours
+  // Walk contours - at vertices with multiple outgoing edges,
+  // pick the one that makes the RIGHTMOST turn (keeps black on left)
   var usedEdges = {};
   var contours = [];
+
   for (var ei = 0; ei < edges.length; ei++) {
     var e = edges[ei];
     var ek = e[0]+','+e[1]+','+e[2]+','+e[3];
     if (usedEdges[ek]) continue;
+
     var pts = [[e[0], e[1]]];
     usedEdges[ek] = true;
+    var prevDir = [e[2]-e[0], e[3]-e[1]];
     var cur = [e[2], e[3]];
     var safety = 0;
+
     while ((cur[0] !== e[0] || cur[1] !== e[1]) && safety++ < 200000) {
       pts.push(cur);
       var ck = cur[0]+','+cur[1];
       var nexts = adj[ck];
-      var moved = false;
-      if (nexts) {
-        for (var ni = 0; ni < nexts.length; ni++) {
-          var nxt = nexts[ni];
-          var nek = cur[0]+','+cur[1]+','+nxt[0]+','+nxt[1];
-          if (!usedEdges[nek]) {
-            usedEdges[nek] = true;
-            cur = nxt;
-            moved = true;
-            break;
-          }
+      if (!nexts || nexts.length === 0) break;
+
+      var bestNxt = null;
+      var bestAngle = -Infinity;
+
+      for (var ni = 0; ni < nexts.length; ni++) {
+        var nxt = nexts[ni];
+        var nek = cur[0]+','+cur[1]+','+nxt[0]+','+nxt[1];
+        if (usedEdges[nek]) continue;
+        // Compute turn angle from prevDir to this candidate
+        var dx = nxt[0]-cur[0], dy = nxt[1]-cur[1];
+        // Cross product and dot product to get signed angle
+        var cross = prevDir[0]*dy - prevDir[1]*dx;
+        var dot   = prevDir[0]*dx + prevDir[1]*dy;
+        var angle = Math.atan2(cross, dot);
+        // We want the most clockwise turn (most negative angle = rightmost)
+        if (angle < bestAngle || bestNxt === null) {
+          bestAngle = angle;
+          bestNxt = nxt;
         }
       }
-      if (!moved) break;
+
+      if (!bestNxt) break;
+      var nek = cur[0]+','+cur[1]+','+bestNxt[0]+','+bestNxt[1];
+      usedEdges[nek] = true;
+      prevDir = [bestNxt[0]-cur[0], bestNxt[1]-cur[1]];
+      cur = bestNxt;
     }
+
     if (pts.length > 2) contours.push(pts);
   }
 
   function signedArea(pts) {
     var area = 0, n = pts.length;
     for (var i = 0; i < n; i++) {
-      var j = (i+1) % n;
-      area += pts[i][0] * pts[j][1];
-      area -= pts[j][0] * pts[i][1];
+      var j = (i+1)%n;
+      area += pts[i][0]*pts[j][1] - pts[j][0]*pts[i][1];
     }
-    return area / 2;
+    return area/2;
   }
 
   function pointInPolygon(px, py, pts) {
     var inside = false, n = pts.length;
     for (var i = 0, j = n-1; i < n; j = i++) {
-      var xi = pts[i][0], yi = pts[i][1];
-      var xj = pts[j][0], yj = pts[j][1];
-      if (((yi > py) !== (yj > py)) && (px < (xj-xi)*(py-yi)/(yj-yi)+xi))
-        inside = !inside;
+      var xi=pts[i][0], yi=pts[i][1], xj=pts[j][0], yj=pts[j][1];
+      if (((yi>py)!==(yj>py)) && (px<(xj-xi)*(py-yi)/(yj-yi)+xi))
+        inside=!inside;
     }
     return inside;
   }
@@ -1145,53 +1106,50 @@ function qrCanvasToSVG(canvas, cpId) {
     var n = pts.length;
     var corners = [];
     for (var pi = 0; pi < n; pi++) {
-      var prev = pts[(pi+n-1)%n];
-      var curr = pts[pi];
-      var next = pts[(pi+1)%n];
-      var d1x = curr[0]-prev[0], d1y = curr[1]-prev[1];
-      var d2x = next[0]-curr[0], d2y = next[1]-curr[1];
-      if (d1x !== d2x || d1y !== d2y) corners.push(curr);
+      var prev=pts[(pi+n-1)%n], curr=pts[pi], next=pts[(pi+1)%n];
+      var d1x=curr[0]-prev[0], d1y=curr[1]-prev[1];
+      var d2x=next[0]-curr[0], d2y=next[1]-curr[1];
+      if (d1x!==d2x||d1y!==d2y) corners.push(curr);
     }
-    if (corners.length < 3) return '';
-    var d = 'M'+corners[0][0]+' '+corners[0][1];
-    for (var ki = 1; ki < corners.length; ki++)
-      d += ' L'+corners[ki][0]+' '+corners[ki][1];
-    d += ' Z';
-    return d;
+    if (corners.length<3) return '';
+    var d='M'+corners[0][0]+' '+corners[0][1];
+    for (var ki=1;ki<corners.length;ki++)
+      d+=' L'+corners[ki][0]+' '+corners[ki][1];
+    return d+' Z';
   }
 
-  var outers = [], holes = [];
-  for (var ci = 0; ci < contours.length; ci++) {
-    var area = signedArea(contours[ci]);
-    if (area < 0) outers.push({pts: contours[ci], holes: []});
-    else if (area > 0) holes.push(contours[ci]);
+  var outers=[], holes=[];
+  for (var ci=0;ci<contours.length;ci++) {
+    var area=signedArea(contours[ci]);
+    if (area<0) outers.push({pts:contours[ci],holes:[]});
+    else if (area>0) holes.push(contours[ci]);
   }
 
-  for (var hi = 0; hi < holes.length; hi++) {
-    var testPt = holes[hi][0];
-    var bestOuter = -1, bestArea = Infinity;
-    for (var oi = 0; oi < outers.length; oi++) {
-      if (pointInPolygon(testPt[0], testPt[1], outers[oi].pts)) {
-        var oa = Math.abs(signedArea(outers[oi].pts));
-        if (oa < bestArea) { bestArea = oa; bestOuter = oi; }
+  for (var hi=0;hi<holes.length;hi++) {
+    var testPt=holes[hi][0];
+    var bestOuter=-1, bestArea=Infinity;
+    for (var oi=0;oi<outers.length;oi++) {
+      if (pointInPolygon(testPt[0],testPt[1],outers[oi].pts)) {
+        var oa=Math.abs(signedArea(outers[oi].pts));
+        if (oa<bestArea){bestArea=oa;bestOuter=oi;}
       }
     }
-    if (bestOuter >= 0) outers[bestOuter].holes.push(holes[hi]);
+    if (bestOuter>=0) outers[bestOuter].holes.push(holes[hi]);
   }
 
-  var vbW = w * SC, vbH = h * SC;
-  var pathElements = [];
-  for (var oi = 0; oi < outers.length; oi++) {
-    var d = toPathD(outers[oi].pts);
+  var vbW=w*SC, vbH=h*SC;
+  var pathElements=[];
+  for (var oi=0;oi<outers.length;oi++) {
+    var d=toPathD(outers[oi].pts);
     if (!d) continue;
-    for (var hj = 0; hj < outers[oi].holes.length; hj++) {
-      var hd = toPathD(outers[oi].holes[hj]);
-      if (hd) d += ' ' + hd;
+    for (var hj=0;hj<outers[oi].holes.length;hj++) {
+      var hd=toPathD(outers[oi].holes[hj]);
+      if (hd) d+=' '+hd;
     }
     pathElements.push('<path fill="black" fill-rule="evenodd" d="'+d+'"/>');
   }
 
-  var svgParts = [];
+  var svgParts=[];
   svgParts.push('<svg xmlns="http://www.w3.org/2000/svg" width="'+size+'mm" height="'+size+'mm" viewBox="0 0 '+vbW+' '+vbH+'">');
   svgParts.push('<rect width="'+vbW+'" height="'+vbH+'" fill="white"/>');
   svgParts.push(pathElements.join(''));
