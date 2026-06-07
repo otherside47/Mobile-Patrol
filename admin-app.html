@@ -992,8 +992,9 @@ function qrCanvasToSVG(canvas, cpId) {
   var imgData = ctx.getImageData(0, 0, w, h);
   var size = 55;
   var SC = 100;
-  var SHRINK = 0.5; // shrink each rect by this amount on each side
+  var SHRINK = 0.4;
 
+  // Build boolean grid
   var grid = [];
   for (var y = 0; y < h; y++) {
     grid[y] = [];
@@ -1002,36 +1003,76 @@ function qrCanvasToSVG(canvas, cpId) {
     }
   }
 
-  // Greedy rectangle merging
-  var used = [];
-  for (var y = 0; y < h; y++) {
-    used[y] = [];
-    for (var x = 0; x < w; x++) used[y][x] = false;
-  }
-
-  var rects = [];
-  for (var y = 0; y < h; y++) {
+  // Detect quiet zone offset: find first black pixel row and column
+  var firstBlackRow = 0, firstBlackCol = 0;
+  outer1: for (var y = 0; y < h; y++) {
     for (var x = 0; x < w; x++) {
-      if (!grid[y][x] || used[y][x]) continue;
-      var x2 = x;
-      while (x2+1 < w && grid[y][x2+1] && !used[y][x2+1]) x2++;
-      var y2 = y;
-      var ok = true;
-      while (ok && y2+1 < h) {
-        for (var cx = x; cx <= x2; cx++) {
-          if (!grid[y2+1][cx] || used[y2+1][cx]) { ok = false; break; }
-        }
-        if (ok) y2++;
-      }
-      for (var ry = y; ry <= y2; ry++)
-        for (var rx = x; rx <= x2; rx++) used[ry][rx] = true;
-      rects.push([x, y, x2-x+1, y2-y+1]);
+      if (grid[y][x]) { firstBlackRow = y; break outer1; }
+    }
+  }
+  outer2: for (var x = 0; x < w; x++) {
+    for (var y = 0; y < h; y++) {
+      if (grid[y][x]) { firstBlackCol = x; break outer2; }
     }
   }
 
-  // Output rects slightly shrunk to eliminate shared vertices at diagonal touches
-  var vbW = w * SC;
-  var vbH = h * SC;
+  // Detect module size: length of first black run from firstBlackCol
+  var moduleSize = 1;
+  var runStart = firstBlackCol;
+  for (var x = firstBlackCol; x < w; x++) {
+    if (!grid[firstBlackRow][x]) { moduleSize = x - runStart; break; }
+  }
+  if (moduleSize < 1) moduleSize = 1;
+
+  // QR active area bounds
+  var qrX0 = firstBlackCol;
+  var qrY0 = firstBlackRow;
+  var modules = Math.round((w - qrX0 * 2) / moduleSize);
+
+  // Greedy rectangle merging on module grid
+  var modGrid = [];
+  for (var my = 0; my < modules; my++) {
+    modGrid[my] = [];
+    for (var mx = 0; mx < modules; mx++) {
+      var px = Math.floor(qrX0 + (mx + 0.5) * moduleSize);
+      var py = Math.floor(qrY0 + (my + 0.5) * moduleSize);
+      if (px >= w) px = w-1;
+      if (py >= h) py = h-1;
+      modGrid[my][mx] = grid[py][px];
+    }
+  }
+
+  var used = [];
+  for (var my = 0; my < modules; my++) {
+    used[my] = [];
+    for (var mx = 0; mx < modules; mx++) used[my][mx] = false;
+  }
+
+  var rects = [];
+  for (var my = 0; my < modules; my++) {
+    for (var mx = 0; mx < modules; mx++) {
+      if (!modGrid[my][mx] || used[my][mx]) continue;
+      var mx2 = mx;
+      while (mx2+1 < modules && modGrid[my][mx2+1] && !used[my][mx2+1]) mx2++;
+      var my2 = my;
+      var ok = true;
+      while (ok && my2+1 < modules) {
+        for (var cx = mx; cx <= mx2; cx++) {
+          if (!modGrid[my2+1][cx] || used[my2+1][cx]) { ok = false; break; }
+        }
+        if (ok) my2++;
+      }
+      for (var ry = my; ry <= my2; ry++)
+        for (var rx = mx; rx <= mx2; rx++) used[ry][rx] = true;
+      rects.push([mx, my, mx2-mx+1, my2-my+1]);
+    }
+  }
+
+  // Scale to SVG coords: modules map to 0..size mm
+  var modMM = size / modules;
+  var vbW = modules * SC;
+  var vbH = modules * SC;
+
   var svgParts = [];
   svgParts.push('<svg xmlns="http://www.w3.org/2000/svg" width="'+size+'mm" height="'+size+'mm" viewBox="0 0 '+vbW+' '+vbH+'">');
   svgParts.push('<rect width="'+vbW+'" height="'+vbH+'" fill="white"/>');
