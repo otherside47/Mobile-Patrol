@@ -987,6 +987,11 @@ function doStartShift(type, label, startDate, endDate, isContinue) {
   appEl.style.display='flex';
   navApp('s-home');
   setNav('nav-home');
+  // Force s-home to be fully visible
+  var sHome = document.getElementById('s-home');
+  sHome.style.display = 'flex';
+  sHome.style.flexDirection = 'column';
+  sHome.style.flex = '1';
   updateGPS();
   renderLists();
   // Load existing scans for this shift from Supabase BEFORE rendering
