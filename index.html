@@ -591,6 +591,7 @@ function endShift() {
   if (window._pollInterval) { clearInterval(window._pollInterval); window._pollInterval = null; }
   if (window._helpInterval) { clearInterval(window._helpInterval); window._helpInterval = null; }
   // Mark shift as ended in Supabase
+  if (!window._shiftId) window._shiftId = localStorage.getItem('mp_current_shift_id');
   if (window._shiftId) {
     fetch(SUPABASE_URL+'/rest/v1/active_shifts?id=eq.'+window._shiftId, {
       method: 'PATCH',
@@ -598,6 +599,7 @@ function endShift() {
       body: JSON.stringify({status:'ended', ended_at: new Date().toISOString()})
     }).catch(function(){});
   }
+  localStorage.removeItem('mp_current_shift_id');
   buildShiftReport();
   var allScreens = document.querySelectorAll('.screen');
   for (var i = 0; i < allScreens.length; i++) {
@@ -963,6 +965,7 @@ function startShift() {
   // Save shift to Supabase immediately
   var shiftId = 'SHIFT-' + Date.now();
   window._shiftId = shiftId;
+  localStorage.setItem('mp_current_shift_id', shiftId);
   var shiftRecord = {
     id: shiftId,
     guard_name: currentGuardName,
