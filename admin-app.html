@@ -992,7 +992,6 @@ function qrCanvasToSVG(canvas, cpId) {
   var imgData = ctx.getImageData(0, 0, w, h);
   var size = 55;
   var SC = 100;
-  var GAP = 1; // 0.01mm per side between separate regions
 
   var grid = [];
   for (var y = 0; y < h; y++) {
@@ -1002,28 +1001,22 @@ function qrCanvasToSVG(canvas, cpId) {
     }
   }
 
-  // Flood fill to label each connected black region
+  // Flood fill to label connected regions
   var label = [];
-  for (var y = 0; y < h; y++) {
-    label[y] = [];
-    for (var x = 0; x < w; x++) label[y][x] = -1;
-  }
+  for (var y = 0; y < h; y++) { label[y] = []; for (var x = 0; x < w; x++) label[y][x] = -1; }
   var numRegions = 0;
   for (var sy = 0; sy < h; sy++) {
     for (var sx = 0; sx < w; sx++) {
       if (!grid[sy][sx] || label[sy][sx] >= 0) continue;
-      // BFS flood fill
-      var queue = [[sx, sy]];
+      var queue = [[sx,sy]], qi = 0;
       label[sy][sx] = numRegions;
-      var qi = 0;
       while (qi < queue.length) {
-        var cx = queue[qi][0], cy = queue[qi][1]; qi++;
-        var nbrs = [[cx-1,cy],[cx+1,cy],[cx,cy-1],[cx,cy+1]];
-        for (var ni = 0; ni < nbrs.length; ni++) {
-          var nx = nbrs[ni][0], ny = nbrs[ni][1];
+        var cx=queue[qi][0], cy=queue[qi][1]; qi++;
+        var nb=[[cx-1,cy],[cx+1,cy],[cx,cy-1],[cx,cy+1]];
+        for (var ni=0;ni<nb.length;ni++) {
+          var nx=nb[ni][0],ny=nb[ni][1];
           if (nx>=0&&ny>=0&&nx<w&&ny<h&&grid[ny][nx]&&label[ny][nx]<0) {
-            label[ny][nx] = numRegions;
-            queue.push([nx, ny]);
+            label[ny][nx]=numRegions; queue.push([nx,ny]);
           }
         }
       }
@@ -1031,68 +1024,57 @@ function qrCanvasToSVG(canvas, cpId) {
     }
   }
 
-  // Greedy rectangle merging per region
+  // Greedy rect merging - within same region only
   var used = [];
-  for (var y = 0; y < h; y++) {
-    used[y] = [];
-    for (var x = 0; x < w; x++) used[y][x] = false;
-  }
-
-  // Store rects with their region label
+  for (var y=0;y<h;y++){used[y]=[];for(var x=0;x<w;x++)used[y][x]=false;}
   var rects = [];
-  for (var y = 0; y < h; y++) {
-    for (var x = 0; x < w; x++) {
-      if (!grid[y][x] || used[y][x]) continue;
-      var regionId = label[y][x];
-      var x2 = x;
-      while (x2+1 < w && grid[y][x2+1] && !used[y][x2+1] && label[y][x2+1]===regionId) x2++;
-      var y2 = y;
-      var ok = true;
-      while (ok && y2+1 < h) {
-        for (var cx = x; cx <= x2; cx++) {
-          if (!grid[y2+1][cx] || used[y2+1][cx] || label[y2+1][cx]!==regionId) { ok=false; break; }
+  for (var y=0;y<h;y++) {
+    for (var x=0;x<w;x++) {
+      if (!grid[y][x]||used[y][x]) continue;
+      var rid=label[y][x];
+      var x2=x;
+      while (x2+1<w&&grid[y][x2+1]&&!used[y][x2+1]&&label[y][x2+1]===rid) x2++;
+      var y2=y, ok=true;
+      while (ok&&y2+1<h) {
+        for (var cx=x;cx<=x2;cx++) {
+          if (!grid[y2+1][cx]||used[y2+1][cx]||label[y2+1][cx]!==rid){ok=false;break;}
         }
         if (ok) y2++;
       }
-      for (var ry = y; ry <= y2; ry++)
-        for (var rx = x; rx <= x2; rx++) used[ry][rx] = true;
-      rects.push([x, y, x2-x+1, y2-y+1, regionId]);
+      for (var ry=y;ry<=y2;ry++) for (var rx=x;rx<=x2;rx++) used[ry][rx]=true;
+      rects.push([x,y,x2-x+1,y2-y+1,rid]);
     }
   }
 
-  // For each region, compute its bounding box in pixel coords
-  // Then shrink each rect by GAP on sides that face OUTSIDE the region bbox
-  // Actually simpler: shrink each rect by GAP on all sides,
-  // but expand back by GAP on sides that are INTERNAL (shared with same region)
-  // Internal side = the neighboring pixel in that direction has the same regionId
-
-  var vbW = w*SC, vbH = h*SC;
-  var svgParts = [];
+  // Output: shrink only external sides by GAP, internal sides stay flush
+  var GAP = 0.5;
+  var vbW=w*SC, vbH=h*SC;
+  var svgParts=[];
   svgParts.push('<svg xmlns="http://www.w3.org/2000/svg" width="'+size+'mm" height="'+size+'mm" viewBox="0 0 '+vbW+' '+vbH+'">');
   svgParts.push('<rect width="'+vbW+'" height="'+vbH+'" fill="white"/>');
   svgParts.push('<g fill="black" stroke="none">');
 
-  for (var i = 0; i < rects.length; i++) {
-    var r = rects[i];
-    var rx0 = r[0], ry0 = r[1], rw = r[2], rh = r[3], rid = r[4];
+  for (var i=0;i<rects.length;i++) {
+    var r=rects[i];
+    var rx0=r[0],ry0=r[1],rw=r[2],rh=r[3],rid=r[4];
 
-    // Check each side: does ANY neighbor pixel along that edge share the same region?
-    var topInternal = false, bottomInternal = false, leftInternal = false, rightInternal = false;
-    for (var px = rx0; px < rx0+rw; px++) {
-      if (ry0 > 0 && grid[ry0-1][px] && label[ry0-1][px] === rid) topInternal = true;
-      if (ry0+rh < h && grid[ry0+rh][px] && label[ry0+rh][px] === rid) bottomInternal = true;
+    // Check all pixels along each edge for same-region neighbor
+    var topInt=false,botInt=false,lefInt=false,rigInt=false;
+    for (var px=rx0;px<rx0+rw;px++) {
+      if (ry0>0&&grid[ry0-1][px]&&label[ry0-1][px]===rid) topInt=true;
+      if (ry0+rh<h&&grid[ry0+rh][px]&&label[ry0+rh][px]===rid) botInt=true;
     }
-    for (var py = ry0; py < ry0+rh; py++) {
-      if (rx0 > 0 && grid[py][rx0-1] && label[py][rx0-1] === rid) leftInternal = true;
-      if (rx0+rw < w && grid[py][rx0+rw] && label[py][rx0+rw] === rid) rightInternal = true;
+    for (var py=ry0;py<ry0+rh;py++) {
+      if (rx0>0&&grid[py][rx0-1]&&label[py][rx0-1]===rid) lefInt=true;
+      if (rx0+rw<w&&grid[py][rx0+rw]&&label[py][rx0+rw]===rid) rigInt=true;
     }
 
-    var x0 = rx0*SC + (leftInternal   ? 0 : GAP);
-    var y0 = ry0*SC + (topInternal    ? 0 : GAP);
-    var x1 = (rx0+rw)*SC - (rightInternal  ? 0 : GAP);
-    var y1 = (ry0+rh)*SC - (bottomInternal ? 0 : GAP);
+    var x0=rx0*SC+(lefInt?0:GAP);
+    var y0=ry0*SC+(topInt?0:GAP);
+    var x1=(rx0+rw)*SC-(rigInt?0:GAP);
+    var y1=(ry0+rh)*SC-(botInt?0:GAP);
 
-    if (x1 > x0 && y1 > y0)
+    if (x1>x0&&y1>y0)
       svgParts.push('<rect x="'+x0+'" y="'+y0+'" width="'+(x1-x0)+'" height="'+(y1-y0)+'"/>');
   }
 
