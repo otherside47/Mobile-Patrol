@@ -1024,7 +1024,7 @@ function qrCanvasToSVG(canvas, cpId) {
     }
   }
 
-  // Greedy rect merging - within same region only
+  // Greedy rect merging - standard (no region constraint needed)
   var used = [];
   for (var y=0;y<h;y++){used[y]=[];for(var x=0;x<w;x++)used[y][x]=false;}
   var rects = [];
@@ -1033,11 +1033,11 @@ function qrCanvasToSVG(canvas, cpId) {
       if (!grid[y][x]||used[y][x]) continue;
       var rid=label[y][x];
       var x2=x;
-      while (x2+1<w&&grid[y][x2+1]&&!used[y][x2+1]&&label[y][x2+1]===rid) x2++;
+      while (x2+1<w&&grid[y][x2+1]&&!used[y][x2+1]) x2++;
       var y2=y, ok=true;
       while (ok&&y2+1<h) {
         for (var cx=x;cx<=x2;cx++) {
-          if (!grid[y2+1][cx]||used[y2+1][cx]||label[y2+1][cx]!==rid){ok=false;break;}
+          if (!grid[y2+1][cx]||used[y2+1][cx]){ok=false;break;}
         }
         if (ok) y2++;
       }
