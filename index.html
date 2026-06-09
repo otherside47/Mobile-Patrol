@@ -153,7 +153,16 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
         <input type="date" id="shift-end-date">
       </div>
       <div class="shift-preview" id="shift-preview">Select dates to preview shift</div>
-      <button type="button" class="big-btn" onclick="startShift()">Start Shift</button>
+      <!-- Continue shift warning box - shown when existing shift detected -->
+      <div id="continue-shift-box" style="display:none;background:rgba(255,176,32,0.12);border:1px solid rgba(255,176,32,0.5);border-radius:8px;padding:12px;margin-bottom:12px">
+        <div style="font-family:monospace;font-size:12px;color:#ffb020;font-weight:700;margin-bottom:8px">⚠ EXISTING SHIFT DETECTED</div>
+        <div id="continue-shift-msg" style="font-family:monospace;font-size:11px;color:#aaa;margin-bottom:12px"></div>
+        <div style="display:flex;gap:8px">
+          <button type="button" id="btn-continue-shift" style="flex:1;background:#ffb020;color:#000;border:none;border-radius:6px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">Continue Shift</button>
+          <button type="button" id="btn-new-shift" style="flex:1;background:rgba(255,255,255,0.08);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">Start New</button>
+        </div>
+      </div>
+      <button type="button" class="big-btn" id="btn-start-shift-main" onclick="startShift()">Start Shift</button>
     </div>
   </div>
 </div>
@@ -922,28 +931,37 @@ function startShift() {
   }
 
   // Check if same guard has an existing shift for this same period
-  var sinceCheck = startDate + 'T00:00:00.000Z';
-  var untilCheck = (endDate||startDate) + 'T23:59:59.000Z';
   fetch(SUPABASE_URL+'/rest/v1/active_shifts?guard_name=eq.'+encodeURIComponent(currentGuardName)+'&shift_type=eq.'+type+'&start_date=eq.'+startDate+'&order=started_at.desc&limit=1', {
     headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
   }).then(function(r){return r.json();}).then(function(existing){
     if (Array.isArray(existing) && existing.length > 0) {
       var prev = existing[0];
       var startedTime = new Date(prev.started_at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
-      var choice = confirm('You have an existing '+type+' shift started at '+startedTime+'. Tap OK to CONTINUE it, or Cancel to START A NEW shift.');
-      if (choice) {
-        // Continue previous shift
+      // Show inline warning box instead of browser confirm
+      var box = document.getElementById('continue-shift-box');
+      var msg = document.getElementById('continue-shift-msg');
+      var mainBtn = document.getElementById('btn-start-shift-main');
+      msg.textContent = 'You started a ' + type + ' shift at ' + startedTime + '. Continue it or start a new one?';
+      box.style.display = 'block';
+      mainBtn.style.display = 'none';
+      document.getElementById('btn-continue-shift').onclick = function() {
+        box.style.display = 'none';
+        mainBtn.style.display = 'block';
         window._shiftId = prev.id;
         localStorage.setItem('mp_current_shift_id', prev.id);
-        // Reactivate it in Supabase
         fetch(SUPABASE_URL+'/rest/v1/active_shifts?id=eq.'+prev.id, {
           method:'PATCH',
           headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},
           body:JSON.stringify({status:'active', ended_at:null})
         }).catch(function(){});
         doStartShift(type, label, startDate, endDate, true);
-        return;
-      }
+      };
+      document.getElementById('btn-new-shift').onclick = function() {
+        box.style.display = 'none';
+        mainBtn.style.display = 'block';
+        doStartShift(type, label, startDate, endDate, false);
+      };
+      return;
     }
     doStartShift(type, label, startDate, endDate, false);
   }).catch(function(){
