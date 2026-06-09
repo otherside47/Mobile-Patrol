@@ -992,7 +992,6 @@ function qrCanvasToSVG(canvas, cpId) {
   var imgData = ctx.getImageData(0, 0, w, h);
   var size = 55;
   var SC = 100;
-  var CLIP = 0.3;
 
   var grid = [];
   for (var y = 0; y < h; y++) {
@@ -1028,49 +1027,15 @@ function qrCanvasToSVG(canvas, cpId) {
     }
   }
 
-  var diagCorners = {};
-  for (var y = 0; y <= h; y++) {
-    for (var x = 0; x <= w; x++) {
-      var nw=(x>0&&y>0)?grid[y-1][x-1]:false;
-      var ne=(y>0&&x<w)?grid[y-1][x]:false;
-      var sw=(x>0&&y<h)?grid[y][x-1]:false;
-      var se=(x<w&&y<h)?grid[y][x]:false;
-      if ((nw&&se&&!ne&&!sw)||(ne&&sw&&!nw&&!se))
-        diagCorners[x+','+y]=true;
-    }
-  }
-
   var vbW=w*SC, vbH=h*SC;
   var svgParts=[];
   svgParts.push('<svg xmlns="http://www.w3.org/2000/svg" width="'+size+'mm" height="'+size+'mm" viewBox="0 0 '+vbW+' '+vbH+'">');
   svgParts.push('<rect width="'+vbW+'" height="'+vbH+'" fill="white"/>');
   svgParts.push('<g fill="black" stroke="none">');
-
   for (var i=0; i<rects.length; i++) {
     var r=rects[i];
-    var x0=r[0]*SC, y0=r[1]*SC;
-    var x1=(r[0]+r[2])*SC, y1=(r[1]+r[3])*SC;
-    var tl=diagCorners[r[0]+','+r[1]];
-    var tr=diagCorners[(r[0]+r[2])+','+r[1]];
-    var br=diagCorners[(r[0]+r[2])+','+(r[1]+r[3])];
-    var bl=diagCorners[r[0]+','+(r[1]+r[3])];
-    if (!tl&&!tr&&!br&&!bl) {
-      svgParts.push('<rect x="'+x0+'" y="'+y0+'" width="'+(x1-x0)+'" height="'+(y1-y0)+'"/>');
-    } else {
-      var pts=[
-        (tl?x0+CLIP:x0)+','+y0,
-        (tr?x1-CLIP:x1)+','+y0,
-        x1+','+(tr?y0+CLIP:y0),
-        x1+','+(br?y1-CLIP:y1),
-        (br?x1-CLIP:x1)+','+y1,
-        (bl?x0+CLIP:x0)+','+y1,
-        x0+','+(bl?y1-CLIP:y1),
-        x0+','+(tl?y0+CLIP:y0)
-      ];
-      svgParts.push('<polygon points="'+pts.join(' ')+'"/>');
-    }
+    svgParts.push('<rect x="'+(r[0]*SC)+'" y="'+(r[1]*SC)+'" width="'+(r[2]*SC)+'" height="'+(r[3]*SC)+'"/>');
   }
-
   svgParts.push('</g></svg>');
   return svgParts.join('');
 }
