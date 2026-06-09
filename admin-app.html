@@ -1076,15 +1076,16 @@ function qrCanvasToSVG(canvas, cpId) {
     var r = rects[i];
     var rx0 = r[0], ry0 = r[1], rw = r[2], rh = r[3], rid = r[4];
 
-    // Check each side: is the neighbor pixel the same region?
-    // Top side: check pixel at (rx0, ry0-1)
-    var topInternal    = ry0 > 0 && grid[ry0-1][rx0] && label[ry0-1][rx0] === rid;
-    // Bottom side: check pixel at (rx0, ry0+rh)
-    var bottomInternal = ry0+rh < h && grid[ry0+rh][rx0] && label[ry0+rh][rx0] === rid;
-    // Left side: check pixel at (rx0-1, ry0)
-    var leftInternal   = rx0 > 0 && grid[ry0][rx0-1] && label[ry0][rx0-1] === rid;
-    // Right side: check pixel at (rx0+rw, ry0)
-    var rightInternal  = rx0+rw < w && grid[ry0][rx0+rw] && label[ry0][rx0+rw] === rid;
+    // Check each side: does ANY neighbor pixel along that edge share the same region?
+    var topInternal = false, bottomInternal = false, leftInternal = false, rightInternal = false;
+    for (var px = rx0; px < rx0+rw; px++) {
+      if (ry0 > 0 && grid[ry0-1][px] && label[ry0-1][px] === rid) topInternal = true;
+      if (ry0+rh < h && grid[ry0+rh][px] && label[ry0+rh][px] === rid) bottomInternal = true;
+    }
+    for (var py = ry0; py < ry0+rh; py++) {
+      if (rx0 > 0 && grid[py][rx0-1] && label[py][rx0-1] === rid) leftInternal = true;
+      if (rx0+rw < w && grid[py][rx0+rw] && label[py][rx0+rw] === rid) rightInternal = true;
+    }
 
     var x0 = rx0*SC + (leftInternal   ? 0 : GAP);
     var y0 = ry0*SC + (topInternal    ? 0 : GAP);
