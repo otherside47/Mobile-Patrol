@@ -992,11 +992,9 @@ function qrCanvasToSVG(canvas, cpId) {
   var imgData = ctx.getImageData(0, 0, w, h);
   var size = 55;
   var SC = 100;
-  // 0.05mm gap: in viewBox units = 0.05/55 * w * SC
-  // For w=200, SC=100, size=55: 0.05/55*200*100 = 18.18 units
-  // We want 0.05mm gap total = 0.025mm per side
-  // In viewBox units per side: 0.025/55 * w * SC
-  var GAP = 0.025 / size * w * SC;
+  // Fixed gap of 1 unit = 0.01mm per side (0.02mm total gap between shapes)
+  // Safe for SolidWorks, invisible visually, eliminates all shared vertices
+  var GAP = 1;
 
   var grid = [];
   for (var y = 0; y < h; y++) {
