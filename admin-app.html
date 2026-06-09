@@ -128,7 +128,7 @@ select:focus,input:focus{border-color:#00e5a0}
     <button type="button" class="tab-btn" onclick="showTab('tab-checkpoints',this);renderCheckpoints()">CHECKPOINTS</button>
     <button type="button" class="tab-btn" onclick="showTab('tab-qr',this);generateQRCodes()">QR CODES</button>
     <button type="button" class="tab-btn" onclick="showTab('tab-notes',this);loadNotes()">NOTES</button>
-    <button type="button" class="tab-btn" onclick="showTab('tab-reports',this)">REPORTS</button>
+    <button type="button" class="tab-btn" onclick="showTab('tab-reports',this);loadShiftsForReport()">REPORTS</button>
   </div>
 
   <div class="content">
@@ -217,17 +217,26 @@ select:focus,input:focus{border-color:#00e5a0}
 
     <!-- REPORTS -->
     <div class="tab-panel" id="tab-reports">
-      <div class="metrics">
-        <div class="metric"><div class="metric-val" id="rep-total-scans">—</div><div class="metric-lbl">Total scans</div></div>
-        <div class="metric"><div class="metric-val" style="color:#ff4d4d" id="rep-total-req">—</div><div class="metric-lbl">Help requests</div></div>
-        <div class="metric"><div class="metric-val" id="rep-total-notes">—</div><div class="metric-lbl">Surv. notes</div></div>
-        <div class="metric"><div class="metric-val" style="color:#00e5a0" id="rep-acked">—</div><div class="metric-lbl">Requests acked</div></div>
+      <div class="card" style="margin-bottom:12px">
+        <div class="clabel" style="margin-bottom:10px">Select Shift to Report</div>
+        <select id="rep-shift-select" style="width:100%;padding:8px;background:#1a1d26;color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:6px;font-family:monospace;font-size:12px;margin-bottom:8px">
+          <option value="">— Loading shifts... —</option>
+        </select>
+        <button type="button" class="btn" onclick="loadShiftReport()" style="margin-bottom:0">Load Report</button>
       </div>
-      <div class="card">
-        <div class="clabel" style="margin-bottom:10px">Export</div>
-        <button type="button" class="btn" onclick="exportPDF()">📄 Export as PDF</button>
-        <button type="button" class="btn" onclick="exportExcel()">📊 Export as Excel</button>
-        <button type="button" class="btn" onclick="exportIncidents()">! Export incidents</button>
+      <div id="rep-shift-summary" style="display:none">
+        <div class="metrics">
+          <div class="metric"><div class="metric-val" id="rep-total-scans">—</div><div class="metric-lbl">Total scans</div></div>
+          <div class="metric"><div class="metric-val" style="color:#ff4d4d" id="rep-total-req">—</div><div class="metric-lbl">Help requests</div></div>
+          <div class="metric"><div class="metric-val" id="rep-total-notes">—</div><div class="metric-lbl">Surv. notes</div></div>
+          <div class="metric"><div class="metric-val" style="color:#00e5a0" id="rep-acked">—</div><div class="metric-lbl">Requests acked</div></div>
+        </div>
+        <div class="card">
+          <div class="clabel" style="margin-bottom:10px">Export</div>
+          <button type="button" class="btn" onclick="exportPDF()">📄 Export as PDF</button>
+          <button type="button" class="btn" onclick="exportExcel()">📊 Export as Excel</button>
+          <button type="button" class="btn" onclick="exportIncidents()">! Export incidents</button>
+        </div>
       </div>
     </div>
 
@@ -1151,78 +1160,120 @@ function closeModal(id){document.getElementById(id).classList.remove('open');}
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';clearTimeout(window._tt);window._tt=setTimeout(()=>t.style.display='none',2500);}
 
 // ── EXPORT FUNCTIONS ──
-function exportPDF() {
-  var twelve = new Date(Date.now()-12*60*60*1000).toISOString();
+var currentReportShift = null;
+var currentReportScans = [];
+var currentReportReqs = [];
+
+function loadShiftsForReport() {
+  fetch(SUPABASE_URL+'/rest/v1/active_shifts?order=started_at.desc&limit=100', {
+    headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+  }).then(function(r){return r.json();}).then(function(shifts){
+    if (!Array.isArray(shifts)) return;
+    var sel = document.getElementById('rep-shift-select');
+    sel.innerHTML = '<option value="">— Select a shift —</option>';
+    shifts.forEach(function(s){
+      var t = new Date(s.started_at).toLocaleString('en-GB',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+      var status = s.status === 'active' ? ' [ACTIVE]' : ' [ENDED]';
+      var opt = document.createElement('option');
+      opt.value = JSON.stringify(s);
+      opt.textContent = (s.guard_name||'Unknown') + ' — ' + (s.shift_label||s.shift_type) + ' — ' + t + status;
+      sel.appendChild(opt);
+    });
+  }).catch(function(){});
+}
+
+function loadShiftReport() {
+  var sel = document.getElementById('rep-shift-select');
+  if (!sel.value) { showToast('Please select a shift'); return; }
+  currentReportShift = JSON.parse(sel.value);
+  var sinceDate = currentReportShift.start_date + 'T00:00:00.000Z';
+  var untilDate = (currentReportShift.end_date||currentReportShift.start_date) + 'T23:59:59.000Z';
+  var guardName = currentReportShift.guard_name;
+  showToast('Loading...');
   Promise.all([
-    fetch(SUPABASE_URL+'/rest/v1/patrol_scans?order=timestamp.desc&limit=500&timestamp=gte.'+twelve, {headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}}).then(function(r){return r.json();}),
-    fetch(SUPABASE_URL+'/rest/v1/help_requests?order=timestamp.desc&limit=200', {headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}}).then(function(r){return r.json();})
-  ]).then(function(results) {
-    var scans = Array.isArray(results[0]) ? results[0] : [];
-    var reqs = Array.isArray(results[1]) ? results[1] : [];
-    var now = new Date().toLocaleString('en-GB');
-    var html = '<html><head><style>body{font-family:monospace;font-size:12px;padding:20px}h1{font-size:16px;margin-bottom:4px}h2{font-size:13px;color:#333;margin-top:20px;margin-bottom:8px}table{width:100%;border-collapse:collapse;margin-bottom:16px}th{background:#222;color:#fff;padding:6px 8px;text-align:left;font-size:11px}td{padding:5px 8px;border-bottom:1px solid #eee;font-size:11px}.ok{color:green}.red{color:red}</style></head><body>';
-    html += '<h1>MOBILE PATROL — Shift Report</h1><div>Generated: '+now+'</div>';
-    html += '<h2>CHECKPOINT SCANS ('+scans.length+')</h2><table><tr><th>Time</th><th>Checkpoint</th><th>Guard</th><th>GPS</th></tr>';
-    scans.forEach(function(s){
-      var t = new Date(s.timestamp).toLocaleString('en-GB');
-      var gps = (s.gps_lat&&s.gps_lng) ? s.gps_lat.toFixed(4)+'N '+s.gps_lng.toFixed(4)+'E' : 'n/a';
-      html += '<tr><td>'+t+'</td><td>'+s.checkpoint_id+'</td><td>'+(s.guard_name||'—')+'</td><td>'+gps+'</td></tr>';
-    });
-    html += '</table>';
-    html += '<h2>HELP REQUESTS ('+reqs.length+')</h2><table><tr><th>Time</th><th>Guard</th><th>Status</th><th>Location</th></tr>';
-    reqs.forEach(function(r){
-      var t = new Date(r.timestamp).toLocaleString('en-GB');
-      var gps = (r.gps_lat&&r.gps_lng) ? r.gps_lat.toFixed(4)+'N '+r.gps_lng.toFixed(4)+'E' : 'n/a';
-      html += '<tr><td>'+t+'</td><td>'+(r.guard_name||'—')+'</td><td class="'+(r.acknowledged?'ok':'red')+'">'+(r.acknowledged?'Acked':'Pending')+'</td><td>'+gps+'</td></tr>';
-    });
-    html += '</table></body></html>';
-    var blob = new Blob([html], {type:'text/html'});
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'patrol-report-'+new Date().toISOString().slice(0,10)+'.html';
-    a.click();
-    showToast('Report downloaded');
-  }).catch(function(){showToast('Export failed');});
+    fetch(SUPABASE_URL+'/rest/v1/patrol_scans?order=timestamp.asc&limit=500&timestamp=gte.'+sinceDate+'&timestamp=lte.'+untilDate+'&guard_name=eq.'+encodeURIComponent(guardName), {
+      headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+    }).then(function(r){return r.json();}),
+    fetch(SUPABASE_URL+'/rest/v1/help_requests?order=timestamp.asc&limit=200&timestamp=gte.'+sinceDate+'&timestamp=lte.'+untilDate, {
+      headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+    }).then(function(r){return r.json();})
+  ]).then(function(results){
+    currentReportScans = Array.isArray(results[0]) ? results[0] : [];
+    currentReportReqs = Array.isArray(results[1]) ? results[1] : [];
+    document.getElementById('rep-total-scans').textContent = currentReportScans.length;
+    document.getElementById('rep-total-req').textContent = currentReportReqs.length;
+    document.getElementById('rep-total-notes').textContent = '—';
+    document.getElementById('rep-acked').textContent = currentReportReqs.filter(function(r){return r.acknowledged;}).length;
+    document.getElementById('rep-shift-summary').style.display = 'block';
+    showToast('Loaded: '+currentReportScans.length+' scans');
+  }).catch(function(){showToast('Load failed');});
+}
+
+function buildReportHTML() {
+  var s = currentReportShift;
+  var now = new Date().toLocaleString('en-GB');
+  var html = '<html><head><style>body{font-family:monospace;font-size:12px;padding:20px}h1{font-size:16px;margin-bottom:4px}h2{font-size:13px;color:#333;margin-top:20px;margin-bottom:8px}.info{color:#555;margin-bottom:16px}table{width:100%;border-collapse:collapse;margin-bottom:16px}th{background:#222;color:#fff;padding:6px 8px;text-align:left;font-size:11px}td{padding:5px 8px;border-bottom:1px solid #eee;font-size:11px}.ok{color:green}.red{color:red}</style></head><body>';
+  html += '<h1>MOBILE PATROL — Shift Report</h1>';
+  html += '<div class="info">Guard: <b>'+(s.guard_name||'—')+'</b> &nbsp;|&nbsp; Shift: <b>'+(s.shift_label||s.shift_type)+'</b> &nbsp;|&nbsp; Generated: '+now+'</div>';
+  html += '<h2>CHECKPOINT SCANS ('+currentReportScans.length+')</h2>';
+  html += '<table><tr><th>Time</th><th>Checkpoint</th><th>Guard</th><th>GPS</th></tr>';
+  currentReportScans.forEach(function(sc){
+    var t = new Date(sc.timestamp).toLocaleString('en-GB');
+    var gps = (sc.gps_lat&&sc.gps_lng) ? sc.gps_lat.toFixed(4)+'N '+sc.gps_lng.toFixed(4)+'E' : 'n/a';
+    html += '<tr><td>'+t+'</td><td>'+(sc.checkpoint_id||'—')+'</td><td>'+(sc.guard_name||'—')+'</td><td>'+gps+'</td></tr>';
+  });
+  html += '</table>';
+  html += '<h2>HELP REQUESTS ('+currentReportReqs.length+')</h2>';
+  html += '<table><tr><th>Time</th><th>Guard</th><th>Status</th><th>Location</th></tr>';
+  currentReportReqs.forEach(function(r){
+    var t = new Date(r.timestamp).toLocaleString('en-GB');
+    var gps = (r.gps_lat&&r.gps_lng) ? r.gps_lat.toFixed(4)+'N '+r.gps_lng.toFixed(4)+'E' : 'n/a';
+    html += '<tr><td>'+t+'</td><td>'+(r.guard_name||'—')+'</td><td class="'+(r.acknowledged?'ok':'red')+'">'+(r.acknowledged?'Acked':'Pending')+'</td><td>'+gps+'</td></tr>';
+  });
+  html += '</table></body></html>';
+  return html;
+}
+
+function exportPDF() {
+  if (!currentReportShift) { showToast('Please load a shift first'); return; }
+  var html = buildReportHTML();
+  var blob = new Blob([html], {type:'text/html'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'patrol-report-'+(currentReportShift.guard_name||'guard')+'-'+currentReportShift.start_date+'.html';
+  a.click();
+  showToast('Report downloaded');
 }
 
 function exportExcel() {
-  var twelve = new Date(Date.now()-12*60*60*1000).toISOString();
-  fetch(SUPABASE_URL+'/rest/v1/patrol_scans?order=timestamp.desc&limit=500&timestamp=gte.'+twelve, {
-    headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
-  }).then(function(r){return r.json();}).then(function(scans) {
-    if (!Array.isArray(scans)) scans=[];
-    var csv = 'Time,Checkpoint,Guard,Shift,GPS Lat,GPS Lng\n';
-    scans.forEach(function(s){
-      var t = new Date(s.timestamp).toLocaleString('en-GB');
-      csv += '"'+t+'","'+(s.checkpoint_id||'')+'","'+(s.guard_name||'')+'","'+(s.shift_label||'')+'","'+(s.gps_lat||'')+'","'+(s.gps_lng||'')+'"\n';
-    });
-    var blob = new Blob([csv], {type:'text/csv'});
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'patrol-scans-'+new Date().toISOString().slice(0,10)+'.csv';
-    a.click();
-    showToast('Excel/CSV downloaded');
-  }).catch(function(){showToast('Export failed');});
+  if (!currentReportShift) { showToast('Please load a shift first'); return; }
+  var csv = 'Guard,Shift,Time,Checkpoint,GPS Lat,GPS Lng\n';
+  currentReportScans.forEach(function(s){
+    var t = new Date(s.timestamp).toLocaleString('en-GB');
+    csv += '"'+(currentReportShift.guard_name||'')+'","'+(currentReportShift.shift_label||'')+'","'+t+'","'+(s.checkpoint_id||'')+'","'+(s.gps_lat||'')+'","'+(s.gps_lng||'')+'"\n';
+  });
+  var blob = new Blob([csv], {type:'text/csv'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'patrol-scans-'+(currentReportShift.guard_name||'guard')+'-'+currentReportShift.start_date+'.csv';
+  a.click();
+  showToast('Excel/CSV downloaded');
 }
 
 function exportIncidents() {
-  fetch(SUPABASE_URL+'/rest/v1/help_requests?order=timestamp.desc&limit=200', {
-    headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
-  }).then(function(r){return r.json();}).then(function(reqs) {
-    if (!Array.isArray(reqs)) reqs=[];
-    var csv = 'Time,Guard,GPS Lat,GPS Lng,Acknowledged,Acked At\n';
-    reqs.forEach(function(r){
-      var t = new Date(r.timestamp).toLocaleString('en-GB');
-      var acked = r.acknowledged ? new Date(r.acknowledged_at||r.timestamp).toLocaleString('en-GB') : '';
-      csv += '"'+t+'","'+(r.guard_name||'')+'","'+(r.gps_lat||'')+'","'+(r.gps_lng||'')+'","'+(r.acknowledged?'Yes':'No')+'","'+acked+'"\n';
-    });
-    var blob = new Blob([csv], {type:'text/csv'});
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'incidents-'+new Date().toISOString().slice(0,10)+'.csv';
-    a.click();
-    showToast('Incident report downloaded');
-  }).catch(function(){showToast('Export failed');});
+  if (!currentReportShift) { showToast('Please load a shift first'); return; }
+  var csv = 'Time,Guard,GPS Lat,GPS Lng,Acknowledged,Acked At\n';
+  currentReportReqs.forEach(function(r){
+    var t = new Date(r.timestamp).toLocaleString('en-GB');
+    var acked = r.acknowledged ? new Date(r.acknowledged_at||r.timestamp).toLocaleString('en-GB') : '';
+    csv += '"'+t+'","'+(r.guard_name||'')+'","'+(r.gps_lat||'')+'","'+(r.gps_lng||'')+'","'+(r.acknowledged?'Yes':'No')+'","'+acked+'"\n';
+  });
+  var blob = new Blob([csv], {type:'text/csv'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'incidents-'+(currentReportShift.guard_name||'guard')+'-'+currentReportShift.start_date+'.csv';
+  a.click();
+  showToast('Incident report downloaded');
 }
 </script>
 </body>

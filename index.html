@@ -434,6 +434,8 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
 
     </div>
     <div style="flex-shrink:0;padding:12px 16px;background:#151820;border-top:1px solid rgba(255,255,255,0.08)">
+      <button type="button" onclick="guardExportPDF()" style="width:100%;padding:12px;border-radius:8px;background:rgba(255,255,255,0.06);color:#fff;border:1px solid rgba(255,255,255,0.15);font-size:13px;font-weight:600;cursor:pointer;font-family:monospace;margin-bottom:8px;display:block">📄 Export as PDF</button>
+      <button type="button" onclick="guardExportExcel()" style="width:100%;padding:12px;border-radius:8px;background:rgba(255,255,255,0.06);color:#fff;border:1px solid rgba(255,255,255,0.15);font-size:13px;font-weight:600;cursor:pointer;font-family:monospace;margin-bottom:8px;display:block">📊 Export as Excel</button>
       <button type="button" onclick="doLogout()" style="width:100%;padding:14px;border-radius:8px;background:#ff4d4d;color:#fff;border:none;font-size:15px;font-weight:700;cursor:pointer;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;-webkit-appearance:none;display:block">Log out</button>
     </div>
   </div>
@@ -1124,6 +1126,67 @@ document.getElementById('login-button').addEventListener('click', function() {
 
 // LOGOUT
 document.getElementById('btn-logout').addEventListener('click', function() { doLogout(); });
+
+function guardExportPDF() {
+  var guardName = currentGuardName || 'Guard';
+  var shiftLabel = currentShift ? currentShift.label : 'Shift';
+  var sinceDate = currentShift ? currentShift.startDate+'T00:00:00.000Z' : new Date(Date.now()-12*60*60*1000).toISOString();
+  var untilDate = currentShift ? (currentShift.endDate||currentShift.startDate)+'T23:59:59.000Z' : new Date().toISOString();
+  Promise.all([
+    fetch(SUPABASE_URL+'/rest/v1/patrol_scans?order=timestamp.asc&limit=500&timestamp=gte.'+sinceDate+'&timestamp=lte.'+untilDate+'&guard_name=eq.'+encodeURIComponent(guardName), {headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}}).then(function(r){return r.json();}),
+    fetch(SUPABASE_URL+'/rest/v1/help_requests?order=timestamp.asc&limit=200&timestamp=gte.'+sinceDate+'&timestamp=lte.'+untilDate, {headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}}).then(function(r){return r.json();})
+  ]).then(function(results){
+    var scans = Array.isArray(results[0]) ? results[0] : [];
+    var reqs = Array.isArray(results[1]) ? results[1] : [];
+    var now = new Date().toLocaleString('en-GB');
+    var html = '<html><head><style>body{font-family:monospace;font-size:12px;padding:20px}h1{font-size:16px;margin-bottom:4px}h2{font-size:13px;color:#333;margin-top:20px;margin-bottom:8px}.info{color:#555;margin-bottom:16px}table{width:100%;border-collapse:collapse;margin-bottom:16px}th{background:#222;color:#fff;padding:6px 8px;text-align:left;font-size:11px}td{padding:5px 8px;border-bottom:1px solid #eee;font-size:11px}.ok{color:green}.red{color:red}</style></head><body>';
+    html += '<h1>MOBILE PATROL — Shift Report</h1>';
+    html += '<div class="info">Guard: <b>'+guardName+'</b> &nbsp;|&nbsp; Shift: <b>'+shiftLabel+'</b> &nbsp;|&nbsp; Generated: '+now+'</div>';
+    html += '<h2>CHECKPOINT SCANS ('+scans.length+')</h2><table><tr><th>Time</th><th>Checkpoint</th><th>GPS</th></tr>';
+    scans.forEach(function(s){
+      var t = new Date(s.timestamp).toLocaleString('en-GB');
+      var gps = (s.gps_lat&&s.gps_lng) ? s.gps_lat.toFixed(4)+'N '+s.gps_lng.toFixed(4)+'E' : 'n/a';
+      html += '<tr><td>'+t+'</td><td>'+(s.checkpoint_id||'—')+'</td><td>'+gps+'</td></tr>';
+    });
+    html += '</table>';
+    html += '<h2>HELP REQUESTS ('+reqs.length+')</h2><table><tr><th>Time</th><th>Status</th><th>Location</th></tr>';
+    reqs.forEach(function(r){
+      var t = new Date(r.timestamp).toLocaleString('en-GB');
+      var gps = (r.gps_lat&&r.gps_lng) ? r.gps_lat.toFixed(4)+'N '+r.gps_lng.toFixed(4)+'E' : 'n/a';
+      html += '<tr><td>'+t+'</td><td class="'+(r.acknowledged?'ok':'red')+'">'+(r.acknowledged?'Acked':'Pending')+'</td><td>'+gps+'</td></tr>';
+    });
+    html += '</table></body></html>';
+    var blob = new Blob([html],{type:'text/html'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'shift-report-'+guardName+'-'+(currentShift?currentShift.startDate:new Date().toISOString().slice(0,10))+'.html';
+    a.click();
+    showToast('Report downloaded');
+  }).catch(function(){showToast('Export failed');});
+}
+
+function guardExportExcel() {
+  var guardName = currentGuardName || 'Guard';
+  var shiftLabel = currentShift ? currentShift.label : 'Shift';
+  var sinceDate = currentShift ? currentShift.startDate+'T00:00:00.000Z' : new Date(Date.now()-12*60*60*1000).toISOString();
+  var untilDate = currentShift ? (currentShift.endDate||currentShift.startDate)+'T23:59:59.000Z' : new Date().toISOString();
+  fetch(SUPABASE_URL+'/rest/v1/patrol_scans?order=timestamp.asc&limit=500&timestamp=gte.'+sinceDate+'&timestamp=lte.'+untilDate+'&guard_name=eq.'+encodeURIComponent(guardName), {
+    headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+  }).then(function(r){return r.json();}).then(function(scans){
+    if (!Array.isArray(scans)) scans=[];
+    var csv = 'Guard,Shift,Time,Checkpoint,GPS Lat,GPS Lng\n';
+    scans.forEach(function(s){
+      var t = new Date(s.timestamp).toLocaleString('en-GB');
+      csv += '"'+guardName+'","'+shiftLabel+'","'+t+'","'+(s.checkpoint_id||'')+'","'+(s.gps_lat||'')+'","'+(s.gps_lng||'')+'"\n';
+    });
+    var blob = new Blob([csv],{type:'text/csv'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'patrol-scans-'+guardName+'-'+(currentShift?currentShift.startDate:new Date().toISOString().slice(0,10))+'.csv';
+    a.click();
+    showToast('Excel downloaded');
+  }).catch(function(){showToast('Export failed');});
+}
 
 function doLogout() {
   stopScanner();
