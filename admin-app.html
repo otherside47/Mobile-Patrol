@@ -1193,7 +1193,7 @@ function generateQRCodes(){
       card.appendChild(sub);
       card.appendChild(dlBtn);
       grid.appendChild(card);
-      try{new QRCode(qrDiv,{text:cp.id,width:200,height:200,colorDark:'#000000',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.H});}catch(e){}
+      try{var svg=generateQRSVG(cp.id);if(svg)qrDiv.innerHTML=svg;}catch(e){new QRCode(qrDiv,{text:cp.id,width:200,height:200,colorDark:'#000000',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.H});}
     });
   }).catch(function(){
     checkpoints.forEach(function(cp){
@@ -1207,7 +1207,7 @@ function generateQRCodes(){
       dlBtn.textContent='SVG';
       dlBtn.onclick=(function(id){return function(){downloadSVG(id);};})(cp.id);
       card.appendChild(title);card.appendChild(qrDiv);card.appendChild(sub);card.appendChild(dlBtn);grid.appendChild(card);
-      try{new QRCode(qrDiv,{text:cp.id,width:200,height:200,colorDark:'#000000',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.H});}catch(e){}
+      try{var svg=generateQRSVG(cp.id);if(svg)qrDiv.innerHTML=svg;}catch(e){new QRCode(qrDiv,{text:cp.id,width:200,height:200,colorDark:'#000000',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.H});}
     });
   });
 }
