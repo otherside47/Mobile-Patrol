@@ -931,6 +931,8 @@ function startShift() {
   shiftEl.style.display = 'none';
   appEl.classList.add('active');
   appEl.style.display = 'flex';
+  navApp('s-home');
+  setNav('nav-home');
   updateGPS();
   // Render immediately with current state so screen is never empty
   renderLists();
