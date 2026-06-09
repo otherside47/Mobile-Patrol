@@ -992,7 +992,6 @@ function qrCanvasToSVG(canvas, cpId) {
   var imgData = ctx.getImageData(0, 0, w, h);
   var size = 55;
   var SC = 100;
-  var GAP = 0.5;
 
   var grid = [];
   for (var y = 0; y < h; y++) {
@@ -1002,48 +1001,21 @@ function qrCanvasToSVG(canvas, cpId) {
     }
   }
 
-  // Flood fill to label connected regions
-  var label = [];
-  for (var y=0;y<h;y++){label[y]=[];for(var x=0;x<w;x++)label[y][x]=-1;}
-  var numRegions = 0;
-  for (var sy=0;sy<h;sy++) {
-    for (var sx=0;sx<w;sx++) {
-      if (!grid[sy][sx]||label[sy][sx]>=0) continue;
-      var queue=[[sx,sy]],qi=0;
-      label[sy][sx]=numRegions;
-      while (qi<queue.length) {
-        var cx=queue[qi][0],cy=queue[qi][1];qi++;
-        var nb=[[cx-1,cy],[cx+1,cy],[cx,cy-1],[cx,cy+1]];
-        for (var ni=0;ni<nb.length;ni++) {
-          var nx=nb[ni][0],ny=nb[ni][1];
-          if (nx>=0&&ny>=0&&nx<w&&ny<h&&grid[ny][nx]&&label[ny][nx]<0) {
-            label[ny][nx]=numRegions;queue.push([nx,ny]);
-          }
-        }
-      }
-      numRegions++;
-    }
-  }
+  function G(x,y){ return x>=0&&y>=0&&x<w&&y<h&&grid[y][x]; }
 
-  // One rect per black pixel, gap only on sides bordering different region or white
-  var vbW=w*SC,vbH=h*SC;
+  var vbW=w*SC, vbH=h*SC;
   var svgParts=[];
   svgParts.push('<svg xmlns="http://www.w3.org/2000/svg" width="'+size+'mm" height="'+size+'mm" viewBox="0 0 '+vbW+' '+vbH+'">');
   svgParts.push('<rect width="'+vbW+'" height="'+vbH+'" fill="white"/>');
-  svgParts.push('<g fill="black" stroke="none">');
+  svgParts.push('<g fill="black" stroke="none" shape-rendering="crispEdges">');
 
   for (var y=0;y<h;y++) {
     for (var x=0;x<w;x++) {
       if (!grid[y][x]) continue;
-      var rid=label[y][x];
-      var topInt = y>0   && grid[y-1][x] && label[y-1][x]===rid;
-      var botInt = y<h-1 && grid[y+1][x] && label[y+1][x]===rid;
-      var lefInt = x>0   && grid[y][x-1] && label[y][x-1]===rid;
-      var rigInt = x<w-1 && grid[y][x+1] && label[y][x+1]===rid;
-      var x0=x*SC+(lefInt?0:GAP);
-      var y0=y*SC+(topInt?0:GAP);
-      var x1=(x+1)*SC-(rigInt?0:GAP);
-      var y1=(y+1)*SC-(botInt?0:GAP);
+      var x0 = x*SC;
+      var y0 = y*SC;
+      var x1 = (x+1)*SC;
+      var y1 = (y+1)*SC;
       svgParts.push('<rect x="'+x0+'" y="'+y0+'" width="'+(x1-x0)+'" height="'+(y1-y0)+'"/>');
     }
   }
