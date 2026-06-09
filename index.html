@@ -186,6 +186,15 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
       <span class="badge bg">On duty</span>
       <button type="button" onclick="confirmEndShift()" style="margin-left:8px;background:rgba(255,77,77,0.15);color:#ff6b6b;border:1px solid rgba(255,77,77,0.3);border-radius:6px;padding:5px 10px;font-size:11px;font-family:monospace;cursor:pointer">End Shift</button>
     </div>
+    <!-- Amber end shift confirmation box -->
+    <div id="end-shift-box" style="display:none;background:rgba(255,77,77,0.12);border:1px solid rgba(255,77,77,0.4);border-radius:8px;padding:12px;margin:8px 16px 0 16px;flex-shrink:0">
+      <div style="font-family:monospace;font-size:12px;color:#ff6b6b;font-weight:700;margin-bottom:8px">⚠ END SHIFT CONFIRMATION</div>
+      <div style="font-family:monospace;font-size:11px;color:#aaa;margin-bottom:12px">Are you sure you want to end your shift? This will generate your shift report.</div>
+      <div style="display:flex;gap:8px">
+        <button type="button" onclick="doEndShiftConfirmed()" style="flex:1;background:#ff4d4d;color:#fff;border:none;border-radius:6px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">End Shift</button>
+        <button type="button" onclick="document.getElementById('end-shift-box').style.display='none'" style="flex:1;background:rgba(255,255,255,0.08);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">Cancel</button>
+      </div>
+    </div>
     <div class="content">
       <div id="shift-banner" style="background:rgba(0,119,255,0.1);border:1px solid rgba(0,119,255,0.2);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-family:monospace;font-size:11px;color:#4da3ff;display:none"></div>
       <div id="offline-bar" class="offline-bar" style="display:none">Offline — data saved locally</div>
@@ -590,9 +599,12 @@ function playAlert() {
 var shiftEndTime = null;
 
 function confirmEndShift() {
-  if (confirm('Are you sure you want to end your shift?')) {
-    endShift();
-  }
+  document.getElementById('end-shift-box').style.display = 'block';
+}
+
+function doEndShiftConfirmed() {
+  document.getElementById('end-shift-box').style.display = 'none';
+  endShift();
 }
 
 function endShift() {
@@ -994,6 +1006,14 @@ function doStartShift(type, label, startDate, endDate, isContinue) {
   sHome.style.flex = '1';
   updateGPS();
   renderLists();
+  // Force a DOM repaint to ensure content is visible
+  setTimeout(function() {
+    renderLists();
+    var sHome2 = document.getElementById('s-home');
+    sHome2.style.display = 'none';
+    sHome2.offsetHeight; // trigger reflow
+    sHome2.style.display = 'flex';
+  }, 100);
   // Load existing scans for this shift from Supabase BEFORE rendering
   // For night shifts spanning two days, load from startDate to endDate+1
   document.getElementById('cp-list').innerHTML = '<div style="font-size:13px;color:#555a6a;font-family:monospace;padding:8px 0">Loading...</div>';
