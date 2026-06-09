@@ -993,43 +993,83 @@ function qrCanvasToSVG(canvas, cpId) {
   var size = 55;
   var SC = 100;
 
-  var grid = [];
+  // Build raw pixel grid
+  var raw = [];
   for (var y = 0; y < h; y++) {
-    grid[y] = [];
+    raw[y] = [];
     for (var x = 0; x < w; x++) {
-      grid[y][x] = imgData.data[(y * w + x) * 4] < 128;
+      raw[y][x] = imgData.data[(y * w + x) * 4] < 128 ? 1 : 0;
     }
   }
 
-  // Greedy rectangle merging - full size, no gap, no shrink
+  // Find first black row and column
+  var firstRow = 0, firstCol = 0;
+  outer1: for (var y = 0; y < h; y++) {
+    for (var x = 0; x < w; x++) { if (raw[y][x]) { firstRow = y; break outer1; } }
+  }
+  outer2: for (var x = 0; x < w; x++) {
+    if (raw[firstRow][x]) { firstCol = x; break; }
+  }
+
+  // Detect module size = SMALLEST black run anywhere in image
+  var cellSize = w;
+  for (var y = 0; y < h; y++) {
+    var inRun = false, runLen = 0;
+    for (var x = 0; x < w; x++) {
+      if (raw[y][x]) { if (!inRun) { inRun = true; runLen = 1; } else { runLen++; } }
+      else { if (inRun && runLen < cellSize) cellSize = runLen; inRun = false; }
+    }
+    if (inRun && runLen < cellSize) cellSize = runLen;
+  }
+  if (cellSize < 1) cellSize = 1;
+
+  // Number of modules
+  var numMod = firstCol > 0 ? Math.round((w - firstCol * 2) / cellSize) : Math.round(w / cellSize);
+
+  // Build module grid by sampling center of each cell
+  var grid = [];
+  for (var my = 0; my < numMod; my++) {
+    grid[my] = [];
+    for (var mx = 0; mx < numMod; mx++) {
+      var px = Math.floor(firstCol + mx * cellSize + cellSize * 0.5);
+      var py = Math.floor(firstRow + my * cellSize + cellSize * 0.5);
+      if (px >= w) px = w - 1;
+      if (py >= h) py = h - 1;
+      grid[my][mx] = raw[py][px];
+    }
+  }
+
+  var mw = numMod, mh = numMod;
+
+  // Greedy rectangle merging on module grid
   var used = [];
-  for (var y=0;y<h;y++){used[y]=[];for(var x=0;x<w;x++)used[y][x]=false;}
+  for (var y = 0; y < mh; y++) { used[y] = []; for (var x = 0; x < mw; x++) used[y][x] = false; }
   var rects = [];
-  for (var y=0;y<h;y++) {
-    for (var x=0;x<w;x++) {
-      if (!grid[y][x]||used[y][x]) continue;
-      var x2=x;
-      while (x2+1<w&&grid[y][x2+1]&&!used[y][x2+1]) x2++;
-      var y2=y, ok=true;
-      while (ok&&y2+1<h) {
-        for (var cx=x;cx<=x2;cx++) {
-          if (!grid[y2+1][cx]||used[y2+1][cx]){ok=false;break;}
+  for (var y = 0; y < mh; y++) {
+    for (var x = 0; x < mw; x++) {
+      if (!grid[y][x] || used[y][x]) continue;
+      var x2 = x;
+      while (x2+1 < mw && grid[y][x2+1] && !used[y][x2+1]) x2++;
+      var y2 = y, ok = true;
+      while (ok && y2+1 < mh) {
+        for (var cx = x; cx <= x2; cx++) {
+          if (!grid[y2+1][cx] || used[y2+1][cx]) { ok = false; break; }
         }
         if (ok) y2++;
       }
-      for (var ry=y;ry<=y2;ry++) for (var rx=x;rx<=x2;rx++) used[ry][rx]=true;
-      rects.push([x,y,x2-x+1,y2-y+1]);
+      for (var ry = y; ry <= y2; ry++) for (var rx = x; rx <= x2; rx++) used[ry][rx] = true;
+      rects.push([x, y, x2-x+1, y2-y+1]);
     }
   }
 
-  var vbW=w*SC, vbH=h*SC;
-  var svgParts=[];
-  svgParts.push('<svg xmlns="http://www.w3.org/2000/svg" width="'+size+'mm" height="'+size+'mm" viewBox="0 0 '+vbW+' '+vbH+'">');
-  svgParts.push('<rect width="'+vbW+'" height="'+vbH+'" fill="white"/>');
+  var vbW = mw * SC, vbH = mh * SC;
+  var svgParts = [];
+  svgParts.push('<svg xmlns="http://www.w3.org/2000/svg" width="' + size + 'mm" height="' + size + 'mm" viewBox="0 0 ' + vbW + ' ' + vbH + '">');
+  svgParts.push('<rect width="' + vbW + '" height="' + vbH + '" fill="white"/>');
   svgParts.push('<g fill="black" stroke="none" shape-rendering="crispEdges">');
-  for (var i=0;i<rects.length;i++) {
-    var r=rects[i];
-    svgParts.push('<rect x="'+(r[0]*SC)+'" y="'+(r[1]*SC)+'" width="'+(r[2]*SC)+'" height="'+(r[3]*SC)+'"/>');
+  for (var i = 0; i < rects.length; i++) {
+    var r = rects[i];
+    svgParts.push('<rect x="' + (r[0]*SC) + '" y="' + (r[1]*SC) + '" width="' + (r[2]*SC) + '" height="' + (r[3]*SC) + '"/>');
   }
   svgParts.push('</g></svg>');
   return svgParts.join('');
