@@ -992,6 +992,11 @@ function qrCanvasToSVG(canvas, cpId) {
   var imgData = ctx.getImageData(0, 0, w, h);
   var size = 55;
   var SC = 100;
+  // 0.05mm gap: in viewBox units = 0.05/55 * w * SC
+  // For w=200, SC=100, size=55: 0.05/55*200*100 = 18.18 units
+  // We want 0.05mm gap total = 0.025mm per side
+  // In viewBox units per side: 0.025/55 * w * SC
+  var GAP = 0.025 / size * w * SC;
 
   var grid = [];
   for (var y = 0; y < h; y++) {
@@ -1027,14 +1032,19 @@ function qrCanvasToSVG(canvas, cpId) {
     }
   }
 
-  var vbW=w*SC, vbH=h*SC;
-  var svgParts=[];
+  var vbW = w*SC, vbH = h*SC;
+  var svgParts = [];
   svgParts.push('<svg xmlns="http://www.w3.org/2000/svg" width="'+size+'mm" height="'+size+'mm" viewBox="0 0 '+vbW+' '+vbH+'">');
   svgParts.push('<rect width="'+vbW+'" height="'+vbH+'" fill="white"/>');
   svgParts.push('<g fill="black" stroke="none">');
-  for (var i=0; i<rects.length; i++) {
-    var r=rects[i];
-    svgParts.push('<rect x="'+(r[0]*SC)+'" y="'+(r[1]*SC)+'" width="'+(r[2]*SC)+'" height="'+(r[3]*SC)+'"/>');
+  for (var i = 0; i < rects.length; i++) {
+    var r = rects[i];
+    var rx = r[0]*SC + GAP;
+    var ry = r[1]*SC + GAP;
+    var rw = r[2]*SC - GAP*2;
+    var rh = r[3]*SC - GAP*2;
+    if (rw > 0 && rh > 0)
+      svgParts.push('<rect x="'+rx.toFixed(3)+'" y="'+ry.toFixed(3)+'" width="'+rw.toFixed(3)+'" height="'+rh.toFixed(3)+'"/>');
   }
   svgParts.push('</g></svg>');
   return svgParts.join('');
