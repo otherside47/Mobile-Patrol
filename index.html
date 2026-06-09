@@ -958,11 +958,11 @@ function doStartShift(type, label, startDate, endDate, isContinue) {
   banner.textContent=(type==='night'?'Night: ':'Day: ')+label;
   document.getElementById('tl-header').textContent=label+' · '+currentGuardName;
 
-  // Fully reset ALL screens before showing screen-app — fixes empty screen bug
-  var allScreens = document.querySelectorAll('.screen');
-  for (var i=0;i<allScreens.length;i++) {
-    allScreens[i].classList.remove('active');
-    allScreens[i].style.display='none';
+  // Reset only top-level screens (not inner app screens) — fixes empty screen bug
+  var topScreens = ['screen-login','screen-shift','screen-app','screen-report'];
+  for (var i=0;i<topScreens.length;i++) {
+    var el = document.getElementById(topScreens[i]);
+    if (el) { el.classList.remove('active'); el.style.display='none'; }
   }
   var appEl = document.getElementById('screen-app');
   appEl.classList.add('active');
