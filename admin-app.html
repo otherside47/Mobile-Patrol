@@ -587,6 +587,8 @@ function doLogin(){
   var err=document.getElementById('login-err');
   // Load latest from Supabase then validate
   loadAllProfiles().then(function(){
+    // Restore selected account after profile reload rebuilds the dropdown
+    document.getElementById('acct-select').value=k;
     var acc=adminProfiles[k];
     if(!acc||p!==acc.pass){err.style.display='block';return;}
     err.style.display='none';
