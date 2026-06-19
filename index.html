@@ -1061,17 +1061,20 @@ function doStartShift(type, label, startDate, endDate, isContinue) {
       started_at: new Date().toISOString(),
       status: 'active'
     };
-    // End any previously active shifts before creating new one
+    // End any previously active shifts, then insert new one (chained to avoid race condition)
     fetch(SUPABASE_URL+'/rest/v1/active_shifts?status=eq.active', {
       method: 'PATCH',
       headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer '+SUPABASE_KEY, 'Content-Type': 'application/json'},
       body: JSON.stringify({status:'ended', ended_at: new Date().toISOString()})
-    }).catch(function(){});
-    fetch(SUPABASE_URL+'/rest/v1/active_shifts', {
-      method: 'POST',
-      headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer '+SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal'},
-      body: JSON.stringify(shiftRecord)
-    }).catch(function(){});
+    }).catch(function(e){ console.warn('[Shift] End-old PATCH failed:', e); }).then(function() {
+      fetch(SUPABASE_URL+'/rest/v1/active_shifts', {
+        method: 'POST',
+        headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer '+SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal'},
+        body: JSON.stringify(shiftRecord)
+      }).then(function(r) {
+        if (!r.ok) { r.text().then(function(t){ console.warn('[Shift] Insert failed:', r.status, t); }); }
+      }).catch(function(e){ console.warn('[Shift] Insert POST failed:', e); });
+    });
   }
   updateGPS();
   showToast('Shift started');
