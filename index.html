@@ -481,12 +481,23 @@ var SUPABASE_URL = 'https://hzvegzkjogcjqzogxvvm.supabase.co';
 var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh6dmVnemtqb2djanF6b2d4dnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwOTA3NjgsImV4cCI6MjA5NTY2Njc2OH0.jDvCtntJjFd0tp9h5vFHm3xKa6s5HOGAschU-QrnmAE';
 
 // Guard profiles - loaded exclusively from Supabase
-var guardProfiles = {};
+// Fallback profiles — always available instantly, synced from Supabase on load
+var guardProfiles = {
+  'guard1': {name:'EK', pass:'Guard1pass', vacant:false},
+  'guard2': {name:'AM', pass:'Guard2pass', vacant:false},
+  'guard3': {name:'AG', pass:'Guard3pass', vacant:false},
+  'guard4': {name:'MC', pass:'Guard4pass', vacant:false},
+  'guard5': {name:'Replacement', pass:'guardpass', vacant:true}
+};
 
 function loadGuardProfiles(cb) {
+  // Show dropdown immediately from fallback data
+  updateLoginDropdown();
+  // Then sync latest from Supabase (updates passwords/names if changed)
   fetch(SUPABASE_URL + '/rest/v1/guard_profiles?order=id.asc', {
     headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY}
   }).then(function(r) {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
     return r.json();
   }).then(function(data) {
     if (Array.isArray(data) && data.length > 0) {
@@ -501,7 +512,8 @@ function loadGuardProfiles(cb) {
       updateLoginDropdown();
     }
     if (cb) cb();
-  }).catch(function() {
+  }).catch(function(e) {
+    console.warn('[Profiles] Using fallback data, Supabase sync failed:', e);
     if (cb) cb();
   });
 }
@@ -1236,7 +1248,6 @@ function doLogout() {
 
 // NAV
 document.getElementById('btn-scan').addEventListener('click', function(){navApp('s-scan');setNav('nav-scan');updateGPS();});
-document.getElementById('btn-incident').addEventListener('click', function(){navApp('s-incident');setNav('nav-incident');resetIncidentForm();updateGPS();});
 document.getElementById('btn-scan-back').addEventListener('click', function(){stopScanner();navApp('s-home');setNav('nav-home');});
 document.getElementById('btn-incident-back').addEventListener('click', function(){resetIncidentForm();navApp('s-home');setNav('nav-home');});
 document.getElementById('nav-home').addEventListener('click', function(){navApp('s-home');setNav('nav-home');});
