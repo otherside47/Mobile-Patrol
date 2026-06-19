@@ -243,6 +243,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
     </div>
     <div class="btn-row">
       <button type="button" class="btn btn-p" style="flex:1;margin-bottom:0" id="btn-scan">📷 Scan QR</button>
+      <button type="button" class="btn" style="flex:1;margin-bottom:0;color:#ff4d4d;border-color:rgba(255,77,77,0.3)" id="btn-incident">⚠ Incident</button>
     </div>
     <div style="height:6px;flex-shrink:0"></div>
   </div>
@@ -1248,6 +1249,7 @@ function doLogout() {
 
 // NAV
 document.getElementById('btn-scan').addEventListener('click', function(){navApp('s-scan');setNav('nav-scan');updateGPS();});
+document.getElementById('btn-incident').addEventListener('click', function(){navApp('s-incident');setNav('nav-incident');resetIncidentForm();updateGPS();});
 document.getElementById('btn-scan-back').addEventListener('click', function(){stopScanner();navApp('s-home');setNav('nav-home');});
 document.getElementById('btn-incident-back').addEventListener('click', function(){resetIncidentForm();navApp('s-home');setNav('nav-home');});
 document.getElementById('nav-home').addEventListener('click', function(){navApp('s-home');setNav('nav-home');});
