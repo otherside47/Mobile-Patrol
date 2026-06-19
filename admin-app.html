@@ -580,7 +580,7 @@ async function pollRequests(){
 setInterval(pollRequests,5000);
 
 // ── LOGIN ──
-function onAcctChange(){document.getElementById('name-fields').style.display=document.getElementById('acct-select').value==='admin3'?'block':'none';}
+function onAcctChange(){document.getElementById('name-fields').style.display='none';}
 function doLogin(){
   var k=document.getElementById('acct-select').value;
   var p=document.getElementById('login-pw').value;
@@ -591,12 +591,6 @@ function doLogin(){
     if(!acc||p!==acc.pass){err.style.display='block';return;}
     err.style.display='none';
     var name=acc.name;
-    if(k==='admin3'&&(name==='Vacant'||!name)){
-      var fn=document.getElementById('input-fn').value.trim();
-      var ln=document.getElementById('input-ln').value.trim();
-      if(!fn||!ln){err.textContent='Please enter your name.';err.style.display='block';return;}
-      name=fn+' '+ln;
-    }
     currentAdminKey=k;currentAdminRole=acc.role;
     document.getElementById('status-name').textContent=''+name+(acc.role==='main'?' (Main Admin)':' (Admin)');
     document.getElementById('admin-role-badge').textContent=acc.role==='main'?'MAIN ADMIN':'ADMIN';
