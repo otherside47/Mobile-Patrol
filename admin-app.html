@@ -129,6 +129,7 @@ select:focus,input:focus{border-color:#00e5a0}
     <button type="button" class="tab-btn" onclick="showTab('tab-qr',this);generateQRCodes()">QR CODES</button>
     <button type="button" class="tab-btn" onclick="showTab('tab-notes',this);loadNotes()">NOTES</button>
     <button type="button" class="tab-btn" onclick="showTab('tab-reports',this);loadShiftsForReport()">REPORTS</button>
+    <button type="button" class="tab-btn" onclick="showTab('tab-incidents',this);loadIncidents()">! INCIDENTS<span id="inc-badge" style="display:none;background:#ff4d4d;color:#fff;border-radius:10px;padding:1px 5px;font-size:9px;margin-left:2px"></span></button>
   </div>
 
   <div class="content">
@@ -146,7 +147,7 @@ select:focus,input:focus{border-color:#00e5a0}
       </div>
       <div class="metrics">
         <div class="metric"><div class="metric-val" id="live-scans">—</div><div class="metric-lbl">Scans today</div></div>
-        <div class="metric"><div class="metric-val" style="color:#ff4d4d" id="live-incidents">—</div><div class="metric-lbl">Requests today</div></div>
+        <div class="metric"><div class="metric-val" style="color:#ff4d4d" id="live-incidents">—</div><div class="metric-lbl">Incidents</div></div>
         <div class="metric"><div class="metric-val" id="live-notes">—</div><div class="metric-lbl">Surv. notes</div></div>
         <div class="metric"><div class="metric-val" style="color:#ffb020" id="live-unacked">—</div><div class="metric-lbl">Unacked requests</div></div>
       </div>
@@ -159,6 +160,15 @@ select:focus,input:focus{border-color:#00e5a0}
         <div style="font-size:12px;color:#555a6a;font-family:monospace;margin-bottom:10px">Gray = not scanned · Yellow = scanned (with guard initials superscript)</div>
         <div id="cp-scan-status" style="display:flex;flex-wrap:wrap;gap:6px"></div>
       </div>
+    </div>
+
+    <!-- INCIDENTS -->
+    <div class="tab-panel" id="tab-incidents">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div style="font-size:13px;color:#8b90a0;font-family:monospace">Live incident reports from guards.</div>
+        <button type="button" class="btn-sm btn" onclick="loadIncidents();showToast('Refreshed')" style="color:#00e5a0;border-color:rgba(0,229,160,0.3)">Refresh</button>
+      </div>
+      <div id="admin-incidents-list"><div style="font-size:13px;color:#555a6a;font-family:monospace">Loading...</div></div>
     </div>
 
     <!-- REQUESTS -->
@@ -692,6 +702,13 @@ function loadLiveData(){
     if (!Array.isArray(requests)) requests = [];
     var unacked = requests.filter(function(r){return !r.acked;}).length;
     document.getElementById('live-incidents').textContent = requests.length;
+    // Also fetch incident count
+    fetch(SUPABASE_URL + '/rest/v1/incidents?select=id&order=timestamp.desc&limit=1', {
+      headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Prefer': 'count=exact'}
+    }).then(function(r) {
+      var count = r.headers.get('content-range');
+      if (count) { var total = count.split('/')[1]; document.getElementById('live-incidents').textContent = total || '0'; }
+    }).catch(function(){});
     document.getElementById('live-unacked').textContent = unacked;
     document.getElementById('rep-total-req').textContent = requests.length;
     document.getElementById('rep-acked').textContent = requests.filter(function(r){return r.acked;}).length;
@@ -781,6 +798,52 @@ async function loadRequests(){
     </div>`;
   }).join('');
 }
+
+// ── INCIDENTS ──
+function loadIncidents() {
+  var el = document.getElementById('admin-incidents-list');
+  var badge = document.getElementById('inc-badge');
+  if (!el) return;
+  el.innerHTML = '<div style="font-size:13px;color:#555a6a;font-family:monospace">Loading...</div>';
+  fetch(SUPABASE_URL + '/rest/v1/incidents?order=timestamp.desc&limit=100', {
+    headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY}
+  }).then(function(r) { return r.json(); }).then(function(data) {
+    if (!Array.isArray(data) || data.length === 0) {
+      el.innerHTML = '<div style="font-size:13px;color:#555a6a;font-family:monospace">No incidents reported.</div>';
+      if (badge) badge.style.display = 'none';
+      return;
+    }
+    if (badge) { badge.style.display = 'inline'; badge.textContent = data.length; }
+    var html = '';
+    for (var i = 0; i < data.length; i++) {
+      var inc = data[i];
+      var t = new Date(inc.timestamp).toLocaleString('en-GB');
+      var sevColor = inc.severity === 'Critical' ? '#ff4d4d' : inc.severity === 'High' ? '#ffb020' : inc.severity === 'Medium' ? '#4da3ff' : '#8b90a0';
+      var edited = inc.updated_at && inc.updated_at !== inc.timestamp ? ' <span style="color:#555a6a;font-size:9px">· edited</span>' : '';
+      html += '<div style="background:#151820;border:1px solid rgba(255,77,77,0.2);border-radius:10px;padding:14px;margin-bottom:10px">' +
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">' +
+        '<div style="font-size:14px;font-weight:700;color:#e8eaf0">' + inc.type + '</div>' +
+        '<span style="font-family:monospace;font-size:10px;font-weight:700;color:' + sevColor + ';padding:2px 7px;border:1px solid ' + sevColor + ';border-radius:4px">' + (inc.severity||'').toUpperCase() + '</span>' +
+        '</div>' +
+        '<div style="font-family:monospace;font-size:11px;color:#8b90a0;margin-bottom:4px">📍 ' + (inc.location || '—') + '</div>' +
+        (inc.notes ? '<div style="font-size:12px;color:#8b90a0;margin-bottom:8px">' + inc.notes + '</div>' : '') +
+        '<div style="font-family:monospace;font-size:10px;color:#555a6a;display:flex;justify-content:space-between">' +
+        '<span>' + inc.guard_name + ' · ' + t + edited + '</span>' +
+        (inc.gps_lat && inc.gps_lng ? '<span>' + inc.gps_lat.toFixed(4) + '° N ' + inc.gps_lng.toFixed(4) + '° E</span>' : '<span>GPS n/a</span>') +
+        '</div>' +
+        '</div>';
+    }
+    el.innerHTML = html;
+  }).catch(function() {
+    el.innerHTML = '<div style="font-size:13px;color:#555a6a;font-family:monospace">Failed to load incidents.</div>';
+  });
+}
+
+// Poll incidents every 30 seconds when on incidents tab
+setInterval(function() {
+  var tab = document.getElementById('tab-incidents');
+  if (tab && tab.classList.contains('active')) { loadIncidents(); }
+}, 30000);
 
 // ── NOTES ──
 async function loadNotes(){

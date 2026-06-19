@@ -211,7 +211,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
           <div style="font-family:monospace;font-size:16px;font-weight:500;color:#4da3ff" id="stat-radio">0/1</div>
           <div style="font-family:monospace;font-size:9px;color:#555a6a;margin-top:2px">RADIO</div>
         </div>
-        <div style="background:#151820;border:1px solid rgba(255,77,77,0.2);border-radius:8px;padding:10px;text-align:center" onclick="navApp('s-helprequests');setNav('nav-reports')">
+        <div style="background:#151820;border:1px solid rgba(255,77,77,0.2);border-radius:8px;padding:10px;text-align:center;cursor:pointer" onclick="navApp('s-incident');setNav('nav-incident');updateGPS();loadSessionIncidents()">
           <div style="font-family:monospace;font-size:16px;font-weight:500;color:#ff6b6b" id="stat-inc">0</div>
           <div style="font-family:monospace;font-size:9px;color:#555a6a;margin-top:2px">INCIDENTS</div>
         </div>
@@ -299,9 +299,10 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
   <div class="screen" id="s-incident" style="min-height:unset;flex:1">
     <div class="topbar">
       <button type="button" class="btn btn-back" id="btn-incident-back">Back</button>
-      <h1>Log Incident</h1>
+      <h1 id="inc-screen-title">Log Incident</h1>
     </div>
     <div class="content">
+      <input type="hidden" id="inc-edit-id">
       <label class="fl">Type</label>
       <select id="inc-type"><option>Suspicious activity</option><option>Damaged property</option><option>Unauthorized access</option><option>Medical emergency</option><option>Fire / safety hazard</option><option>Other</option></select>
       <label class="fl">Severity</label>
@@ -312,6 +313,9 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
       <textarea rows="4" id="inc-notes" placeholder="Describe what you observed..."></textarea>
       <div class="gps-bar"><div class="gps-dot"></div><span id="incident-gps">Acquiring GPS...</span></div>
       <button type="button" class="btn btn-d" id="btn-submit-incident">Submit incident report</button>
+      <button type="button" class="btn" id="btn-cancel-edit-incident" style="display:none;margin-top:8px;color:#8b90a0;border-color:rgba(139,144,160,0.3)">Cancel edit</button>
+      <div style="font-family:monospace;font-size:10px;color:#555a6a;letter-spacing:1px;text-transform:uppercase;margin-top:20px;margin-bottom:8px">INCIDENTS THIS SHIFT</div>
+      <div id="inc-logged-list"><div style="font-size:13px;color:#555a6a;font-family:monospace;padding:8px 0">No incidents logged yet.</div></div>
     </div>
   </div>
 
@@ -1078,6 +1082,7 @@ function doStartShift(type, label, startDate, endDate, isContinue) {
   }
   updateGPS();
   showToast('Shift started');
+  loadSessionIncidents();
   sbGet('help_requests','order=timestamp.desc&limit=50',function(data) {
     if (data&&data.length) {
       for (var i=0;i<data.length;i++) {
@@ -1222,12 +1227,12 @@ function doLogout() {
 
 // NAV
 document.getElementById('btn-scan').addEventListener('click', function(){navApp('s-scan');setNav('nav-scan');updateGPS();});
-document.getElementById('btn-incident').addEventListener('click', function(){navApp('s-incident');setNav('nav-incident');updateGPS();});
+document.getElementById('btn-incident').addEventListener('click', function(){navApp('s-incident');setNav('nav-incident');updateGPS();loadSessionIncidents();});
 document.getElementById('btn-scan-back').addEventListener('click', function(){stopScanner();navApp('s-home');setNav('nav-home');});
 document.getElementById('btn-incident-back').addEventListener('click', function(){navApp('s-home');setNav('nav-home');});
 document.getElementById('nav-home').addEventListener('click', function(){navApp('s-home');setNav('nav-home');});
 document.getElementById('nav-scan').addEventListener('click', function(){navApp('s-scan');setNav('nav-scan');updateGPS();});
-document.getElementById('nav-incident').addEventListener('click', function(){navApp('s-incident');setNav('nav-incident');updateGPS();});
+document.getElementById('nav-incident').addEventListener('click', function(){navApp('s-incident');setNav('nav-incident');updateGPS();loadSessionIncidents();});
 document.getElementById('nav-timeline').addEventListener('click', function(){navApp('s-timeline');setNav('nav-timeline');});
 document.getElementById('nav-reports').addEventListener('click', function(){navApp('s-reports');setNav('nav-reports');loadHelpRequests();});
 
@@ -1329,13 +1334,146 @@ document.getElementById('btn-skip-surv').addEventListener('click', function(){
 });
 
 // INCIDENT
+var sessionIncidents = [];
+
+function renderIncidentList() {
+  var el = document.getElementById('inc-logged-list');
+  if (!el) return;
+  if (sessionIncidents.length === 0) {
+    el.innerHTML = '<div style="font-size:13px;color:#555a6a;font-family:monospace;padding:8px 0">No incidents logged yet.</div>';
+    return;
+  }
+  var html = '';
+  for (var i = 0; i < sessionIncidents.length; i++) {
+    var inc = sessionIncidents[i];
+    var t = new Date(inc.timestamp).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+    var sevColor = inc.severity === 'Critical' ? '#ff4d4d' : inc.severity === 'High' ? '#ffb020' : inc.severity === 'Medium' ? '#4da3ff' : '#8b90a0';
+    html += '<div style="background:#151820;border:1px solid rgba(255,77,77,0.2);border-radius:10px;padding:12px;margin-bottom:10px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">' +
+      '<div style="font-size:13px;font-weight:700;color:#e8eaf0">' + inc.type + '</div>' +
+      '<span style="font-family:monospace;font-size:10px;font-weight:700;color:' + sevColor + ';padding:2px 6px;border:1px solid ' + sevColor + ';border-radius:4px">' + inc.severity.toUpperCase() + '</span>' +
+      '</div>' +
+      '<div style="font-family:monospace;font-size:11px;color:#8b90a0;margin-bottom:4px">' + (inc.location || '—') + '</div>' +
+      '<div style="font-size:12px;color:#8b90a0;margin-bottom:8px">' + (inc.notes || '') + '</div>' +
+      '<div style="display:flex;justify-content:space-between;align-items:center">' +
+      '<div style="font-family:monospace;font-size:10px;color:#555a6a">' + t + (inc.updated_at && inc.updated_at !== inc.timestamp ? ' · edited' : '') + '</div>' +
+      '<button type="button" onclick="editIncident('' + inc.id + '')" style="font-family:monospace;font-size:10px;color:#4da3ff;border:1px solid rgba(77,163,255,0.3);background:transparent;padding:3px 10px;border-radius:4px;cursor:pointer">Edit</button>' +
+      '</div></div>';
+  }
+  el.innerHTML = html;
+}
+
+function editIncident(id) {
+  for (var i = 0; i < sessionIncidents.length; i++) {
+    if (sessionIncidents[i].id === id) {
+      var inc = sessionIncidents[i];
+      document.getElementById('inc-edit-id').value = id;
+      document.getElementById('inc-screen-title').textContent = 'Edit Incident';
+      document.getElementById('inc-type').value = inc.type;
+      document.getElementById('inc-sev').value = inc.severity;
+      document.getElementById('inc-loc').value = inc.location || '';
+      document.getElementById('inc-notes').value = inc.notes || '';
+      document.getElementById('btn-submit-incident').textContent = 'Save changes';
+      document.getElementById('btn-cancel-edit-incident').style.display = 'block';
+      window.scrollTo(0, 0);
+      break;
+    }
+  }
+}
+
+function resetIncidentForm() {
+  document.getElementById('inc-edit-id').value = '';
+  document.getElementById('inc-screen-title').textContent = 'Log Incident';
+  document.getElementById('inc-type').value = 'Suspicious activity';
+  document.getElementById('inc-sev').value = 'Low';
+  document.getElementById('inc-loc').value = '';
+  document.getElementById('inc-notes').value = '';
+  document.getElementById('btn-submit-incident').textContent = 'Submit incident report';
+  document.getElementById('btn-cancel-edit-incident').style.display = 'none';
+}
+
+function loadSessionIncidents() {
+  if (!window._shiftId) return;
+  fetch(SUPABASE_URL + '/rest/v1/incidents?shift_id=eq.' + window._shiftId + '&order=timestamp.asc', {
+    headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY}
+  }).then(function(r) { return r.json(); }).then(function(data) {
+    if (Array.isArray(data)) {
+      sessionIncidents = data;
+      incidentCount = data.length;
+      sessionStorage.setItem('mp_incidents', incidentCount);
+      renderIncidentList();
+      renderLists();
+    }
+  }).catch(function(){});
+}
+
+document.getElementById('btn-cancel-edit-incident').addEventListener('click', function() {
+  resetIncidentForm();
+});
+
 document.getElementById('btn-submit-incident').addEventListener('click', function(){
-  incidentCount++;
-  sessionStorage.setItem('mp_incidents',incidentCount);
-  renderLists();
-  showToast('Incident report submitted');
-  addTL('Incident logged',new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}));
-  setTimeout(function(){navApp('s-home');setNav('nav-home');},1200);
+  var type = document.getElementById('inc-type').value;
+  var sev = document.getElementById('inc-sev').value;
+  var loc = document.getElementById('inc-loc').value.trim();
+  var notes = document.getElementById('inc-notes').value.trim();
+  var editId = document.getElementById('inc-edit-id').value;
+  var lat = window._currentLat || null;
+  var lng = window._currentLng || null;
+  var now = new Date().toISOString();
+
+  if (editId) {
+    // Edit existing
+    var payload = {type: type, severity: sev, location: loc, notes: notes, updated_at: now};
+    fetch(SUPABASE_URL + '/rest/v1/incidents?id=eq.' + editId, {
+      method: 'PATCH',
+      headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    }).then(function() {
+      for (var i = 0; i < sessionIncidents.length; i++) {
+        if (sessionIncidents[i].id === editId) {
+          sessionIncidents[i].type = type;
+          sessionIncidents[i].severity = sev;
+          sessionIncidents[i].location = loc;
+          sessionIncidents[i].notes = notes;
+          sessionIncidents[i].updated_at = now;
+          break;
+        }
+      }
+      resetIncidentForm();
+      renderIncidentList();
+      showToast('Incident updated');
+    }).catch(function() { showToast('Update failed'); });
+  } else {
+    // New incident
+    var id = 'INC-' + Date.now();
+    var record = {
+      id: id,
+      guard_name: currentGuardName,
+      shift_id: window._shiftId || '',
+      type: type,
+      severity: sev,
+      location: loc,
+      notes: notes,
+      gps_lat: lat,
+      gps_lng: lng,
+      timestamp: now,
+      updated_at: now
+    };
+    fetch(SUPABASE_URL + '/rest/v1/incidents', {
+      method: 'POST',
+      headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal'},
+      body: JSON.stringify(record)
+    }).then(function() {
+      sessionIncidents.push(record);
+      incidentCount++;
+      sessionStorage.setItem('mp_incidents', incidentCount);
+      renderIncidentList();
+      renderLists();
+      addTL('Incident: ' + type, new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'}));
+      resetIncidentForm();
+      showToast('Incident logged');
+    }).catch(function() { showToast('Save failed'); });
+  }
 });
 
 // TIMELINE
