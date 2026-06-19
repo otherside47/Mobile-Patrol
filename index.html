@@ -1149,6 +1149,7 @@ document.getElementById('login-button').addEventListener('click', function() {
     name=fn+' '+ln;
   }
   currentGuardName=name;
+  sessionStorage.clear();
   document.getElementById('status-name').textContent=name;
   // Explicitly hide login and show shift screen
   var loginEl = document.getElementById('screen-login');
@@ -1493,8 +1494,13 @@ function addTL(title, meta) {
 // NAV HELPERS
 function navApp(id){
   var screens=document.querySelectorAll('#screen-app .screen');
-  for(var i=0;i<screens.length;i++)screens[i].classList.remove('active');
-  document.getElementById(id).classList.add('active');
+  for(var i=0;i<screens.length;i++){
+    screens[i].classList.remove('active');
+    screens[i].style.display='none';
+  }
+  var target=document.getElementById(id);
+  target.classList.add('active');
+  target.style.display='flex';
 }
 function setNav(id){
   var btns=document.querySelectorAll('.nav-btn');
