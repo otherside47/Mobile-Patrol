@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Mobile Patrol — Admin Dashboard</title>
-<script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js">
+<script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
+<script>
 // ── ACTIVITY LOG ─────────────────────────────────────────────────────────────
 var logSelectedShiftId = null;
 
@@ -31,7 +32,7 @@ async function loadLogShiftList() {
       var type = s.shift_type ? (s.shift_type.charAt(0).toUpperCase()+s.shift_type.slice(1)+' Shift') : (s.shift_label || '—');
       var guard = s.guard_name || '—';
       var status = s.status === 'active' ? '<span style="color:#00e5a0;font-size:9px;font-family:monospace;margin-left:6px">● ACTIVE</span>' : '<span style="color:#555a6a;font-size:9px;font-family:monospace;margin-left:6px">■ ENDED</span>';
-      html += '<div onclick="loadActivityLog(''+s.id+'')" style="cursor:pointer;background:#151820;border:1px solid rgba(139,144,160,0.15);border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;transition:border-color 0.15s" id="log-shift-'+s.id+'">';
+      html += '<div onclick="loadActivityLog(\'' + s.id + '\')" style="cursor:pointer;background:#151820;border:1px solid rgba(139,144,160,0.15);border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;transition:border-color 0.15s" id="log-shift-' + s.id + '">';
       html += '<div>';
       html += '<div style="font-family:monospace;font-size:13px;font-weight:600;color:#e8eaf0">'+date+'</div>';
       html += '<div style="font-family:monospace;font-size:11px;color:#8b90a0;margin-top:2px">'+type+' · '+guard+status+'</div>';
@@ -124,6 +125,7 @@ async function loadActivityLog(shiftId) {
     el.innerHTML = '<div style="font-size:13px;color:#ff4d4d;font-family:monospace">Failed to load activity.</div>';
   }
 }
+
 
 </script>
 <style>
