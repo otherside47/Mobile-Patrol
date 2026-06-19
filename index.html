@@ -117,7 +117,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
       <h2>Sign in</h2>
       <div class="err" id="login-err">Incorrect password. Try again.</div>
       <label class="fl">Account</label>
-      <select id="acct-select">
+      <select id="acct-select" disabled>
         <option value="">Loading accounts...</option>
       </select>
       <div id="name-fields" style="display:none">
@@ -128,7 +128,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
       </div>
       <label class="fl">Password</label>
       <input type="text" id="login-pw" placeholder="Password" style="-webkit-text-security:disc" autocomplete="new-password">
-      <button type="button" class="big-btn" id="login-button">Sign in</button>
+      <button type="button" class="big-btn" id="login-button" disabled style="opacity:0.5;cursor:not-allowed">Loading...</button>
     </div>
   </div>
 </div>
@@ -475,6 +475,14 @@ var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSI
 var guardProfiles = {};
 
 function loadGuardProfiles(cb) {
+  var btn = document.getElementById('login-button');
+  var sel = document.getElementById('acct-select');
+  btn.textContent = 'Loading...';
+  btn.disabled = true;
+  btn.style.opacity = '0.5';
+  btn.style.cursor = 'not-allowed';
+  sel.disabled = true;
+
   fetch(SUPABASE_URL + '/rest/v1/guard_profiles?order=id.asc', {
     headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY}
   }).then(function(r) {
@@ -491,17 +499,40 @@ function loadGuardProfiles(cb) {
         };
       }
       updateLoginDropdown();
+      // Enable controls now that profiles are loaded
+      sel.disabled = false;
+      btn.textContent = 'Sign in';
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      btn.style.cursor = 'pointer';
+      // Trigger name-fields check in case vacant account is pre-selected
+      sel.dispatchEvent(new Event('change'));
     } else {
-      var sel = document.getElementById('acct-select');
-      sel.innerHTML = '<option value="">No accounts found — check connection</option>';
+      sel.innerHTML = '<option value="">No accounts found</option>';
+      showLoginRetry('No guard accounts found. Check Supabase.');
     }
     if (cb) cb();
   }).catch(function(e) {
     console.warn('[GuardProfiles] Load failed:', e);
-    var sel = document.getElementById('acct-select');
-    sel.innerHTML = '<option value="">Connection error — reload page</option>';
+    showLoginRetry('Connection error — tap to retry');
     if (cb) cb();
   });
+}
+
+function showLoginRetry(msg) {
+  var sel = document.getElementById('acct-select');
+  var btn = document.getElementById('login-button');
+  var err = document.getElementById('login-err');
+  sel.innerHTML = '<option value="">' + msg + '</option>';
+  sel.disabled = true;
+  err.textContent = msg;
+  err.style.display = 'block';
+  btn.textContent = 'Retry';
+  btn.disabled = false;
+  btn.style.opacity = '1';
+  btn.style.cursor = 'pointer';
+  // Make the button retry loading instead of logging in
+  btn.setAttribute('data-mode', 'retry');
 }
 
 function updateLoginDropdown() {
@@ -1118,25 +1149,40 @@ function doStartShift(type, label, startDate, endDate, isContinue) {
 
 // LOGIN
 document.getElementById('acct-select').addEventListener('change', function() {
-  document.getElementById('name-fields').style.display=(this.value==='guard5')?'block':'none';
+  var k = this.value;
+  var isVacant = k && guardProfiles[k] && guardProfiles[k].vacant;
+  document.getElementById('name-fields').style.display = isVacant ? 'block' : 'none';
 });
 document.getElementById('login-button').addEventListener('click', function() {
-  var k=document.getElementById('acct-select').value;
-  var p=document.getElementById('login-pw').value;
-  var acc=guardProfiles[k];
-  var err=document.getElementById('login-err');
-  if (!acc||p!==acc.pass) { err.style.display='block'; return; }
-  err.style.display='none';
-  var name=acc.name;
-  if (!name||name==='Replacement') {
-    var fn=document.getElementById('input-fn').value.trim();
-    var ln=document.getElementById('input-ln').value.trim();
-    if (!fn||!ln) { err.textContent='Please enter your name.'; err.style.display='block'; return; }
-    name=fn+' '+ln;
+  // Retry mode — reload profiles after connection error
+  if (this.getAttribute('data-mode') === 'retry') {
+    this.removeAttribute('data-mode');
+    document.getElementById('login-err').style.display = 'none';
+    loadGuardProfiles(null);
+    return;
   }
-  currentGuardName=name;
-  document.getElementById('status-name').textContent=name;
-  // Explicitly hide login and show shift screen
+  var k = document.getElementById('acct-select').value;
+  var p = document.getElementById('login-pw').value;
+  var err = document.getElementById('login-err');
+  // Guard: profiles not loaded yet
+  if (Object.keys(guardProfiles).length === 0) {
+    err.textContent = 'Still loading accounts, please wait...';
+    err.style.display = 'block';
+    return;
+  }
+  if (!k) { err.textContent = 'Please select an account.'; err.style.display = 'block'; return; }
+  var acc = guardProfiles[k];
+  if (!acc || p !== acc.pass) { err.textContent = 'Incorrect password. Try again.'; err.style.display = 'block'; return; }
+  err.style.display = 'none';
+  var name = acc.name;
+  if (acc.vacant) {
+    var fn = document.getElementById('input-fn').value.trim();
+    var ln = document.getElementById('input-ln').value.trim();
+    if (!fn || !ln) { err.textContent = 'Please enter your name.'; err.style.display = 'block'; return; }
+    name = fn + ' ' + ln;
+  }
+  currentGuardName = name;
+  document.getElementById('status-name').textContent = name;
   var loginEl = document.getElementById('screen-login');
   var shiftEl = document.getElementById('screen-shift');
   loginEl.classList.remove('active');
@@ -1144,7 +1190,7 @@ document.getElementById('login-button').addEventListener('click', function() {
   shiftEl.classList.add('active');
   shiftEl.style.display = 'flex';
   setupShiftScreen();
-  showToast('Welcome, '+name);
+  showToast('Welcome, ' + name);
 });
 
 // LOGOUT
