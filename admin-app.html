@@ -836,10 +836,10 @@ function loadLiveData(){
     if (!Array.isArray(scans)) scans = [];
     document.getElementById('live-scans').textContent = scans.length;
 
-    // Update live guard list
+    // Update live guard list (only if element exists)
     var liveEl = document.getElementById('live-guard-list');
     var guardKeys = Object.keys(guardProfiles);
-    liveEl.innerHTML = guardKeys.map(function(k) {
+    if (liveEl) liveEl.innerHTML = guardKeys.map(function(k) {
       var g = guardProfiles[k];
       var initials = g.name.split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase();
       var guardScans = scans.filter(function(s){return s.guard_name===g.name;}).length;
