@@ -49,20 +49,17 @@ async function loadLogShiftList() {
 
 async function loadActivityLog(shiftId) {
   logSelectedShiftId = shiftId;
-  var el = document.getElementById('log-timeline');
-  el.innerHTML = '<div style="font-size:13px;color:#555a6a;font-family:monospace;padding:8px 0">Loading...</div>';
 
-  // Highlight selected shift
+  // Highlight selected shift row
   document.querySelectorAll('[id^="log-shift-"]').forEach(function(el2){
     el2.style.borderColor = el2.id === 'log-shift-'+shiftId ? 'rgba(0,229,160,0.5)' : 'rgba(139,144,160,0.15)';
   });
 
-  // Get shift details for date range
   var headers = {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY};
   try {
     var sr = await fetch(SUPABASE_URL+'/rest/v1/active_shifts?id=eq.'+shiftId, {headers});
     var shifts = await sr.json();
-    if (!Array.isArray(shifts) || shifts.length === 0) { el.innerHTML = '<div style="color:#ff4d4d;font-family:monospace;font-size:13px">Shift not found.</div>'; return; }
+    if (!Array.isArray(shifts) || shifts.length === 0) { alert('Shift not found.'); return; }
     var s = shifts[0];
     var guardName = s.guard_name || '';
     var dateFrom = s.started_at;
@@ -85,44 +82,95 @@ async function loadActivityLog(shiftId) {
     if (Array.isArray(notes)) notes.forEach(function(x){ events.push({ts:x.timestamp, type:'note', data:x}); });
     events.sort(function(a,b){ return new Date(a.ts)-new Date(b.ts); });
 
-    if (events.length === 0) { el.innerHTML = '<div style="font-size:13px;color:#555a6a;font-family:monospace;padding:8px 0">No activity recorded for this shift.</div>'; return; }
+    // Build the window HTML
+    var css = [
+      'body{margin:0;padding:24px;background:#0d0f12;color:#e8eaf0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:14px}',
+      'h1{font-family:monospace;font-size:14px;color:#555a6a;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:20px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.08)}',
+      '.tl{position:relative;padding-left:32px}',
+      '.ev{position:relative;margin-bottom:16px}',
+      '.dot{position:absolute;left:-32px;top:4px;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px}',
+      '.line{position:absolute;left:-23px;top:24px;bottom:-16px;width:1px;background:rgba(139,144,160,0.1)}',
+      '.card{background:#151820;border:1px solid rgba(139,144,160,0.12);border-radius:10px;padding:12px 14px}',
+      '.row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px}',
+      '.title{font-size:13px;font-weight:700;color:#e8eaf0}',
+      '.time{font-family:monospace;font-size:11px;color:#555a6a;white-space:nowrap;margin-left:10px}',
+      '.detail{font-size:12px;color:#8b90a0;margin-top:4px;line-height:1.5}',
+      '.inc-box{background:#1c0a0a;border:1px solid rgba(255,77,77,0.25);border-radius:8px;padding:10px 12px;margin-top:8px}',
+      '.inc-row{display:flex;gap:8px;margin-bottom:6px;font-size:12px}',
+      '.inc-label{color:#555a6a;font-family:monospace;font-size:10px;text-transform:uppercase;min-width:70px}',
+      '.inc-val{color:#e8eaf0}',
+      '.sev-Critical{color:#ff4d4d;font-weight:700}',
+      '.sev-High{color:#ffb020;font-weight:700}',
+      '.sev-Medium{color:#4da3ff}',
+      '.sev-Low{color:#8b90a0}',
+      '.empty{font-family:monospace;font-size:13px;color:#555a6a;padding:20px 0}'
+    ].join('');
 
-    var html = '<div style="font-family:monospace;font-size:11px;color:#555a6a;margin-bottom:12px;text-transform:uppercase;letter-spacing:1px">Timeline · '+(s.shift_label||s.shift_type||'')+(guardName?' · '+guardName:'')+'</div>';
-    html += '<div style="position:relative;padding-left:28px">';
+    var title = (s.shift_label||s.shift_type||'Shift')+' · '+(guardName||'—')+' · '+(s.start_date||'');
 
-    events.forEach(function(ev, idx) {
-      var d = new Date(ev.ts);
-      var timeStr = d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
-      var dateStr = d.toLocaleDateString('en-GB');
-      var icon, color, title, detail='';
+    var body = '';
+    if (events.length === 0) {
+      body = '<div class="empty">No activity recorded for this shift.</div>';
+    } else {
+      body = '<div class="tl">';
+      events.forEach(function(ev, idx) {
+        var d = new Date(ev.ts);
+        var timeStr = d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+        var dateStr = d.toLocaleDateString('en-GB');
+        var isLast = idx === events.length-1;
+        var icon, color, titleTxt, detailHtml='';
 
-      if (ev.type==='shift_start') { icon='▶'; color='#00e5a0'; title='Shift started'; detail=s.shift_label||''; }
-      else if (ev.type==='shift_end') { icon='■'; color='#555a6a'; title='Shift ended'; detail=''; }
-      else if (ev.type==='scan') { icon='◉'; color='#4da3ff'; title='Checkpoint — '+(ev.data.checkpoint_name||ev.data.checkpoint_id||'—'); detail=ev.data.gps_verified?'GPS verified':''; }
-      else if (ev.type==='incident') {
-        icon='⚠'; color='#ff4d4d';
-        title='Incident — '+(ev.data.type||'—');
-        detail=(ev.data.severity?'['+ev.data.severity+'] ':' ')+(ev.data.location||'')+(ev.data.notes?' · '+ev.data.notes.substring(0,80):'');
-      }
-      else if (ev.type==='help') { icon='!'; color='#ffb020'; title='Help request'; detail=ev.data.loc_desc||''; }
-      else if (ev.type==='note') { icon='✎'; color='#8b90a0'; title='Surveillance note'; detail=(ev.data.note||ev.data.content||'').substring(0,100); }
+        if (ev.type==='shift_start') {
+          icon='▶'; color='#00e5a0'; titleTxt='Shift started';
+          detailHtml='<div class="detail">'+(s.shift_label||'')+'</div>';
+        }
+        else if (ev.type==='shift_end') {
+          icon='■'; color='#555a6a'; titleTxt='Shift ended'; detailHtml='';
+        }
+        else if (ev.type==='scan') {
+          icon='◉'; color='#4da3ff';
+          titleTxt='Checkpoint scanned — '+(ev.data.checkpoint_name||ev.data.checkpoint_id||'—');
+          detailHtml=ev.data.gps_verified?'<div class="detail" style="color:#00e5a0">GPS verified</div>':'';
+        }
+        else if (ev.type==='incident') {
+          icon='⚠'; color='#ff4d4d';
+          titleTxt='Incident Report';
+          var sev = ev.data.severity||'—';
+          detailHtml = '<div class="inc-box">'
+            +'<div class="inc-row"><span class="inc-label">Type</span><span class="inc-val">'+(ev.data.type||'—')+'</span></div>'
+            +'<div class="inc-row"><span class="inc-label">Severity</span><span class="inc-val sev-'+sev+'">'+sev+'</span></div>'
+            +'<div class="inc-row"><span class="inc-label">Location</span><span class="inc-val">'+(ev.data.location||'—')+'</span></div>'
+            +'<div class="inc-row" style="margin-bottom:0"><span class="inc-label">Notes</span><span class="inc-val" style="line-height:1.5">'+(ev.data.notes||'—')+'</span></div>'
+            +'</div>';
+        }
+        else if (ev.type==='help') {
+          icon='!'; color='#ffb020'; titleTxt='Help Request';
+          detailHtml='<div class="detail">'+(ev.data.loc_desc||'')+(ev.data.acked?'<span style="color:#00e5a0;margin-left:8px">Acknowledged</span>':'<span style="color:#ff4d4d;margin-left:8px">Pending</span>')+'</div>';
+        }
+        else if (ev.type==='note') {
+          icon='✎'; color='#8b90a0'; titleTxt='Surveillance Note';
+          detailHtml='<div class="detail">'+(ev.data.note||ev.data.content||'')+'</div>';
+        }
 
-      var isLast = idx === events.length-1;
-      html += '<div style="position:relative;margin-bottom:'+(isLast?'0':'14px')+'">';
-      html += '<div style="position:absolute;left:-28px;top:3px;width:18px;height:18px;border-radius:50%;background:'+color+'22;border:1px solid '+color+';display:flex;align-items:center;justify-content:center;font-size:9px;color:'+color+'">'+icon+'</div>';
-      if (!isLast) html += '<div style="position:absolute;left:-20px;top:21px;bottom:-14px;width:1px;background:rgba(139,144,160,0.1)"></div>';
-      html += '<div style="background:#151820;border:1px solid rgba(139,144,160,0.12);border-radius:8px;padding:10px 12px">';
-      html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:'+(detail?'4px':'0')+'">';
-      html += '<div style="font-size:12px;font-weight:600;color:#e8eaf0">'+title+'</div>';
-      html += '<div style="font-family:monospace;font-size:10px;color:#555a6a;white-space:nowrap;margin-left:8px">'+dateStr+' '+timeStr+'</div>';
-      html += '</div>';
-      if (detail) html += '<div style="font-size:11px;color:#8b90a0">'+detail+'</div>';
-      html += '</div></div>';
-    });
-    html += '</div>';
-    el.innerHTML = html;
+        body += '<div class="ev">';
+        body += '<div class="dot" style="background:'+color+'22;border:1px solid '+color+';color:'+color+'">'+icon+'</div>';
+        if (!isLast) body += '<div class="line"></div>';
+        body += '<div class="card">';
+        body += '<div class="row"><div class="title">'+titleTxt+'</div><div class="time">'+dateStr+' '+timeStr+'</div></div>';
+        body += detailHtml;
+        body += '</div></div>';
+      });
+      body += '</div>';
+    }
+
+    var winHtml = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+title+'</title><style>'+css+'</style></head><body><h1>'+title+'</h1>'+body+'</body></html>';
+    var win = window.open('','_blank','width=680,height=800,scrollbars=yes');
+    if (!win) { alert('Please allow popups to open the log window.'); return; }
+    win.document.open();
+    win.document.write(winHtml);
+    win.document.close();
   } catch(e) {
-    el.innerHTML = '<div style="font-size:13px;color:#ff4d4d;font-family:monospace">Failed to load activity.</div>';
+    alert('Failed to load activity log.');
   }
 }
 
