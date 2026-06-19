@@ -117,7 +117,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
       <h2>Sign in</h2>
       <div class="err" id="login-err">Incorrect password. Try again.</div>
       <label class="fl">Account</label>
-      <select id="acct-select" disabled>
+      <select id="acct-select">
         <option value="">Loading accounts...</option>
       </select>
       <div id="name-fields" style="display:none">
@@ -128,7 +128,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
       </div>
       <label class="fl">Password</label>
       <input type="text" id="login-pw" placeholder="Password" style="-webkit-text-security:disc" autocomplete="new-password">
-      <button type="button" class="big-btn" id="login-button" disabled style="opacity:0.5;cursor:not-allowed">Loading...</button>
+      <button type="button" class="big-btn" id="login-button">Sign in</button>
     </div>
   </div>
 </div>
@@ -241,7 +241,8 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
       </div>
     </div>
     <div class="btn-row">
-      <button type="button" class="btn btn-p" style="flex:1;margin-bottom:0" id="btn-scan">Scan QR</button>
+      <button type="button" class="btn btn-p" style="flex:1.4;margin-bottom:0" id="btn-scan">Scan QR</button>
+      <button type="button" class="btn" style="flex:1;margin-bottom:0;color:#ff4d4d;border-color:rgba(255,77,77,0.3)" id="btn-incident">Incident</button>
     </div>
     <div style="height:6px;flex-shrink:0"></div>
   </div>
@@ -294,7 +295,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
     </div>
   </div>
 
-  <!-- INCIDENT FORM (bottom nav) -->
+  <!-- INCIDENT FORM -->
   <div class="screen" id="s-incident" style="min-height:unset;flex:1">
     <div class="topbar">
       <button type="button" class="btn btn-back" id="btn-incident-back">Back</button>
@@ -312,10 +313,11 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
       <textarea rows="4" id="inc-notes" placeholder="Describe what you observed..."></textarea>
       <div class="gps-bar"><div class="gps-dot"></div><span id="incident-gps">Acquiring GPS...</span></div>
       <button type="button" class="btn btn-d" id="btn-submit-incident">Submit incident report</button>
+      <button type="button" class="btn" id="btn-cancel-edit-incident" style="display:none;margin-top:8px;color:#8b90a0;border-color:rgba(139,144,160,0.3)">Cancel edit</button>
     </div>
   </div>
 
-  <!-- INCIDENTS LIST (home tile tap) -->
+  <!-- INCIDENTS LIST -->
   <div class="screen" id="s-incidents-list" style="min-height:unset;flex:1">
     <div class="topbar">
       <button type="button" class="btn btn-back" onclick="navApp('s-home');setNav('nav-home')">Back</button>
@@ -475,18 +477,9 @@ var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSI
 var guardProfiles = {};
 
 function loadGuardProfiles(cb) {
-  var btn = document.getElementById('login-button');
-  var sel = document.getElementById('acct-select');
-  btn.textContent = 'Loading...';
-  btn.disabled = true;
-  btn.style.opacity = '0.5';
-  btn.style.cursor = 'not-allowed';
-  sel.disabled = true;
-
   fetch(SUPABASE_URL + '/rest/v1/guard_profiles?order=id.asc', {
     headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY}
   }).then(function(r) {
-    if (!r.ok) { throw new Error('HTTP ' + r.status); }
     return r.json();
   }).then(function(data) {
     if (Array.isArray(data) && data.length > 0) {
@@ -499,40 +492,11 @@ function loadGuardProfiles(cb) {
         };
       }
       updateLoginDropdown();
-      // Enable controls now that profiles are loaded
-      sel.disabled = false;
-      btn.textContent = 'Sign in';
-      btn.disabled = false;
-      btn.style.opacity = '1';
-      btn.style.cursor = 'pointer';
-      // Trigger name-fields check in case vacant account is pre-selected
-      sel.dispatchEvent(new Event('change'));
-    } else {
-      sel.innerHTML = '<option value="">No accounts found</option>';
-      showLoginRetry('No guard accounts found. Check Supabase.');
     }
     if (cb) cb();
-  }).catch(function(e) {
-    console.warn('[GuardProfiles] Load failed:', e);
-    showLoginRetry('Connection error — tap to retry');
+  }).catch(function() {
     if (cb) cb();
   });
-}
-
-function showLoginRetry(msg) {
-  var sel = document.getElementById('acct-select');
-  var btn = document.getElementById('login-button');
-  var err = document.getElementById('login-err');
-  sel.innerHTML = '<option value="">' + msg + '</option>';
-  sel.disabled = true;
-  err.textContent = msg;
-  err.style.display = 'block';
-  btn.textContent = 'Retry';
-  btn.disabled = false;
-  btn.style.opacity = '1';
-  btn.style.cursor = 'pointer';
-  // Make the button retry loading instead of logging in
-  btn.setAttribute('data-mode', 'retry');
 }
 
 function updateLoginDropdown() {
@@ -1128,7 +1092,6 @@ function doStartShift(type, label, startDate, endDate, isContinue) {
   }
   updateGPS();
   showToast('Shift started');
-  loadSessionIncidents();
   sbGet('help_requests','order=timestamp.desc&limit=50',function(data) {
     if (data&&data.length) {
       for (var i=0;i<data.length;i++) {
@@ -1149,40 +1112,25 @@ function doStartShift(type, label, startDate, endDate, isContinue) {
 
 // LOGIN
 document.getElementById('acct-select').addEventListener('change', function() {
-  var k = this.value;
-  var isVacant = k && guardProfiles[k] && guardProfiles[k].vacant;
-  document.getElementById('name-fields').style.display = isVacant ? 'block' : 'none';
+  document.getElementById('name-fields').style.display=(this.value==='guard5')?'block':'none';
 });
 document.getElementById('login-button').addEventListener('click', function() {
-  // Retry mode — reload profiles after connection error
-  if (this.getAttribute('data-mode') === 'retry') {
-    this.removeAttribute('data-mode');
-    document.getElementById('login-err').style.display = 'none';
-    loadGuardProfiles(null);
-    return;
+  var k=document.getElementById('acct-select').value;
+  var p=document.getElementById('login-pw').value;
+  var acc=guardProfiles[k];
+  var err=document.getElementById('login-err');
+  if (!acc||p!==acc.pass) { err.style.display='block'; return; }
+  err.style.display='none';
+  var name=acc.name;
+  if (!name||name==='Replacement') {
+    var fn=document.getElementById('input-fn').value.trim();
+    var ln=document.getElementById('input-ln').value.trim();
+    if (!fn||!ln) { err.textContent='Please enter your name.'; err.style.display='block'; return; }
+    name=fn+' '+ln;
   }
-  var k = document.getElementById('acct-select').value;
-  var p = document.getElementById('login-pw').value;
-  var err = document.getElementById('login-err');
-  // Guard: profiles not loaded yet
-  if (Object.keys(guardProfiles).length === 0) {
-    err.textContent = 'Still loading accounts, please wait...';
-    err.style.display = 'block';
-    return;
-  }
-  if (!k) { err.textContent = 'Please select an account.'; err.style.display = 'block'; return; }
-  var acc = guardProfiles[k];
-  if (!acc || p !== acc.pass) { err.textContent = 'Incorrect password. Try again.'; err.style.display = 'block'; return; }
-  err.style.display = 'none';
-  var name = acc.name;
-  if (acc.vacant) {
-    var fn = document.getElementById('input-fn').value.trim();
-    var ln = document.getElementById('input-ln').value.trim();
-    if (!fn || !ln) { err.textContent = 'Please enter your name.'; err.style.display = 'block'; return; }
-    name = fn + ' ' + ln;
-  }
-  currentGuardName = name;
-  document.getElementById('status-name').textContent = name;
+  currentGuardName=name;
+  document.getElementById('status-name').textContent=name;
+  // Explicitly hide login and show shift screen
   var loginEl = document.getElementById('screen-login');
   var shiftEl = document.getElementById('screen-shift');
   loginEl.classList.remove('active');
@@ -1190,7 +1138,7 @@ document.getElementById('login-button').addEventListener('click', function() {
   shiftEl.classList.add('active');
   shiftEl.style.display = 'flex';
   setupShiftScreen();
-  showToast('Welcome, ' + name);
+  showToast('Welcome, '+name);
 });
 
 // LOGOUT
@@ -1201,23 +1149,16 @@ function guardExportPDF() {
   var shiftLabel = currentShift ? currentShift.label : 'Shift';
   var sinceDate = currentShift ? currentShift.startDate+'T00:00:00.000Z' : new Date(Date.now()-12*60*60*1000).toISOString();
   var untilDate = currentShift ? (currentShift.endDate||currentShift.startDate)+'T23:59:59.000Z' : new Date().toISOString();
-  var shiftId = window._shiftId || localStorage.getItem('mp_current_shift_id');
-  // Fetch shift times + scans + requests in parallel
   Promise.all([
     fetch(SUPABASE_URL+'/rest/v1/patrol_scans?order=timestamp.asc&limit=500&timestamp=gte.'+sinceDate+'&timestamp=lte.'+untilDate+'&guard_name=eq.'+encodeURIComponent(guardName), {headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}}).then(function(r){return r.json();}),
-    fetch(SUPABASE_URL+'/rest/v1/help_requests?order=timestamp.asc&limit=200&timestamp=gte.'+sinceDate+'&timestamp=lte.'+untilDate, {headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}}).then(function(r){return r.json();}),
-    shiftId ? fetch(SUPABASE_URL+'/rest/v1/active_shifts?id=eq.'+shiftId, {headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}}).then(function(r){return r.json();}) : Promise.resolve([])
+    fetch(SUPABASE_URL+'/rest/v1/help_requests?order=timestamp.asc&limit=200&timestamp=gte.'+sinceDate+'&timestamp=lte.'+untilDate, {headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}}).then(function(r){return r.json();})
   ]).then(function(results){
     var scans = Array.isArray(results[0]) ? results[0] : [];
     var reqs = Array.isArray(results[1]) ? results[1] : [];
-    var shiftRow = Array.isArray(results[2]) && results[2].length ? results[2][0] : null;
-    var startedStr = shiftRow && shiftRow.started_at ? new Date(shiftRow.started_at).toLocaleString('en-GB') : '—';
-    var endedStr = shiftRow && shiftRow.ended_at ? new Date(shiftRow.ended_at).toLocaleString('en-GB') : '—';
     var now = new Date().toLocaleString('en-GB');
-    var html = '<html><head><style>body{font-family:monospace;font-size:12px;padding:20px}h1{font-size:16px;margin-bottom:4px}h2{font-size:13px;color:#333;margin-top:20px;margin-bottom:8px}.info{color:#555;margin-bottom:4px}table{width:100%;border-collapse:collapse;margin-bottom:16px}th{background:#222;color:#fff;padding:6px 8px;text-align:left;font-size:11px}td{padding:5px 8px;border-bottom:1px solid #eee;font-size:11px}.ok{color:green}.red{color:red}</style></head><body>';
+    var html = '<html><head><style>body{font-family:monospace;font-size:12px;padding:20px}h1{font-size:16px;margin-bottom:4px}h2{font-size:13px;color:#333;margin-top:20px;margin-bottom:8px}.info{color:#555;margin-bottom:16px}table{width:100%;border-collapse:collapse;margin-bottom:16px}th{background:#222;color:#fff;padding:6px 8px;text-align:left;font-size:11px}td{padding:5px 8px;border-bottom:1px solid #eee;font-size:11px}.ok{color:green}.red{color:red}</style></head><body>';
     html += '<h1>MOBILE PATROL — Shift Report</h1>';
     html += '<div class="info">Guard: <b>'+guardName+'</b> &nbsp;|&nbsp; Shift: <b>'+shiftLabel+'</b> &nbsp;|&nbsp; Generated: '+now+'</div>';
-    html += '<div class="info">Shift started: <b>'+startedStr+'</b> &nbsp;|&nbsp; Shift ended: <b>'+endedStr+'</b></div>';
     html += '<h2>CHECKPOINT SCANS ('+scans.length+')</h2><table><tr><th>Time</th><th>Checkpoint</th><th>GPS</th></tr>';
     scans.forEach(function(s){
       var t = new Date(s.timestamp).toLocaleString('en-GB');
@@ -1288,7 +1229,7 @@ function doLogout() {
 
 // NAV
 document.getElementById('btn-scan').addEventListener('click', function(){navApp('s-scan');setNav('nav-scan');updateGPS();});
-// btn-incident removed from UI
+document.getElementById('btn-incident').addEventListener('click', function(){navApp('s-incident');setNav('nav-incident');resetIncidentForm();updateGPS();});
 document.getElementById('btn-scan-back').addEventListener('click', function(){stopScanner();navApp('s-home');setNav('nav-home');});
 document.getElementById('btn-incident-back').addEventListener('click', function(){resetIncidentForm();navApp('s-home');setNav('nav-home');});
 document.getElementById('nav-home').addEventListener('click', function(){navApp('s-home');setNav('nav-home');});
@@ -1434,7 +1375,7 @@ function editIncident(id) {
       document.getElementById('inc-loc').value = inc.location || '';
       document.getElementById('inc-notes').value = inc.notes || '';
       document.getElementById('btn-submit-incident').textContent = 'Save changes';
-      // Navigate to the form screen
+      document.getElementById('btn-cancel-edit-incident').style.display = 'block';
       navApp('s-incident');
       setNav('nav-incident');
       updateGPS();
@@ -1450,6 +1391,7 @@ function resetIncidentForm() {
   document.getElementById('inc-loc').value = '';
   document.getElementById('inc-notes').value = '';
   document.getElementById('btn-submit-incident').textContent = 'Submit incident report';
+  document.getElementById('btn-cancel-edit-incident').style.display = 'none';
 }
 
 function loadSessionIncidents() {
@@ -1477,12 +1419,11 @@ document.getElementById('btn-submit-incident').addEventListener('click', functio
   var loc = document.getElementById('inc-loc').value.trim();
   var notes = document.getElementById('inc-notes').value.trim();
   var editId = document.getElementById('inc-edit-id').value;
-  var lat = window._currentLat || null;
-  var lng = window._currentLng || null;
+  var lat = currentGPS ? currentGPS.lat : null;
+  var lng = currentGPS ? currentGPS.lng : null;
   var now = new Date().toISOString();
 
   if (editId) {
-    // Edit existing
     var payload = {type: type, severity: sev, location: loc, notes: notes, updated_at: now};
     fetch(SUPABASE_URL + '/rest/v1/incidents?id=eq.' + editId, {
       method: 'PATCH',
@@ -1491,12 +1432,9 @@ document.getElementById('btn-submit-incident').addEventListener('click', functio
     }).then(function() {
       for (var i = 0; i < sessionIncidents.length; i++) {
         if (sessionIncidents[i].id === editId) {
-          sessionIncidents[i].type = type;
-          sessionIncidents[i].severity = sev;
-          sessionIncidents[i].location = loc;
-          sessionIncidents[i].notes = notes;
-          sessionIncidents[i].updated_at = now;
-          break;
+          sessionIncidents[i].type = type; sessionIncidents[i].severity = sev;
+          sessionIncidents[i].location = loc; sessionIncidents[i].notes = notes;
+          sessionIncidents[i].updated_at = now; break;
         }
       }
       resetIncidentForm();
@@ -1505,21 +1443,8 @@ document.getElementById('btn-submit-incident').addEventListener('click', functio
       setTimeout(function(){ navApp('s-incidents-list'); setNav('nav-incident'); }, 800);
     }).catch(function() { showToast('Update failed'); });
   } else {
-    // New incident
     var id = 'INC-' + Date.now();
-    var record = {
-      id: id,
-      guard_name: currentGuardName,
-      shift_id: window._shiftId || '',
-      type: type,
-      severity: sev,
-      location: loc,
-      notes: notes,
-      gps_lat: lat,
-      gps_lng: lng,
-      timestamp: now,
-      updated_at: now
-    };
+    var record = {id:id, guard_name:currentGuardName, shift_id:window._shiftId||'', type:type, severity:sev, location:loc, notes:notes, gps_lat:lat, gps_lng:lng, timestamp:now, updated_at:now};
     fetch(SUPABASE_URL + '/rest/v1/incidents', {
       method: 'POST',
       headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal'},
