@@ -1224,6 +1224,7 @@ function showToast(msg){const t=document.getElementById('toast');t.textContent=m
 var currentReportShift = null;
 var currentReportScans = [];
 var currentReportReqs = [];
+var currentReportInc = [];
 
 function loadShiftsForReport() {
   fetch(SUPABASE_URL+'/rest/v1/active_shifts?order=started_at.desc&limit=100', {
@@ -1257,10 +1258,14 @@ function loadShiftReport() {
     }).then(function(r){return r.json();}),
     fetch(SUPABASE_URL+'/rest/v1/help_requests?order=timestamp.asc&limit=200&timestamp=gte.'+sinceDate+'&timestamp=lte.'+untilDate, {
       headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+    }).then(function(r){return r.json();}),
+    fetch(SUPABASE_URL+'/rest/v1/incidents?order=timestamp.asc&limit=200&timestamp=gte.'+sinceDate+'&timestamp=lte.'+untilDate+'&guard_name=eq.'+encodeURIComponent(guardName), {
+      headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
     }).then(function(r){return r.json();})
   ]).then(function(results){
     currentReportScans = Array.isArray(results[0]) ? results[0] : [];
     currentReportReqs = Array.isArray(results[1]) ? results[1] : [];
+    currentReportInc = Array.isArray(results[2]) ? results[2] : [];
     document.getElementById('rep-total-scans').textContent = currentReportScans.length;
     document.getElementById('rep-total-req').textContent = currentReportReqs.length;
     document.getElementById('rep-total-notes').textContent = '—';
@@ -1273,39 +1278,85 @@ function loadShiftReport() {
 function buildReportHTML() {
   var s = currentReportShift;
   var now = new Date().toLocaleString('en-GB');
-  var html = '<html><head><style>body{font-family:monospace;font-size:12px;padding:20px}h1{font-size:16px;margin-bottom:4px}h2{font-size:13px;color:#333;margin-top:20px;margin-bottom:8px}.info{color:#555;margin-bottom:16px}table{width:100%;border-collapse:collapse;margin-bottom:16px}th{background:#222;color:#fff;padding:6px 8px;text-align:left;font-size:11px}td{padding:5px 8px;border-bottom:1px solid #eee;font-size:11px}.ok{color:green}.red{color:red}</style></head><body>';
+  var css = [
+    'body{font-family:Arial,sans-serif;font-size:12px;padding:24px;color:#111;margin:0}',
+    'h1{font-size:18px;font-weight:700;margin-bottom:6px;border-bottom:2px solid #111;padding-bottom:6px}',
+    'h2{font-size:13px;font-weight:700;color:#333;margin-top:24px;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px}',
+    '.info{color:#555;margin-bottom:20px;font-size:12px;line-height:1.8}',
+    'table{width:100%;border-collapse:collapse;margin-bottom:16px;page-break-inside:auto}',
+    'tr{page-break-inside:avoid}',
+    'th{background:#222;color:#fff;padding:7px 10px;text-align:left;font-size:11px;font-weight:600}',
+    'td{padding:6px 10px;border-bottom:1px solid #e0e0e0;font-size:11px;vertical-align:top}',
+    'tr:nth-child(even) td{background:#f9f9f9}',
+    '.ok{color:#1a7a1a;font-weight:600}.red{color:#cc0000;font-weight:600}',
+    '.sev-critical{color:#cc0000;font-weight:700}.sev-high{color:#cc6600;font-weight:700}',
+    '.sev-medium{color:#0066cc}.sev-low{color:#555}',
+    '@media print{body{padding:10px}h1{font-size:15px}}'
+  ].join('');
+  var html = '<html><head><meta charset="UTF-8"><style>'+css+'</style></head><body>';
   html += '<h1>MOBILE PATROL — Shift Report</h1>';
-  html += '<div class="info">Guard: <b>'+(s.guard_name||'—')+'</b> &nbsp;|&nbsp; Shift: <b>'+(s.shift_label||s.shift_type)+'</b> &nbsp;|&nbsp; Generated: '+now+'</div>';
-  html += '<h2>CHECKPOINT SCANS ('+currentReportScans.length+')</h2>';
-  html += '<table><tr><th>Time</th><th>Checkpoint</th><th>Guard</th><th>GPS</th></tr>';
-  currentReportScans.forEach(function(sc){
-    var t = new Date(sc.timestamp).toLocaleString('en-GB');
-    var gps = (sc.gps_lat&&sc.gps_lng) ? sc.gps_lat.toFixed(4)+'N '+sc.gps_lng.toFixed(4)+'E' : 'n/a';
-    html += '<tr><td>'+t+'</td><td>'+(sc.checkpoint_id||'—')+'</td><td>'+(sc.guard_name||'—')+'</td><td>'+gps+'</td></tr>';
-  });
-  html += '</table>';
-  html += '<h2>HELP REQUESTS ('+currentReportReqs.length+')</h2>';
-  html += '<table><tr><th>Time</th><th>Guard</th><th>Status</th><th>Location</th></tr>';
-  currentReportReqs.forEach(function(r){
-    var t = new Date(r.timestamp).toLocaleString('en-GB');
-    var gps = (r.gps_lat&&r.gps_lng) ? r.gps_lat.toFixed(4)+'N '+r.gps_lng.toFixed(4)+'E' : 'n/a';
-    html += '<tr><td>'+t+'</td><td>'+(r.guard_name||'—')+'</td><td class="'+(r.acknowledged?'ok':'red')+'">'+(r.acknowledged?'Acked':'Pending')+'</td><td>'+gps+'</td></tr>';
-  });
-  html += '</table></body></html>';
+  html += '<div class="info">';
+  html += 'Guard: <b>'+(s.guard_name||'—')+'</b><br>';
+  html += 'Shift: <b>'+(s.shift_label||s.shift_type||'—')+'</b><br>';
+  html += 'Generated: <b>'+now+'</b>';
+  html += '</div>';
+
+  // Checkpoint scans
+  html += '<h2>Checkpoint Scans ('+currentReportScans.length+')</h2>';
+  if (currentReportScans.length === 0) {
+    html += '<p style="color:#888;font-size:12px">No scans recorded.</p>';
+  } else {
+    html += '<table><tr><th>Time</th><th>Checkpoint</th><th>Type</th><th>GPS Verified</th></tr>';
+    currentReportScans.forEach(function(sc){
+      var t = new Date(sc.timestamp).toLocaleString('en-GB');
+      var gps = sc.gps_verified ? '<span class="ok">Yes</span>' : '<span style="color:#888">No</span>';
+      html += '<tr><td>'+t+'</td><td>'+(sc.checkpoint_name||sc.checkpoint_id||'—')+'</td><td>'+(sc.checkpoint_type||'—')+'</td><td>'+gps+'</td></tr>';
+    });
+    html += '</table>';
+  }
+
+  // Incidents
+  html += '<h2>Incidents ('+currentReportInc.length+')</h2>';
+  if (currentReportInc.length === 0) {
+    html += '<p style="color:#888;font-size:12px">No incidents reported.</p>';
+  } else {
+    html += '<table><tr><th>Time</th><th>Type</th><th>Severity</th><th>Location</th><th>Notes</th></tr>';
+    currentReportInc.forEach(function(inc){
+      var t = new Date(inc.timestamp).toLocaleString('en-GB');
+      var sevClass = 'sev-'+(inc.severity||'').toLowerCase();
+      html += '<tr><td>'+t+'</td><td>'+(inc.type||'—')+'</td><td class="'+sevClass+'">'+(inc.severity||'—')+'</td><td>'+(inc.location||'—')+'</td><td>'+(inc.notes||'—')+'</td></tr>';
+    });
+    html += '</table>';
+  }
+
+  // Help requests
+  html += '<h2>Help Requests ('+currentReportReqs.length+')</h2>';
+  if (currentReportReqs.length === 0) {
+    html += '<p style="color:#888;font-size:12px">No help requests.</p>';
+  } else {
+    html += '<table><tr><th>Time</th><th>From</th><th>Type</th><th>Location</th><th>Status</th></tr>';
+    currentReportReqs.forEach(function(r){
+      var t = new Date(r.timestamp).toLocaleString('en-GB');
+      var status = r.acked ? '<span class="ok">Acknowledged</span>' : '<span class="red">Pending</span>';
+      html += '<tr><td>'+t+'</td><td>'+(r.name||'—')+'</td><td>'+(r.type||'—')+'</td><td>'+(r.loc_desc||'—')+'</td><td>'+status+'</td></tr>';
+    });
+    html += '</table>';
+  }
+
+  html += '</body></html>';
   return html;
 }
 
 function exportPDF() {
   if (!currentReportShift) { showToast('Please load a shift first'); return; }
   var html = buildReportHTML();
-  // Inject print-trigger so the new window auto-opens the print dialog
-  html = html.replace('</body>', '<script>window.onload=function(){window.print();}<\/script></body>');
+  html = html.replace('</body>', '<script>setTimeout(function(){window.print();},400);<\/script></body>');
   var printWin = window.open('', '_blank');
-  if (!printWin) { showToast('Please allow popups to export PDF'); return; }
+  if (!printWin) { showToast('Allow popups then try again'); return; }
   printWin.document.open();
   printWin.document.write(html);
   printWin.document.close();
-  showToast('Print dialog opening — save as PDF');
+  showToast('Opening print dialog — choose Save as PDF');
 }
 
 function exportExcel() {
