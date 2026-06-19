@@ -1298,12 +1298,14 @@ function buildReportHTML() {
 function exportPDF() {
   if (!currentReportShift) { showToast('Please load a shift first'); return; }
   var html = buildReportHTML();
-  var blob = new Blob([html], {type:'text/html'});
-  var a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'patrol-report-'+(currentReportShift.guard_name||'guard')+'-'+currentReportShift.start_date+'.html';
-  a.click();
-  showToast('Report downloaded');
+  // Inject print-trigger so the new window auto-opens the print dialog
+  html = html.replace('</body>', '<script>window.onload=function(){window.print();}<\/script></body>');
+  var printWin = window.open('', '_blank');
+  if (!printWin) { showToast('Please allow popups to export PDF'); return; }
+  printWin.document.open();
+  printWin.document.write(html);
+  printWin.document.close();
+  showToast('Print dialog opening — save as PDF');
 }
 
 function exportExcel() {
