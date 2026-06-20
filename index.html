@@ -476,6 +476,13 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
 
 <div id="screen-flash"></div>
 <div id="toast"></div>
+<div id="please-wait-overlay" style="display:none;position:fixed;inset:0;background:rgba(13,15,18,0.85);z-index:9999;align-items:center;justify-content:center;backdrop-filter:blur(2px)">
+  <div style="background:#151820;border:1px solid rgba(0,229,160,0.3);border-radius:14px;padding:28px 36px;display:flex;flex-direction:column;align-items:center;gap:16px">
+    <div style="width:36px;height:36px;border:3px solid rgba(0,229,160,0.2);border-top-color:#00e5a0;border-radius:50%;animation:pw-spin 0.8s linear infinite"></div>
+    <div style="font-family:monospace;font-size:14px;color:#e8eaf0;letter-spacing:0.5px">Please wait...</div>
+  </div>
+</div>
+<style>@keyframes pw-spin{to{transform:rotate(360deg)}}</style>
 
 <script>
 var SUPABASE_URL = 'https://hzvegzkjogcjqzogxvvm.supabase.co';
@@ -966,11 +973,18 @@ document.getElementById('shift-start-date').addEventListener('change', updateShi
 document.getElementById('shift-end-date').addEventListener('change', updateShiftPreview);
 
 function startShift() {
+  // Guard against double-tap creating multiple shifts
+  if (window._shiftStarting) { return; }
+
   var type=document.getElementById('shift-type').value;
   var startDate=document.getElementById('shift-start-date').value;
   var endDate=document.getElementById('shift-end-date').value;
   if (!startDate) { alert('Please select a start date'); return; }
   if (type==='night'&&!endDate) { alert('Please select an end date'); return; }
+
+  // Lock + show blocking overlay so rapid taps do nothing
+  window._shiftStarting = true;
+  document.getElementById('please-wait-overlay').style.display = 'flex';
   var label;
   if (type==='night') {
     label='Night Shift: '+startDate+' 19:00 to '+endDate+' 07:00';
@@ -992,7 +1006,12 @@ function startShift() {
       msg.textContent = 'You started a ' + type + ' shift at ' + startedTime + '. Continue it or start a new one?';
       box.style.display = 'block';
       mainBtn.style.display = 'none';
+      // Waiting for user choice — release lock & hide overlay
+      window._shiftStarting = false;
+      document.getElementById('please-wait-overlay').style.display = 'none';
       document.getElementById('btn-continue-shift').onclick = function() {
+        window._shiftStarting = true;
+        document.getElementById('please-wait-overlay').style.display = 'flex';
         box.style.display = 'none';
         mainBtn.style.display = 'block';
         window._shiftId = prev.id;
@@ -1005,6 +1024,8 @@ function startShift() {
         doStartShift(type, label, startDate, endDate, true);
       };
       document.getElementById('btn-new-shift').onclick = function() {
+        window._shiftStarting = true;
+        document.getElementById('please-wait-overlay').style.display = 'flex';
         box.style.display = 'none';
         mainBtn.style.display = 'block';
         doStartShift(type, label, startDate, endDate, false);
@@ -1035,6 +1056,9 @@ function doStartShift(type, label, startDate, endDate, isContinue) {
   appEl.style.display='flex';
   navApp('s-home');
   setNav('nav-home');
+  // Main screen is now visible — hide overlay & release the start-shift lock
+  document.getElementById('please-wait-overlay').style.display = 'none';
+  window._shiftStarting = false;
   // Force s-home to be fully visible
   var sHome = document.getElementById('s-home');
   sHome.style.display = 'flex';
