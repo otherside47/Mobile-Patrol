@@ -1571,13 +1571,12 @@ function guardExportPDF() {
 
     html += '</body></html>';
 
-    html = html.replace('</body>', '<script>setTimeout(function(){window.print();},400);<\\/script></body>');
-    var printWin = window.open('', '_blank');
-    if (!printWin) { showToast('Allow popups then try again'); return; }
-    printWin.document.open();
-    printWin.document.write(html);
-    printWin.document.close();
-    showToast('Opening print dialog — choose Save as PDF');
+    var blob = new Blob([html],{type:'text/html'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'shift-report-'+guardName+'-'+(currentShift?currentShift.startDate:new Date().toISOString().slice(0,10))+'.html';
+    a.click();
+    showToast('Report downloaded');
   }).catch(function(){showToast('Export failed');});
 }
 

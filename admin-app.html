@@ -1798,13 +1798,14 @@ function buildReportHTML() {
 function exportPDF() {
   if (!currentReportShift) { showToast('Please load a shift first'); return; }
   var html = buildReportHTML();
-  html = html.replace('</body>', '<script>setTimeout(function(){window.print();},400);<\/script></body>');
-  var printWin = window.open('', '_blank');
-  if (!printWin) { showToast('Allow popups then try again'); return; }
-  printWin.document.open();
-  printWin.document.write(html);
-  printWin.document.close();
-  showToast('Opening print dialog — choose Save as PDF');
+  var blob = new Blob([html], {type:'text/html'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  var guardName = currentReportShift.guard_name || 'guard';
+  var dateStr = currentReportShift.start_date || new Date().toISOString().slice(0,10);
+  a.download = 'shift-report-'+guardName+'-'+dateStr+'.html';
+  a.click();
+  showToast('Report downloaded');
 }
 
 function exportExcel() {
