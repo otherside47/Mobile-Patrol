@@ -533,6 +533,18 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
 var SUPABASE_URL = 'https://hzvegzkjogcjqzogxvvm.supabase.co';
 var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh6dmVnemtqb2djanF6b2d4dnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwOTA3NjgsImV4cCI6MjA5NTY2Njc2OH0.jDvCtntJjFd0tp9h5vFHm3xKa6s5HOGAschU-QrnmAE';
 
+// Pre-warm the speech synthesis voice list as early as possible. On Safari/iOS,
+// getVoices() can return an empty array on first call because the voice list
+// loads asynchronously — without this warm-up, the very first alert spoken
+// after a fresh page load can silently miss the Russian voice and fall back
+// to whatever the default English voice is.
+if ('speechSynthesis' in window) {
+  window.speechSynthesis.getVoices();
+  window.speechSynthesis.addEventListener('voiceschanged', function(){
+    window.speechSynthesis.getVoices();
+  });
+}
+
 // Guard profiles - loaded exclusively from Supabase
 // Fallback profiles — always available instantly, synced from Supabase on load
 var guardProfiles = {
@@ -851,12 +863,15 @@ function speakHelpRequestInRussian(req, urgLabel, gpsText) {
   var transTextEl = document.getElementById('help-alert-translation-text');
   transEl.style.display = 'none';
 
+  // GPS coordinates are numbers, not language — translating them is pointless
+  // and risks the API mangling the digits. Keep them out of the translated
+  // text and speak them separately afterward, untouched.
+  var hasGps = gpsText && gpsText !== 'GPS unavailable';
   var parts = [];
   parts.push(urgLabel + '.');
   parts.push('From ' + (req.name || 'Guard') + '.');
   if (req.type) parts.push(req.type + '.');
   if (req.loc_desc) parts.push(req.loc_desc + '.');
-  if (gpsText && gpsText !== 'GPS unavailable') parts.push(gpsText + '.');
   if (req.notes) parts.push(req.notes + '.');
   var fullText = parts.join(' ');
   // MyMemory's free tier caps requests at 500 bytes — trim defensively so long notes don't fail translation
@@ -867,17 +882,18 @@ function speakHelpRequestInRussian(req, urgLabel, gpsText) {
     .then(function(data){
       if (data && data.responseStatus === 200 && data.responseData && data.responseData.translatedText) {
         var russianText = data.responseData.translatedText;
-        transTextEl.textContent = russianText;
+        var displayText = russianText + (hasGps ? ' ' + gpsText : '');
+        transTextEl.textContent = displayText;
         transEl.style.display = 'block';
-        speakRussian(russianText);
+        speakRussian(russianText, false, hasGps ? gpsText : null);
       } else {
         // Translation failed — fall back to reading the original English aloud
-        speakRussian(fullText, true);
+        speakRussian(fullText, true, hasGps ? gpsText : null);
       }
     })
     .catch(function(){
       // Network/translation failure — fall back to English speech so the guard still hears something
-      speakRussian(fullText, true);
+      speakRussian(fullText, true, hasGps ? gpsText : null);
     });
 }
 
@@ -986,12 +1002,13 @@ function speakMPAssignmentInRussian(mp, locText, gpsText) {
 
   // Build a single readable sentence summarizing the assignment in English first.
   // No field-label prefixes like "Location:" — just speak the values themselves.
+  // GPS coordinates are numbers, not language — keep them out of translation
+  // and speak them separately afterward, untranslated.
   var sevWord = mp.severity || 'Low';
   var parts = [];
   parts.push(sevWord + '.');
   parts.push('From ' + (mp.sent_by || 'Admin') + '.');
   parts.push(locText + '.');
-  if (gpsText) parts.push(gpsText + '.');
   if (mp.notes) parts.push(mp.notes + '.');
   var fullText = parts.join(' ');
   // MyMemory's free tier caps requests at 500 bytes — trim defensively so long notes don't fail translation
@@ -1002,22 +1019,36 @@ function speakMPAssignmentInRussian(mp, locText, gpsText) {
     .then(function(data){
       if (data && data.responseStatus === 200 && data.responseData && data.responseData.translatedText) {
         var russianText = data.responseData.translatedText;
-        transTextEl.textContent = russianText;
+        var displayText = russianText + (gpsText ? ' ' + gpsText : '');
+        transTextEl.textContent = displayText;
         transEl.style.display = 'block';
-        speakRussian(russianText);
+        speakRussian(russianText, false, gpsText);
       } else {
         // Translation failed — fall back to reading the original English aloud
-        speakRussian(fullText, true);
+        speakRussian(fullText, true, gpsText);
       }
     })
     .catch(function(){
       // Network/translation failure — fall back to English speech so the guard still hears something
-      speakRussian(fullText, true);
+      speakRussian(fullText, true, gpsText);
     });
 }
 
-function speakRussian(text, fallbackEnglish) {
+function speakRussian(text, fallbackEnglish, gpsText, retryCount) {
   if (!('speechSynthesis' in window)) { playMPSound(); return; }
+  retryCount = retryCount || 0;
+  // Safari/iOS can return an empty voice list on the very first call after
+  // page load — getVoices() loads asynchronously and voiceschanged is
+  // unreliable. Retry briefly before giving up and using the lang-only fallback,
+  // so we don't silently end up speaking with the device's default English voice.
+  if (!fallbackEnglish && retryCount < 6) {
+    var checkVoices = window.speechSynthesis.getVoices();
+    var hasRu = checkVoices.some(function(v){ return v.lang && v.lang.toLowerCase().indexOf('ru') === 0; });
+    if (!hasRu && checkVoices.length === 0) {
+      setTimeout(function(){ speakRussian(text, fallbackEnglish, gpsText, retryCount + 1); }, 150);
+      return;
+    }
+  }
   try {
     window.speechSynthesis.cancel();
     var utter = new SpeechSynthesisUtterance(text);
@@ -1033,6 +1064,17 @@ function speakRussian(text, fallbackEnglish) {
     // If speech genuinely fails to produce audio, fall back to the chime
     // so the guard still gets some notification rather than silence.
     utter.onerror = function(){ playMPSound(); };
+    // GPS coordinates are numbers, not language — read them as a separate
+    // untranslated utterance straight after, in English, so digits aren't
+    // mangled by being run through the Russian translation/voice.
+    if (gpsText) {
+      utter.onend = function(){
+        var gpsUtter = new SpeechSynthesisUtterance(gpsText);
+        gpsUtter.lang = 'en-US';
+        gpsUtter.rate = 0.95;
+        window.speechSynthesis.speak(gpsUtter);
+      };
+    }
     window.speechSynthesis.speak(utter);
   } catch(e) { playMPSound(); }
 }
