@@ -1691,7 +1691,11 @@ function loadShiftReport() {
       var existing = ackByAssignment[a.assignment_id];
       if (!existing || new Date(a.acted_at) > new Date(existing.acted_at)) ackByAssignment[a.assignment_id] = a;
     });
-    currentReportMP = mpList.map(function(mp){ return Object.assign({}, mp, {ack: ackByAssignment[mp.id]}); });
+    // Only include assignments THIS guard personally acknowledged or dismissed —
+    // not assignments handled by a different guard, and not unhandled ones.
+    currentReportMP = mpList
+      .filter(function(mp){ return !!ackByAssignment[mp.id]; })
+      .map(function(mp){ return Object.assign({}, mp, {ack: ackByAssignment[mp.id]}); });
     document.getElementById('rep-total-scans').textContent = currentReportScans.length;
     document.getElementById('rep-total-req').textContent = currentReportReqs.length;
     document.getElementById('rep-total-notes').textContent = '—';
@@ -1772,20 +1776,19 @@ function buildReportHTML() {
     html += '</table>';
   }
 
-  // Mobile Patrol Assignments
+  // Mobile Patrol Assignments — only ones this guard personally acknowledged or dismissed
   html += '<h2>Mobile Patrol Assignments ('+currentReportMP.length+')</h2>';
   if (currentReportMP.length === 0) {
-    html += '<p style="color:#888;font-size:12px">No assignments sent.</p>';
+    html += '<p style="color:#888;font-size:12px">No assignments handled by this guard.</p>';
   } else {
     html += '<table><tr><th>Time</th><th>From</th><th>Severity</th><th>Location</th><th>Status</th><th>Notes</th></tr>';
     currentReportMP.forEach(function(mp){
       var t = new Date(mp.timestamp).toLocaleString('en-GB');
       var sevClass = 'sev-'+(mp.severity||'low').toLowerCase();
       var loc = mp.location_label || mp.custom_location || '—';
-      var status;
-      if (mp.ack && mp.ack.status === 'acknowledged') status = '<span class="ok">Acknowledged</span>';
-      else if (mp.ack && mp.ack.status === 'dismissed') status = '<span style="color:#777">Dismissed</span>';
-      else status = '<span class="red">Received — no response</span>';
+      var status = (mp.ack && mp.ack.status === 'dismissed')
+        ? '<span style="color:#777">Dismissed</span>'
+        : '<span class="ok">Acknowledged</span>';
       html += '<tr><td>'+t+'</td><td>'+(mp.sent_by||'Admin')+'</td><td class="'+sevClass+'">'+(mp.severity||'—')+'</td><td>'+loc+'</td><td>'+status+'</td><td>'+(mp.notes||'—')+'</td></tr>';
     });
     html += '</table>';

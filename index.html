@@ -1451,9 +1451,9 @@ function guardExportPDF() {
     fetch(SUPABASE_URL+'/rest/v1/help_requests?order=timestamp.asc&limit=200&timestamp=gte.'+sinceDate+'&timestamp=lte.'+untilDate, {headers:headers}).then(function(r){return r.json();}),
     fetch(SUPABASE_URL+'/rest/v1/incidents?order=timestamp.asc&limit=200&timestamp=gte.'+sinceDate+'&timestamp=lte.'+untilDate+'&guard_name=eq.'+encodeURIComponent(guardName), {headers:headers}).then(function(r){return r.json();}),
     fetch(SUPABASE_URL+'/rest/v1/mp_assignments?order=timestamp.asc&limit=200&timestamp=gte.'+sinceDate+'&timestamp=lte.'+untilDate+'&guard_name=eq.ALL', {headers:headers}).then(function(r){return r.json();}),
-    // Fetch acks from ALL guards (not just this one) — once any guard handles an
-    // assignment, it's resolved and should drop out of future shift reports.
-    fetch(SUPABASE_URL+'/rest/v1/mp_assignment_acks', {headers:headers}).then(function(r){return r.json();}),
+    // Only this guard's own ack records — a report should only show assignments
+    // THIS guard personally acknowledged or dismissed, not ones another guard handled.
+    fetch(SUPABASE_URL+'/rest/v1/mp_assignment_acks?guard_name=eq.'+encodeURIComponent(guardName), {headers:headers}).then(function(r){return r.json();}),
     shiftId ? fetch(SUPABASE_URL+'/rest/v1/active_shifts?id=eq.'+shiftId, {headers:headers}).then(function(r){return r.json();}) : Promise.resolve([])
   ]).then(function(results){
     var scans = Array.isArray(results[0]) ? results[0] : [];
@@ -1464,23 +1464,26 @@ function guardExportPDF() {
     var shiftRows = Array.isArray(results[5]) ? results[5] : [];
     var shiftRow = shiftRows[0] || null;
 
-    // Build a set of assignment IDs that have been handled (acked or dismissed)
-    // by ANY guard — these are resolved and should not clutter the report.
-    var handledAssignmentIds = {};
-    mpAcks.forEach(function(a){ handledAssignmentIds[a.assignment_id] = true; });
+    var ackByAssignment = {};
+    mpAcks.forEach(function(a){
+      var existing = ackByAssignment[a.assignment_id];
+      if (!existing || new Date(a.acted_at) > new Date(existing.acted_at)) ackByAssignment[a.assignment_id] = a;
+    });
 
-    // Scope to this specific shift's actual time window (not just the calendar date),
-    // and drop anything already handled by any guard.
+    // Scope to this specific shift's actual time window, and only include
+    // assignments THIS guard personally acknowledged or dismissed.
     var shiftFrom = shiftRow && shiftRow.started_at ? new Date(shiftRow.started_at) : null;
     var shiftUntil = shiftRow && shiftRow.ended_at ? new Date(shiftRow.ended_at) : new Date();
-    var mpAssignments = mpList.filter(function(mp){
-      if (handledAssignmentIds[mp.id]) return false;
-      if (shiftFrom) {
-        var ts = new Date(mp.timestamp);
-        if (ts < shiftFrom || ts > shiftUntil) return false;
-      }
-      return true;
-    });
+    var mpAssignments = mpList
+      .filter(function(mp){
+        if (!ackByAssignment[mp.id]) return false;
+        if (shiftFrom) {
+          var ts = new Date(mp.timestamp);
+          if (ts < shiftFrom || ts > shiftUntil) return false;
+        }
+        return true;
+      })
+      .map(function(mp){ return Object.assign({}, mp, {ack: ackByAssignment[mp.id]}); });
 
     var now = new Date().toLocaleString('en-GB');
     var startedStr = shiftRow && shiftRow.started_at ? new Date(shiftRow.started_at).toLocaleString('en-GB') : '—';
@@ -1553,18 +1556,20 @@ function guardExportPDF() {
       html += '</table>';
     }
 
-    // Mobile Patrol Assignments — only unresolved ones for this shift's window are shown;
-    // once any guard acknowledges or dismisses an assignment, it drops off all reports.
-    html += '<h2>Mobile Patrol Assignments — Unresolved ('+mpAssignments.length+')</h2>';
+    // Mobile Patrol Assignments — only ones THIS guard personally acknowledged or dismissed
+    html += '<h2>Mobile Patrol Assignments ('+mpAssignments.length+')</h2>';
     if (mpAssignments.length === 0) {
-      html += '<p style="color:#888;font-size:12px">No unresolved assignments during this shift.</p>';
+      html += '<p style="color:#888;font-size:12px">No assignments handled during this shift.</p>';
     } else {
       html += '<table><tr><th>Time</th><th>From</th><th>Severity</th><th>Location</th><th>Status</th><th>Notes</th></tr>';
       mpAssignments.forEach(function(mp){
         var t = new Date(mp.timestamp).toLocaleString('en-GB');
         var sevClass = 'sev-'+(mp.severity||'low').toLowerCase();
         var loc = mp.location_label || mp.custom_location || '—';
-        html += '<tr><td>'+t+'</td><td>'+(mp.sent_by||'Admin')+'</td><td class="'+sevClass+'">'+(mp.severity||'—')+'</td><td>'+loc+'</td><td><span class="red">Received — no response</span></td><td>'+(mp.notes||'—')+'</td></tr>';
+        var status = (mp.ack && mp.ack.status === 'dismissed')
+          ? '<span style="color:#777">Dismissed</span>'
+          : '<span class="ok">Acknowledged</span>';
+        html += '<tr><td>'+t+'</td><td>'+(mp.sent_by||'Admin')+'</td><td class="'+sevClass+'">'+(mp.severity||'—')+'</td><td>'+loc+'</td><td>'+status+'</td><td>'+(mp.notes||'—')+'</td></tr>';
       });
       html += '</table>';
     }
