@@ -818,6 +818,15 @@ function showTab(id,btn){
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   if(btn)btn.classList.add('active');
+  // Always reset the LOG tab to its shift-list view when entering or leaving it,
+  // so a stale "display:none" from a drilled-in timeline doesn't persist invisibly.
+  var logList = document.getElementById('log-shift-list');
+  var logTimeline = document.getElementById('log-timeline');
+  if (logList && logTimeline) {
+    logList.style.display = 'block';
+    logTimeline.style.display = 'none';
+    logTimeline.innerHTML = '';
+  }
 }
 
 // ── LIVE DATA ──
