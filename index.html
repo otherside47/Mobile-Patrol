@@ -484,6 +484,17 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
 </div>
 <style>@keyframes pw-spin{to{transform:rotate(360deg)}}</style>
 
+<div id="auto-end-notice" style="display:none;position:fixed;inset:0;background:rgba(13,15,18,0.9);z-index:9998;align-items:center;justify-content:center;padding:24px">
+  <div style="background:#151820;border:1px solid rgba(255,176,32,0.4);border-radius:14px;padding:24px;max-width:340px;width:100%;display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:32px;height:32px;border-radius:50%;background:rgba(255,176,32,0.15);border:1px solid rgba(255,176,32,0.4);display:flex;align-items:center;justify-content:center;font-size:16px;color:#ffb020;flex-shrink:0">!</div>
+      <div style="font-size:15px;font-weight:700;color:#e8eaf0">Shift auto-ended</div>
+    </div>
+    <div style="font-size:13px;color:#8b90a0;line-height:1.5">Your shift ran more than 30 minutes past its scheduled end time and was automatically closed. If you're still on duty, start a new shift to keep logging activity.</div>
+    <button type="button" onclick="document.getElementById('auto-end-notice').style.display='none';doLogout();" style="background:#00e5a0;color:#0d0f12;border:none;border-radius:8px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:monospace">OK, Start New Shift</button>
+  </div>
+</div>
+
 <script>
 var SUPABASE_URL = 'https://hzvegzkjogcjqzogxvvm.supabase.co';
 var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh6dmVnemtqb2djanF6b2d4dnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwOTA3NjgsImV4cCI6MjA5NTY2Njc2OH0.jDvCtntJjFd0tp9h5vFHm3xKa6s5HOGAschU-QrnmAE';
@@ -654,6 +665,7 @@ function endShift() {
   shiftEndTime = new Date();
   if (window._pollInterval) { clearInterval(window._pollInterval); window._pollInterval = null; }
   if (window._helpInterval) { clearInterval(window._helpInterval); window._helpInterval = null; }
+  if (window._autoEndInterval) { clearInterval(window._autoEndInterval); window._autoEndInterval = null; }
   // Mark shift as ended in Supabase
   if (!window._shiftId) window._shiftId = localStorage.getItem('mp_current_shift_id');
   if (window._shiftId) {
@@ -1149,9 +1161,50 @@ function doStartShift(type, label, startDate, endDate, isContinue) {
       if (!window._pollInterval) {
         window._pollInterval=setInterval(pollRequests,5000);
         window._helpInterval=setInterval(loadHelpRequests,15000);
+        window._autoEndInterval=setInterval(checkAutoEndShift,60000);
+        checkAutoEndShift();
       }
     }, 2000);
   });
+}
+
+// AUTO-END SHIFT — if 30+ min past scheduled end and guard hasn't manually ended it
+function getScheduledShiftEnd() {
+  if (!currentShift || !currentShift.type || !currentShift.endDate) return null;
+  if (currentShift.type === 'night') {
+    // Night shift ends 07:00 on endDate
+    return new Date(currentShift.endDate + 'T07:00:00');
+  }
+  // Day shift ends 19:00 on startDate (endDate === startDate for day shifts)
+  return new Date(currentShift.startDate + 'T19:00:00');
+}
+
+function checkAutoEndShift() {
+  if (!window._shiftId) return;
+  var scheduledEnd = getScheduledShiftEnd();
+  if (!scheduledEnd) return;
+  var graceMs = 30 * 60 * 1000;
+  var now = new Date();
+  if (now.getTime() < scheduledEnd.getTime() + graceMs) return;
+
+  // Past grace period — auto-end the shift quietly, without yanking the guard off their screen
+  if (window._pollInterval) { clearInterval(window._pollInterval); window._pollInterval = null; }
+  if (window._helpInterval) { clearInterval(window._helpInterval); window._helpInterval = null; }
+  if (window._autoEndInterval) { clearInterval(window._autoEndInterval); window._autoEndInterval = null; }
+
+  var shiftIdToEnd = window._shiftId;
+  fetch(SUPABASE_URL+'/rest/v1/active_shifts?id=eq.'+shiftIdToEnd, {
+    method: 'PATCH',
+    headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},
+    body: JSON.stringify({status:'ended', ended_at: new Date().toISOString(), auto_ended: true})
+  }).catch(function(){});
+
+  localStorage.removeItem('mp_current_shift_id');
+  window._shiftId = null;
+
+  // Show a clear, dismissible notice rather than forcing the user off their current screen
+  var notice = document.getElementById('auto-end-notice');
+  if (notice) notice.style.display = 'flex';
 }
 
 // LOGIN
