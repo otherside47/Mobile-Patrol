@@ -72,12 +72,13 @@ async function loadActivityLog(shiftId) {
     var dateUntil = s.ended_at || new Date().toISOString();
     var gf = guardName ? '&guard_name=eq.'+encodeURIComponent(guardName) : '';
 
-    var [scans, incidents, helpReqs, notes] = await Promise.all([
+    var [scans, incidents, helpReqs, notes, mpAssignments] = await Promise.all([
       fetch(SUPABASE_URL+'/rest/v1/patrol_scans?order=timestamp.asc&timestamp=gte.'+dateFrom+'&timestamp=lte.'+dateUntil+gf, {headers}).then(r=>r.json()),
       // Query incidents by shift_id directly — most reliable, avoids timestamp edge cases
       fetch(SUPABASE_URL+'/rest/v1/incidents?order=timestamp.asc&shift_id=eq.'+shiftId, {headers}).then(r=>r.json()),
       fetch(SUPABASE_URL+'/rest/v1/help_requests?order=timestamp.asc&timestamp=gte.'+dateFrom+'&timestamp=lte.'+dateUntil+(guardName?'&name=eq.'+encodeURIComponent(guardName):''), {headers}).then(r=>r.json()),
-      fetch(SUPABASE_URL+'/rest/v1/surveillance_notes?order=timestamp.asc&timestamp=gte.'+dateFrom+'&timestamp=lte.'+dateUntil+gf, {headers}).then(r=>r.json())
+      fetch(SUPABASE_URL+'/rest/v1/surveillance_notes?order=timestamp.asc&timestamp=gte.'+dateFrom+'&timestamp=lte.'+dateUntil+gf, {headers}).then(r=>r.json()),
+      fetch(SUPABASE_URL+'/rest/v1/mp_assignments?order=timestamp.asc&timestamp=gte.'+dateFrom+'&timestamp=lte.'+dateUntil+'&guard_name=eq.ALL', {headers}).then(r=>r.json())
     ]);
 
     var events = [];
@@ -87,6 +88,7 @@ async function loadActivityLog(shiftId) {
     if (Array.isArray(incidents)) incidents.forEach(function(x){ events.push({ts:x.timestamp, type:'incident', data:x}); });
     if (Array.isArray(helpReqs)) helpReqs.forEach(function(x){ events.push({ts:x.timestamp, type:'help', data:x}); });
     if (Array.isArray(notes)) notes.forEach(function(x){ events.push({ts:x.timestamp, type:'note', data:x}); });
+    if (Array.isArray(mpAssignments)) mpAssignments.forEach(function(x){ events.push({ts:x.timestamp, type:'mp', data:x}); });
     events.sort(function(a,b){ return new Date(a.ts)-new Date(b.ts); });
 
     var shiftTitle = (s.shift_label||s.shift_type||'Shift')+' · '+(guardName||'—')+' · '+(s.start_date||'');
@@ -132,7 +134,31 @@ async function loadActivityLog(shiftId) {
         }
         else if (ev.type==='help') {
           icon='!'; color='#ffb020'; titleTxt='Help Request';
-          detailHtml='<div style="font-size:12px;color:#8b90a0;margin-top:4px">'+(ev.data.loc_desc||'')+(ev.data.acked?'<span style="color:#00e5a0;margin-left:8px">Acknowledged</span>':'<span style="color:#ff4d4d;margin-left:8px">Pending</span>')+'</div>';
+          var hStatus = ev.data.acked ? 'Acknowledged' : 'Received';
+          var hStatusColor = ev.data.acked ? '#00e5a0' : '#ffb020';
+          var hGps = (ev.data.gps_lat && ev.data.gps_lng) ? ev.data.gps_lat.toFixed(5)+'N, '+ev.data.gps_lng.toFixed(5)+'E' : '—';
+          detailHtml = '<div style="background:rgba(255,176,32,0.08);border:1px solid rgba(255,176,32,0.2);border-radius:8px;padding:10px 12px;margin-top:8px">';
+          detailHtml += '<div style="display:flex;gap:8px;margin-bottom:5px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">Status</span><span style="font-size:12px;font-weight:700;color:'+hStatusColor+'">'+hStatus+(ev.data.acked_by?' by '+ev.data.acked_by:'')+'</span></div>';
+          detailHtml += '<div style="display:flex;gap:8px;margin-bottom:5px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">Type</span><span style="font-size:12px;color:#e8eaf0">'+(ev.data.type||'—')+'</span></div>';
+          detailHtml += '<div style="display:flex;gap:8px;margin-bottom:5px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">Urgency</span><span style="font-size:12px;color:#e8eaf0">'+(ev.data.urgency||'—')+'</span></div>';
+          detailHtml += '<div style="display:flex;gap:8px;margin-bottom:5px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">Location</span><span style="font-size:12px;color:#e8eaf0">'+(ev.data.loc_desc||'—')+'</span></div>';
+          detailHtml += '<div style="display:flex;gap:8px;margin-bottom:5px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">GPS</span><span style="font-size:12px;color:#e8eaf0">'+hGps+'</span></div>';
+          detailHtml += '<div style="display:flex;gap:8px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">Notes</span><span style="font-size:12px;color:#e8eaf0;line-height:1.5">'+(ev.data.notes||'—')+'</span></div>';
+          detailHtml += '</div>';
+        }
+        else if (ev.type==='mp') {
+          icon='📋'; color='#4da3ff'; titleTxt='Mobile Patrol Assignment';
+          var mSev = ev.data.severity||'Low';
+          var mSevColor = mSev==='Critical'?'#ff4d4d':mSev==='High'?'#ffb020':mSev==='Medium'?'#4da3ff':'#8b90a0';
+          var mLoc = ev.data.location_label || ev.data.custom_location || '—';
+          var mGps = (ev.data.gps_lat && ev.data.gps_lng) ? ev.data.gps_lat.toFixed(5)+'N, '+ev.data.gps_lng.toFixed(5)+'E' : null;
+          detailHtml = '<div style="background:rgba(77,163,255,0.08);border:1px solid rgba(77,163,255,0.2);border-radius:8px;padding:10px 12px;margin-top:8px">';
+          detailHtml += '<div style="display:flex;gap:8px;margin-bottom:5px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">From</span><span style="font-size:12px;color:#e8eaf0">'+(ev.data.sent_by||'Admin')+'</span></div>';
+          detailHtml += '<div style="display:flex;gap:8px;margin-bottom:5px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">Severity</span><span style="font-size:12px;font-weight:700;color:'+mSevColor+'">'+mSev+'</span></div>';
+          detailHtml += '<div style="display:flex;gap:8px;margin-bottom:5px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">Location</span><span style="font-size:12px;color:#e8eaf0">'+mLoc+'</span></div>';
+          if (mGps) detailHtml += '<div style="display:flex;gap:8px;margin-bottom:5px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">GPS</span><span style="font-size:12px;color:#e8eaf0">'+mGps+'</span></div>';
+          detailHtml += '<div style="display:flex;gap:8px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">Notes</span><span style="font-size:12px;color:#e8eaf0;line-height:1.5">'+(ev.data.notes||'—')+'</span></div>';
+          detailHtml += '</div>';
         }
         else if (ev.type==='note') {
           icon='✎'; color='#8b90a0'; titleTxt='Surveillance Note';
@@ -393,7 +419,7 @@ select:focus,input:focus{border-color:#00e5a0}
       </div>
 
       <label style="font-family:monospace;font-size:10px;color:#555a6a;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:5px">Notes <span style="color:#555a6a;text-transform:none">(itinerary / instructions)</span></label>
-      <textarea id="mp-notes" rows="6" placeholder="e.g. Patrol route, checkpoints to prioritize, timing..." style="width:100%;background:#151820;border:1px solid rgba(139,144,160,0.2);color:#e8eaf0;padding:9px 10px;border-radius:8px;font-family:monospace;font-size:13px;resize:vertical;margin-bottom:16px"></textarea>
+      <textarea id="mp-notes" rows="7" placeholder="e.g. Patrol route, checkpoints to prioritize, timing..." style="width:100%;background:#151820;border:1px solid rgba(139,144,160,0.2);color:#e8eaf0;padding:9px 10px;border-radius:8px;font-family:monospace;font-size:13px;resize:vertical;margin-bottom:16px"></textarea>
 
       <button type="button" id="btn-send-mp" style="width:100%;background:#00e5a0;color:#0d0f12;border:none;border-radius:8px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:monospace">Send MP</button>
     </div>
