@@ -76,8 +76,10 @@ async function loadActivityLog(shiftId) {
     if (!Array.isArray(shifts) || shifts.length === 0) { tl.innerHTML = '<div style="color:#ff4d4d;font-family:monospace;font-size:13px">Shift not found.</div>'; return; }
     var s = shifts[0];
     var guardName = s.guard_name || '';
-    var dateFrom = s.started_at;
-    var dateUntil = s.ended_at || new Date().toISOString();
+    // Encode timestamps for safe use in URLs — Supabase returns offsets like
+    // "+00" which corrupt query strings if not percent-encoded (+ becomes a space)
+    var dateFrom = encodeURIComponent(s.started_at);
+    var dateUntil = encodeURIComponent(s.ended_at || new Date().toISOString());
     var gf = guardName ? '&guard_name=eq.'+encodeURIComponent(guardName) : '';
 
     var [scans, incidents, helpReqs, notes, mpAssignments, mpAcks] = await Promise.all([
@@ -346,15 +348,15 @@ select:focus,input:focus{border-color:#00e5a0}
   </div>
   <div class="tab-nav">
     <button type="button" class="tab-btn active" onclick="showTab('tab-live',this);loadLiveData()">LIVE</button>
+    <button type="button" class="tab-btn" onclick="showTab('tab-sendmp',this);initSendMP()">SEND MP</button>
+    <button type="button" class="tab-btn" onclick="showTab('tab-incidents',this);loadIncidents()">INCIDENTS<span id="inc-badge" style="display:none;background:#ff4d4d;color:#fff;border-radius:10px;padding:1px 5px;font-size:9px;margin-left:2px"></span></button>
     <button type="button" class="tab-btn" onclick="showTab('tab-requests',this);loadRequests()">REQUESTS<span id="req-badge" style="display:none;background:#ff4d4d;color:#fff;border-radius:10px;padding:1px 5px;font-size:9px;margin-left:2px"></span></button>
+    <button type="button" class="tab-btn" onclick="showTab('tab-notes',this);loadNotes()">NOTES</button>
+    <button type="button" class="tab-btn" onclick="showTab('tab-log',this);loadLogShiftList()">📋 LOG</button>
+    <button type="button" class="tab-btn" onclick="showTab('tab-reports',this);loadShiftsForReport()">REPORTS</button>
     <button type="button" class="tab-btn" onclick="showTab('tab-profiles',this);renderProfiles()">👤 PROFILES</button>
     <button type="button" class="tab-btn" onclick="showTab('tab-checkpoints',this);renderCheckpoints()">CHECKPOINTS</button>
     <button type="button" class="tab-btn" onclick="showTab('tab-qr',this);generateQRCodes()">QR CODES</button>
-    <button type="button" class="tab-btn" onclick="showTab('tab-notes',this);loadNotes()">NOTES</button>
-    <button type="button" class="tab-btn" onclick="showTab('tab-reports',this);loadShiftsForReport()">REPORTS</button>
-    <button type="button" class="tab-btn" onclick="showTab('tab-incidents',this);loadIncidents()">INCIDENTS<span id="inc-badge" style="display:none;background:#ff4d4d;color:#fff;border-radius:10px;padding:1px 5px;font-size:9px;margin-left:2px"></span></button>
-    <button type="button" class="tab-btn" onclick="showTab('tab-log',this);loadLogShiftList()">📋 LOG</button>
-    <button type="button" class="tab-btn" onclick="showTab('tab-sendmp',this);initSendMP()">SEND MP</button>
   </div>
 
   <div class="content">
