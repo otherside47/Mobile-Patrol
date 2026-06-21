@@ -296,6 +296,7 @@ select:focus,input:focus{border-color:#00e5a0}
     <button type="button" class="tab-btn" onclick="showTab('tab-reports',this);loadShiftsForReport()">REPORTS</button>
     <button type="button" class="tab-btn" onclick="showTab('tab-incidents',this);loadIncidents()">INCIDENTS<span id="inc-badge" style="display:none;background:#ff4d4d;color:#fff;border-radius:10px;padding:1px 5px;font-size:9px;margin-left:2px"></span></button>
     <button type="button" class="tab-btn" onclick="showTab('tab-log',this);loadLogShiftList()">📋 LOG</button>
+    <button type="button" class="tab-btn" onclick="showTab('tab-sendmp',this)">SEND MP</button>
   </div>
 
   <div class="content">
@@ -345,6 +346,11 @@ select:focus,input:focus{border-color:#00e5a0}
       </div>
       <div id="log-shift-list"><div style="font-size:13px;color:#555a6a;font-family:monospace;padding:12px 0">Loading shifts...</div></div>
       <div id="log-timeline" style="margin-top:16px"></div>
+    </div>
+
+    <!-- SEND MP -->
+    <div class="tab-panel" id="tab-sendmp">
+      <div style="font-size:13px;color:#555a6a;font-family:monospace;padding:12px 0">Coming soon — functionality to be added.</div>
     </div>
 
     <!-- REQUESTS -->
