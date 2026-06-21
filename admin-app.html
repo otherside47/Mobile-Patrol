@@ -352,27 +352,25 @@ select:focus,input:focus{border-color:#00e5a0}
 
     <!-- SEND MP -->
     <div class="tab-panel" id="tab-sendmp">
-      <div style="font-size:13px;color:#8b90a0;font-family:monospace;margin-bottom:14px">Send a Mobile Patrol assignment to a guard.</div>
+      <div style="font-size:13px;color:#8b90a0;font-family:monospace;margin-bottom:12px">Broadcasts to all guards currently on shift.</div>
 
-      <label style="font-family:monospace;font-size:10px;color:#555a6a;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px">Guard</label>
-      <select id="mp-guard-select" style="width:100%;background:#151820;border:1px solid rgba(139,144,160,0.2);color:#e8eaf0;padding:9px 10px;border-radius:8px;font-family:monospace;font-size:13px;margin-bottom:16px">
-        <option value="">Select guard...</option>
-      </select>
-
-      <label style="font-family:monospace;font-size:10px;color:#555a6a;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px">Location</label>
-      <div id="mp-loc-grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:10px">
+      <label style="font-family:monospace;font-size:10px;color:#555a6a;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:5px">Location</label>
+      <div id="mp-loc-grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:8px">
         <button type="button" class="mp-loc-btn" data-loc="NEC">NEC</button>
         <button type="button" class="mp-loc-btn" data-loc="PD">PD</button>
         <button type="button" class="mp-loc-btn" data-loc="Emb">Emb</button>
         <button type="button" class="mp-loc-btn" data-loc="custom">Specify Location</button>
       </div>
 
-      <div id="mp-custom-loc-wrap" style="display:none;margin-bottom:16px">
-        <input type="text" id="mp-custom-loc" placeholder="Brief description of location" style="width:100%;background:#151820;border:1px solid rgba(139,144,160,0.2);color:#e8eaf0;padding:9px 10px;border-radius:8px;font-family:monospace;font-size:13px">
+      <div id="mp-custom-loc-wrap" style="display:none;margin-bottom:10px">
+        <input type="text" id="mp-custom-loc" placeholder="Brief description of location" style="width:100%;background:#151820;border:1px solid rgba(139,144,160,0.2);color:#e8eaf0;padding:8px 10px;border-radius:8px;font-family:monospace;font-size:13px">
       </div>
 
-      <label style="font-family:monospace;font-size:10px;color:#555a6a;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;margin-top:6px">Live coordinates <span style="color:#555a6a;text-transform:none">(optional override)</span></label>
-      <div id="mp-gps-box" style="display:flex;align-items:center;gap:10px;background:#151820;border:1px solid rgba(139,144,160,0.15);border-radius:8px;padding:10px 12px;margin-bottom:16px">
+      <button type="button" id="mp-gps-toggle" style="display:flex;align-items:center;gap:6px;background:none;border:1px solid rgba(139,144,160,0.2);color:#8b90a0;border-radius:8px;padding:8px 10px;font-family:monospace;font-size:11px;cursor:pointer;margin-bottom:10px;width:100%;justify-content:center">
+        <span>📍</span><span>Add live coordinates (optional override)</span>
+      </button>
+
+      <div id="mp-gps-box" style="display:none;align-items:center;gap:10px;background:#151820;border:1px solid rgba(139,144,160,0.15);border-radius:8px;padding:9px 12px;margin-bottom:10px">
         <div style="font-size:14px;color:#555a6a">📍</div>
         <div style="flex:1">
           <div id="mp-gps-text" style="font-family:monospace;font-size:12px;color:#8b90a0">Acquiring location...</div>
@@ -381,8 +379,8 @@ select:focus,input:focus{border-color:#00e5a0}
         <button type="button" id="mp-gps-refresh" style="background:none;border:1px solid rgba(139,144,160,0.2);color:#8b90a0;border-radius:6px;padding:5px 9px;font-family:monospace;font-size:11px;cursor:pointer">Refresh</button>
       </div>
 
-      <label style="font-family:monospace;font-size:10px;color:#555a6a;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px">Notes <span style="color:#555a6a;text-transform:none">(itinerary / instructions)</span></label>
-      <textarea id="mp-notes" rows="4" placeholder="e.g. Patrol route, checkpoints to prioritize, timing..." style="width:100%;background:#151820;border:1px solid rgba(139,144,160,0.2);color:#e8eaf0;padding:9px 10px;border-radius:8px;font-family:monospace;font-size:13px;resize:vertical;margin-bottom:18px"></textarea>
+      <label style="font-family:monospace;font-size:10px;color:#555a6a;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:5px">Notes <span style="color:#555a6a;text-transform:none">(itinerary / instructions)</span></label>
+      <textarea id="mp-notes" rows="6" placeholder="e.g. Patrol route, checkpoints to prioritize, timing..." style="width:100%;background:#151820;border:1px solid rgba(139,144,160,0.2);color:#e8eaf0;padding:9px 10px;border-radius:8px;font-family:monospace;font-size:13px;resize:vertical;margin-bottom:16px"></textarea>
 
       <button type="button" id="btn-send-mp" style="width:100%;background:#00e5a0;color:#0d0f12;border:none;border-radius:8px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:monospace">Send MP</button>
     </div>
@@ -869,27 +867,15 @@ var mpSelectedLoc = null;
 var mpGPS = null;
 
 function initSendMP() {
-  // Populate guard dropdown (skip if already populated)
-  var sel = document.getElementById('mp-guard-select');
-  if (sel.options.length <= 1) {
-    Object.keys(guardProfiles).forEach(function(k) {
-      var g = guardProfiles[k];
-      var opt = document.createElement('option');
-      opt.value = g.name;
-      opt.textContent = g.vacant ? 'Replacement (Vacant)' : g.name;
-      sel.appendChild(opt);
-    });
-  }
-
   // Reset location selection
   mpSelectedLoc = null;
+  mpGPS = null;
   document.querySelectorAll('.mp-loc-btn').forEach(function(b){ b.classList.remove('selected'); });
   document.getElementById('mp-custom-loc-wrap').style.display = 'none';
   document.getElementById('mp-custom-loc').value = '';
   document.getElementById('mp-notes').value = '';
-
-  // Auto-acquire GPS
-  acquireMPGPS();
+  document.getElementById('mp-gps-box').style.display = 'none';
+  document.getElementById('mp-gps-toggle').style.display = 'flex';
 }
 
 function acquireMPGPS() {
@@ -906,7 +892,7 @@ function acquireMPGPS() {
     function(p) {
       mpGPS = {lat: p.coords.latitude, lng: p.coords.longitude};
       textEl.textContent = mpGPS.lat.toFixed(5) + '° N, ' + mpGPS.lng.toFixed(5) + '° E';
-      subEl.textContent = 'Auto-captured just now — overrides location above if sent';
+      subEl.textContent = 'Captured — overrides location above if sent';
     },
     function() {
       textEl.textContent = 'Could not get location (permission denied or unavailable)';
@@ -917,6 +903,11 @@ function acquireMPGPS() {
   );
 }
 
+document.getElementById('mp-gps-toggle').addEventListener('click', function() {
+  this.style.display = 'none';
+  document.getElementById('mp-gps-box').style.display = 'flex';
+  acquireMPGPS();
+});
 document.getElementById('mp-gps-refresh').addEventListener('click', acquireMPGPS);
 
 document.querySelectorAll('.mp-loc-btn').forEach(function(btn) {
@@ -929,8 +920,6 @@ document.querySelectorAll('.mp-loc-btn').forEach(function(btn) {
 });
 
 document.getElementById('btn-send-mp').addEventListener('click', function() {
-  var guardName = document.getElementById('mp-guard-select').value;
-  if (!guardName) { showToast('Please select a guard'); return; }
   if (!mpSelectedLoc) { showToast('Please select a location'); return; }
   var customLoc = document.getElementById('mp-custom-loc').value.trim();
   if (mpSelectedLoc === 'custom' && !customLoc) { showToast('Please describe the location'); return; }
@@ -940,7 +929,7 @@ document.getElementById('btn-send-mp').addEventListener('click', function() {
   var payload = {
     id: 'MP-' + Date.now(),
     sent_by: (currentAdminName || 'Admin'),
-    guard_name: guardName,
+    guard_name: 'ALL',
     location_type: mpSelectedLoc,
     location_label: locLabelMap[mpSelectedLoc],
     custom_location: mpSelectedLoc === 'custom' ? customLoc : null,
@@ -960,7 +949,7 @@ document.getElementById('btn-send-mp').addEventListener('click', function() {
     headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
     body: JSON.stringify(payload)
   }).then(function() {
-    showToast('MP sent to ' + guardName);
+    showToast('MP sent to all guards on shift');
     initSendMP();
   }).catch(function() {
     showToast('Failed to send — check connection');
