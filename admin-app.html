@@ -1636,6 +1636,7 @@ var currentReportShift = null;
 var currentReportScans = [];
 var currentReportReqs = [];
 var currentReportInc = [];
+var currentReportMP = [];
 
 function loadShiftsForReport() {
   fetch(SUPABASE_URL+'/rest/v1/active_shifts?order=started_at.desc&limit=100', {
@@ -1672,11 +1673,25 @@ function loadShiftReport() {
     }).then(function(r){return r.json();}),
     fetch(SUPABASE_URL+'/rest/v1/incidents?order=timestamp.asc&limit=200&timestamp=gte.'+sinceDate+'&timestamp=lte.'+untilDate+'&guard_name=eq.'+encodeURIComponent(guardName), {
       headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+    }).then(function(r){return r.json();}),
+    fetch(SUPABASE_URL+'/rest/v1/mp_assignments?order=timestamp.asc&limit=200&timestamp=gte.'+sinceDate+'&timestamp=lte.'+untilDate+'&guard_name=eq.ALL', {
+      headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+    }).then(function(r){return r.json();}),
+    fetch(SUPABASE_URL+'/rest/v1/mp_assignment_acks?guard_name=eq.'+encodeURIComponent(guardName), {
+      headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
     }).then(function(r){return r.json();})
   ]).then(function(results){
     currentReportScans = Array.isArray(results[0]) ? results[0] : [];
     currentReportReqs = Array.isArray(results[1]) ? results[1] : [];
     currentReportInc = Array.isArray(results[2]) ? results[2] : [];
+    var mpList = Array.isArray(results[3]) ? results[3] : [];
+    var mpAcks = Array.isArray(results[4]) ? results[4] : [];
+    var ackByAssignment = {};
+    mpAcks.forEach(function(a){
+      var existing = ackByAssignment[a.assignment_id];
+      if (!existing || new Date(a.acted_at) > new Date(existing.acted_at)) ackByAssignment[a.assignment_id] = a;
+    });
+    currentReportMP = mpList.map(function(mp){ return Object.assign({}, mp, {ack: ackByAssignment[mp.id]}); });
     document.getElementById('rep-total-scans').textContent = currentReportScans.length;
     document.getElementById('rep-total-req').textContent = currentReportReqs.length;
     document.getElementById('rep-total-notes').textContent = '—';
@@ -1706,9 +1721,12 @@ function buildReportHTML() {
   ].join('');
   var html = '<html><head><meta charset="UTF-8"><style>'+css+'</style></head><body>';
   html += '<h1>MOBILE PATROL — Shift Report</h1>';
+  var startedStr = s.started_at ? new Date(s.started_at).toLocaleString('en-GB') : '—';
+  var endedStr = s.ended_at ? new Date(s.ended_at).toLocaleString('en-GB') : (s.status==='active' ? 'Still active' : '—');
   html += '<div class="info">';
   html += 'Guard: <b>'+(s.guard_name||'—')+'</b><br>';
   html += 'Shift: <b>'+(s.shift_label||s.shift_type||'—')+'</b><br>';
+  html += 'Started: <b>'+startedStr+'</b> &nbsp;|&nbsp; Ended: <b>'+endedStr+'</b><br>';
   html += 'Generated: <b>'+now+'</b>';
   html += '</div>';
 
@@ -1750,6 +1768,25 @@ function buildReportHTML() {
       var t = new Date(r.timestamp).toLocaleString('en-GB');
       var status = r.acked ? '<span class="ok">Acknowledged</span>' : '<span class="red">Pending</span>';
       html += '<tr><td>'+t+'</td><td>'+(r.name||'—')+'</td><td>'+(r.type||'—')+'</td><td>'+(r.loc_desc||'—')+'</td><td>'+status+'</td></tr>';
+    });
+    html += '</table>';
+  }
+
+  // Mobile Patrol Assignments
+  html += '<h2>Mobile Patrol Assignments ('+currentReportMP.length+')</h2>';
+  if (currentReportMP.length === 0) {
+    html += '<p style="color:#888;font-size:12px">No assignments sent.</p>';
+  } else {
+    html += '<table><tr><th>Time</th><th>From</th><th>Severity</th><th>Location</th><th>Status</th><th>Notes</th></tr>';
+    currentReportMP.forEach(function(mp){
+      var t = new Date(mp.timestamp).toLocaleString('en-GB');
+      var sevClass = 'sev-'+(mp.severity||'low').toLowerCase();
+      var loc = mp.location_label || mp.custom_location || '—';
+      var status;
+      if (mp.ack && mp.ack.status === 'acknowledged') status = '<span class="ok">Acknowledged</span>';
+      else if (mp.ack && mp.ack.status === 'dismissed') status = '<span style="color:#777">Dismissed</span>';
+      else status = '<span class="red">Received — no response</span>';
+      html += '<tr><td>'+t+'</td><td>'+(mp.sent_by||'Admin')+'</td><td class="'+sevClass+'">'+(mp.severity||'—')+'</td><td>'+loc+'</td><td>'+status+'</td><td>'+(mp.notes||'—')+'</td></tr>';
     });
     html += '</table>';
   }
