@@ -926,6 +926,7 @@ function playMPSound() {
 
 document.getElementById('btn-ack-mp-alert').addEventListener('click', function() {
   markMPSeen(currentMPAlertId);
+  recordMPAckStatus(currentMPAlertId, 'acknowledged');
   document.getElementById('mp-alert-modal').classList.remove('open');
   addTL('MP assignment acknowledged','Responding');
   showToast('Acknowledged');
@@ -933,9 +934,25 @@ document.getElementById('btn-ack-mp-alert').addEventListener('click', function()
 });
 document.getElementById('btn-dismiss-mp-alert').addEventListener('click', function() {
   markMPSeen(currentMPAlertId);
+  recordMPAckStatus(currentMPAlertId, 'dismissed');
   document.getElementById('mp-alert-modal').classList.remove('open');
   loadMPAssignmentsList();
 });
+
+function recordMPAckStatus(assignmentId, status) {
+  if (!assignmentId || !currentGuardName) return;
+  fetch(SUPABASE_URL+'/rest/v1/mp_assignment_acks', {
+    method: 'POST',
+    headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+    body: JSON.stringify({
+      id: 'ACK-'+assignmentId+'-'+Date.now(),
+      assignment_id: assignmentId,
+      guard_name: currentGuardName,
+      status: status,
+      acted_at: new Date().toISOString()
+    })
+  }).catch(function(){});
+}
 
 function loadMPAssignmentsList() {
   var el = document.getElementById('mp-assignments-list');

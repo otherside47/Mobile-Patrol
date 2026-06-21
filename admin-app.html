@@ -9,10 +9,15 @@
 // ── ACTIVITY LOG ─────────────────────────────────────────────────────────────
 var logSelectedShiftId = null;
 
+var logShiftListRequestId = 0;
+
 async function loadLogShiftList() {
+  var myRequestId = ++logShiftListRequestId;
   var el = document.getElementById('log-shift-list');
   var tl = document.getElementById('log-timeline');
+  el.style.display = 'block';
   el.innerHTML = '<div style="font-size:13px;color:#555a6a;font-family:monospace;padding:8px 0">Loading...</div>';
+  tl.style.display = 'none';
   tl.innerHTML = '';
   logSelectedShiftId = null;
 
@@ -21,6 +26,8 @@ async function loadLogShiftList() {
       headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
     });
     var shifts = await r.json();
+    // A newer call has started since this one began — discard this stale result
+    if (myRequestId !== logShiftListRequestId) return;
     if (!Array.isArray(shifts) || shifts.length === 0) {
       el.innerHTML = '<div style="font-size:13px;color:#555a6a;font-family:monospace;padding:8px 0">No shifts found.</div>';
       return;
@@ -43,6 +50,7 @@ async function loadLogShiftList() {
     html += '</div>';
     el.innerHTML = html;
   } catch(e) {
+    if (myRequestId !== logShiftListRequestId) return;
     el.innerHTML = '<div style="font-size:13px;color:#ff4d4d;font-family:monospace">Failed to load shifts.</div>';
   }
 }
@@ -72,14 +80,26 @@ async function loadActivityLog(shiftId) {
     var dateUntil = s.ended_at || new Date().toISOString();
     var gf = guardName ? '&guard_name=eq.'+encodeURIComponent(guardName) : '';
 
-    var [scans, incidents, helpReqs, notes, mpAssignments] = await Promise.all([
+    var [scans, incidents, helpReqs, notes, mpAssignments, mpAcks] = await Promise.all([
       fetch(SUPABASE_URL+'/rest/v1/patrol_scans?order=timestamp.asc&timestamp=gte.'+dateFrom+'&timestamp=lte.'+dateUntil+gf, {headers}).then(r=>r.json()),
       // Query incidents by shift_id directly — most reliable, avoids timestamp edge cases
       fetch(SUPABASE_URL+'/rest/v1/incidents?order=timestamp.asc&shift_id=eq.'+shiftId, {headers}).then(r=>r.json()),
       fetch(SUPABASE_URL+'/rest/v1/help_requests?order=timestamp.asc&timestamp=gte.'+dateFrom+'&timestamp=lte.'+dateUntil+(guardName?'&name=eq.'+encodeURIComponent(guardName):''), {headers}).then(r=>r.json()),
       fetch(SUPABASE_URL+'/rest/v1/surveillance_notes?order=timestamp.asc&timestamp=gte.'+dateFrom+'&timestamp=lte.'+dateUntil+gf, {headers}).then(r=>r.json()),
-      fetch(SUPABASE_URL+'/rest/v1/mp_assignments?order=timestamp.asc&timestamp=gte.'+dateFrom+'&timestamp=lte.'+dateUntil+'&guard_name=eq.ALL', {headers}).then(r=>r.json())
+      fetch(SUPABASE_URL+'/rest/v1/mp_assignments?order=timestamp.asc&timestamp=gte.'+dateFrom+'&timestamp=lte.'+dateUntil+'&guard_name=eq.ALL', {headers}).then(r=>r.json()),
+      guardName ? fetch(SUPABASE_URL+'/rest/v1/mp_assignment_acks?guard_name=eq.'+encodeURIComponent(guardName), {headers}).then(r=>r.json()) : Promise.resolve([])
     ]);
+
+    // Map assignment_id -> this guard's latest status (acknowledged/dismissed)
+    var ackByAssignment = {};
+    if (Array.isArray(mpAcks)) {
+      mpAcks.forEach(function(a) {
+        var existing = ackByAssignment[a.assignment_id];
+        if (!existing || new Date(a.acted_at) > new Date(existing.acted_at)) {
+          ackByAssignment[a.assignment_id] = a;
+        }
+      });
+    }
 
     var events = [];
     events.push({ts:s.started_at, type:'shift_start', data:s});
@@ -88,7 +108,7 @@ async function loadActivityLog(shiftId) {
     if (Array.isArray(incidents)) incidents.forEach(function(x){ events.push({ts:x.timestamp, type:'incident', data:x}); });
     if (Array.isArray(helpReqs)) helpReqs.forEach(function(x){ events.push({ts:x.timestamp, type:'help', data:x}); });
     if (Array.isArray(notes)) notes.forEach(function(x){ events.push({ts:x.timestamp, type:'note', data:x}); });
-    if (Array.isArray(mpAssignments)) mpAssignments.forEach(function(x){ events.push({ts:x.timestamp, type:'mp', data:x}); });
+    if (Array.isArray(mpAssignments)) mpAssignments.forEach(function(x){ events.push({ts:x.timestamp, type:'mp', data:x, ack:ackByAssignment[x.id]}); });
     events.sort(function(a,b){ return new Date(a.ts)-new Date(b.ts); });
 
     var shiftTitle = (s.shift_label||s.shift_type||'Shift')+' · '+(guardName||'—')+' · '+(s.start_date||'');
@@ -152,7 +172,12 @@ async function loadActivityLog(shiftId) {
           var mSevColor = mSev==='Critical'?'#ff4d4d':mSev==='High'?'#ffb020':mSev==='Medium'?'#4da3ff':'#8b90a0';
           var mLoc = ev.data.location_label || ev.data.custom_location || '—';
           var mGps = (ev.data.gps_lat && ev.data.gps_lng) ? ev.data.gps_lat.toFixed(5)+'N, '+ev.data.gps_lng.toFixed(5)+'E' : null;
+          var mStatus, mStatusColor;
+          if (ev.ack && ev.ack.status === 'acknowledged') { mStatus = 'Acknowledged'; mStatusColor = '#00e5a0'; }
+          else if (ev.ack && ev.ack.status === 'dismissed') { mStatus = 'Dismissed'; mStatusColor = '#8b90a0'; }
+          else { mStatus = 'Received (no response yet)'; mStatusColor = '#ffb020'; }
           detailHtml = '<div style="background:rgba(77,163,255,0.08);border:1px solid rgba(77,163,255,0.2);border-radius:8px;padding:10px 12px;margin-top:8px">';
+          detailHtml += '<div style="display:flex;gap:8px;margin-bottom:5px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">Status</span><span style="font-size:12px;font-weight:700;color:'+mStatusColor+'">'+mStatus+'</span></div>';
           detailHtml += '<div style="display:flex;gap:8px;margin-bottom:5px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">From</span><span style="font-size:12px;color:#e8eaf0">'+(ev.data.sent_by||'Admin')+'</span></div>';
           detailHtml += '<div style="display:flex;gap:8px;margin-bottom:5px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">Severity</span><span style="font-size:12px;font-weight:700;color:'+mSevColor+'">'+mSev+'</span></div>';
           detailHtml += '<div style="display:flex;gap:8px;margin-bottom:5px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">Location</span><span style="font-size:12px;color:#e8eaf0">'+mLoc+'</span></div>';
