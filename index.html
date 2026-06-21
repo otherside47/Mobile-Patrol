@@ -908,8 +908,14 @@ function showMPAlert(mp) {
     (mp.notes ? '<span>Notes:</span> '+mp.notes+'<br>' : '')+
     '<span>Time:</span> '+time;
   document.getElementById('mp-alert-modal').classList.add('open');
-  playMPSound();
-  speakMPAssignmentInRussian(mp, locText, gpsText);
+  // If speech synthesis isn't available on this device, fall back to the chime
+  // as the only notification. Otherwise let the spoken Russian be the sound
+  // cue — playing both at once made it sound like a repeated/interrupted alert.
+  if ('speechSynthesis' in window) {
+    speakMPAssignmentInRussian(mp, locText, gpsText);
+  } else {
+    playMPSound();
+  }
 }
 
 // Translates the assignment to Russian (via free MyMemory API, no key required)
@@ -950,7 +956,7 @@ function speakMPAssignmentInRussian(mp, locText, gpsText) {
 }
 
 function speakRussian(text, fallbackEnglish) {
-  if (!('speechSynthesis' in window)) return;
+  if (!('speechSynthesis' in window)) { playMPSound(); return; }
   try {
     window.speechSynthesis.cancel();
     var utter = new SpeechSynthesisUtterance(text);
@@ -963,8 +969,11 @@ function speakRussian(text, fallbackEnglish) {
       var ruVoice = voices.find(function(v){ return v.lang && v.lang.toLowerCase().indexOf('ru') === 0; });
       if (ruVoice) utter.voice = ruVoice;
     }
+    // If speech genuinely fails to produce audio, fall back to the chime
+    // so the guard still gets some notification rather than silence.
+    utter.onerror = function(){ playMPSound(); };
     window.speechSynthesis.speak(utter);
-  } catch(e) {}
+  } catch(e) { playMPSound(); }
 }
 
 // Non-blinking sound-only notification (distinct from the red help-request alert flash)
