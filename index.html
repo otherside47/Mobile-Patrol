@@ -493,8 +493,8 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
 <div id="screen-flash"></div>
 <div id="toast"></div>
 <div class="alert-modal" id="mp-alert-modal">
-  <div class="alert-box">
-    <div class="alert-title" style="color:#4da3ff">MOBILE PATROL ASSIGNMENT</div>
+  <div class="alert-box" id="mp-alert-box" style="border-color:#8b90a0">
+    <div class="alert-title" style="color:#4da3ff">MOBILE PATROL ASSIGNMENT <span id="mp-alert-severity" style="font-family:monospace;font-size:11px;padding:2px 7px;border-radius:4px;background:rgba(139,144,160,0.2);color:#8b90a0;border:1px solid rgba(139,144,160,0.3)">LOW</span></div>
     <div class="alert-info" id="mp-alert-info"></div>
     <div class="alert-row">
       <button type="button" style="background:#1c2030;color:#8b90a0" id="btn-dismiss-mp-alert">Dismiss</button>
@@ -889,6 +889,14 @@ function showMPAlert(mp) {
   var locText = mp.location_label || mp.custom_location || '—';
   var gpsText = (mp.gps_lat && mp.gps_lng) ? mp.gps_lat.toFixed(5)+' N, '+mp.gps_lng.toFixed(5)+' E' : null;
   var time = new Date(mp.timestamp).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  var sev = mp.severity || 'Low';
+  var sevColor = sev==='Critical'?'#ff4d4d':sev==='High'?'#ffb020':sev==='Medium'?'#4da3ff':'#8b90a0';
+  document.getElementById('mp-alert-box').style.borderColor = sevColor;
+  var sevBadge = document.getElementById('mp-alert-severity');
+  sevBadge.textContent = sev.toUpperCase();
+  sevBadge.style.color = sevColor;
+  sevBadge.style.borderColor = sevColor;
+  sevBadge.style.background = sevColor+'33';
   document.getElementById('mp-alert-info').innerHTML =
     '<span>From:</span> '+(mp.sent_by||'Admin')+'<br>'+
     '<span>Location:</span> '+locText+'<br>'+
@@ -947,9 +955,11 @@ function loadMPAssignmentsList() {
       var gpsText = (mp.gps_lat && mp.gps_lng) ? mp.gps_lat.toFixed(5)+'N, '+mp.gps_lng.toFixed(5)+'E' : null;
       var time = new Date(mp.timestamp).toLocaleString('en-GB',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
       var isUnread = !seen[mp.id];
+      var sev = mp.severity || 'Low';
+      var sevColor = sev==='Critical'?'#ff4d4d':sev==='High'?'#ffb020':sev==='Medium'?'#4da3ff':'#8b90a0';
       html += '<div style="background:#151820;border:1px solid '+(isUnread?'rgba(77,163,255,0.35)':'rgba(139,144,160,0.12)')+';border-radius:10px;padding:12px 14px;margin-bottom:10px">';
       html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px">';
-      html += '<div style="font-size:13px;font-weight:700;color:#e8eaf0">'+locText+(isUnread?' <span style="font-family:monospace;font-size:9px;color:#4da3ff;border:1px solid rgba(77,163,255,0.4);padding:1px 5px;border-radius:4px;margin-left:4px">NEW</span>':'')+'</div>';
+      html += '<div style="font-size:13px;font-weight:700;color:#e8eaf0">'+locText+' <span style="font-family:monospace;font-size:9px;color:'+sevColor+';border:1px solid '+sevColor+';padding:1px 5px;border-radius:4px;margin-left:4px">'+sev.toUpperCase()+'</span>'+(isUnread?' <span style="font-family:monospace;font-size:9px;color:#4da3ff;border:1px solid rgba(77,163,255,0.4);padding:1px 5px;border-radius:4px;margin-left:4px">NEW</span>':'')+'</div>';
       html += '<div style="font-family:monospace;font-size:10px;color:#555a6a;white-space:nowrap;margin-left:8px">'+time+'</div>';
       html += '</div>';
       html += '<div style="font-family:monospace;font-size:11px;color:#555a6a;margin-bottom:4px">From: '+(mp.sent_by||'Admin')+'</div>';

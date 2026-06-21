@@ -194,6 +194,11 @@ select:focus,input:focus{border-color:#00e5a0}
 .tab-btn.active{color:#00e5a0;border-color:rgba(0,229,160,0.5);background:rgba(0,229,160,0.08)}
 .mp-loc-btn{padding:10px 12px;font-size:12px;font-family:monospace;color:#8b90a0;cursor:pointer;border:1px solid rgba(139,144,160,0.2);background:#151820;border-radius:8px;text-align:left;transition:all 0.15s}
 .mp-loc-btn.selected{color:#00e5a0;border-color:rgba(0,229,160,0.5);background:rgba(0,229,160,0.08)}
+.mp-sev-btn{padding:9px 4px;font-size:11px;font-family:monospace;color:#8b90a0;cursor:pointer;border:1px solid rgba(139,144,160,0.2);background:#151820;border-radius:8px;text-align:center;transition:all 0.15s}
+.mp-sev-btn.selected[data-sev="Low"]{color:#8b90a0;border-color:#8b90a0;background:rgba(139,144,160,0.12)}
+.mp-sev-btn.selected[data-sev="Medium"]{color:#4da3ff;border-color:#4da3ff;background:rgba(77,163,255,0.1)}
+.mp-sev-btn.selected[data-sev="High"]{color:#ffb020;border-color:#ffb020;background:rgba(255,176,32,0.1)}
+.mp-sev-btn.selected[data-sev="Critical"]{color:#ff4d4d;border-color:#ff4d4d;background:rgba(255,77,77,0.1)}
 .content{flex:1;padding:14px 16px}
 .card{background:#151820;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px;margin-bottom:12px}
 .clabel{font-family:monospace;font-size:10px;color:#555a6a;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px}
@@ -364,6 +369,14 @@ select:focus,input:focus{border-color:#00e5a0}
 
       <div id="mp-custom-loc-wrap" style="display:none;margin-bottom:10px">
         <input type="text" id="mp-custom-loc" placeholder="Brief description of location" style="width:100%;background:#151820;border:1px solid rgba(139,144,160,0.2);color:#e8eaf0;padding:8px 10px;border-radius:8px;font-family:monospace;font-size:13px">
+      </div>
+
+      <label style="font-family:monospace;font-size:10px;color:#555a6a;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:5px">Severity</label>
+      <div id="mp-sev-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px">
+        <button type="button" class="mp-sev-btn" data-sev="Low">Low</button>
+        <button type="button" class="mp-sev-btn" data-sev="Medium">Medium</button>
+        <button type="button" class="mp-sev-btn" data-sev="High">High</button>
+        <button type="button" class="mp-sev-btn" data-sev="Critical">Critical</button>
       </div>
 
       <button type="button" id="mp-gps-toggle" style="display:flex;align-items:center;gap:6px;background:none;border:1px solid rgba(139,144,160,0.2);color:#8b90a0;border-radius:8px;padding:8px 10px;font-family:monospace;font-size:11px;cursor:pointer;margin-bottom:10px;width:100%;justify-content:center">
@@ -864,13 +877,16 @@ function showTab(id,btn){
 
 // ── SEND MP ──────────────────────────────────────────────────────────────────
 var mpSelectedLoc = null;
+var mpSelectedSev = null;
 var mpGPS = null;
 
 function initSendMP() {
   // Reset location selection
   mpSelectedLoc = null;
+  mpSelectedSev = null;
   mpGPS = null;
   document.querySelectorAll('.mp-loc-btn').forEach(function(b){ b.classList.remove('selected'); });
+  document.querySelectorAll('.mp-sev-btn').forEach(function(b){ b.classList.remove('selected'); });
   document.getElementById('mp-custom-loc-wrap').style.display = 'none';
   document.getElementById('mp-custom-loc').value = '';
   document.getElementById('mp-notes').value = '';
@@ -892,7 +908,11 @@ function acquireMPGPS() {
     function(p) {
       mpGPS = {lat: p.coords.latitude, lng: p.coords.longitude};
       textEl.textContent = mpGPS.lat.toFixed(5) + '° N, ' + mpGPS.lng.toFixed(5) + '° E';
-      subEl.textContent = 'Captured — overrides location above if sent';
+      subEl.textContent = 'Captured — used as the location for this assignment';
+      // Live coordinates count as the location — clear any quick-pick selection
+      mpSelectedLoc = null;
+      document.querySelectorAll('.mp-loc-btn').forEach(function(b){ b.classList.remove('selected'); });
+      document.getElementById('mp-custom-loc-wrap').style.display = 'none';
     },
     function() {
       textEl.textContent = 'Could not get location (permission denied or unavailable)';
@@ -916,13 +936,29 @@ document.querySelectorAll('.mp-loc-btn').forEach(function(btn) {
     btn.classList.add('selected');
     mpSelectedLoc = btn.getAttribute('data-loc');
     document.getElementById('mp-custom-loc-wrap').style.display = (mpSelectedLoc === 'custom') ? 'block' : 'none';
+    // Picking a quick-location after GPS was captured clears the GPS override
+    if (mpGPS) {
+      mpGPS = null;
+      document.getElementById('mp-gps-box').style.display = 'none';
+      document.getElementById('mp-gps-toggle').style.display = 'flex';
+    }
+  });
+});
+
+document.querySelectorAll('.mp-sev-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.mp-sev-btn').forEach(function(b){ b.classList.remove('selected'); });
+    btn.classList.add('selected');
+    mpSelectedSev = btn.getAttribute('data-sev');
   });
 });
 
 document.getElementById('btn-send-mp').addEventListener('click', function() {
-  if (!mpSelectedLoc) { showToast('Please select a location'); return; }
+  // Live coordinates satisfy the location requirement on their own
+  if (!mpSelectedLoc && !mpGPS) { showToast('Please select a location or capture live coordinates'); return; }
   var customLoc = document.getElementById('mp-custom-loc').value.trim();
   if (mpSelectedLoc === 'custom' && !customLoc) { showToast('Please describe the location'); return; }
+  if (!mpSelectedSev) { showToast('Please select a severity'); return; }
   var notes = document.getElementById('mp-notes').value.trim();
 
   var locLabelMap = {NEC:'NEC', PD:'PD', Emb:'Emb', custom: customLoc};
@@ -930,9 +966,10 @@ document.getElementById('btn-send-mp').addEventListener('click', function() {
     id: 'MP-' + Date.now(),
     sent_by: (currentAdminName || 'Admin'),
     guard_name: 'ALL',
-    location_type: mpSelectedLoc,
-    location_label: locLabelMap[mpSelectedLoc],
+    location_type: mpGPS ? 'gps' : mpSelectedLoc,
+    location_label: mpGPS ? 'Live location' : locLabelMap[mpSelectedLoc],
     custom_location: mpSelectedLoc === 'custom' ? customLoc : null,
+    severity: mpSelectedSev,
     gps_lat: mpGPS ? mpGPS.lat : null,
     gps_lng: mpGPS ? mpGPS.lng : null,
     notes: notes,
