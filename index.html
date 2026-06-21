@@ -832,7 +832,15 @@ function showHelpAlert(req) {
     '<span>Time:</span> '+time;
   document.getElementById('alert-modal').classList.add('open');
   playAlert();
-  speakHelpRequestInRussian(req, urgLabel, gpsText);
+  // Wait for the siren (≈4.8s) to finish before starting speech, so the voice
+  // isn't drowned out by the alert tone playing at full volume simultaneously.
+  // Skip if the guard already acknowledged/dismissed before the delay elapsed.
+  var alertIdAtShow = req.id;
+  setTimeout(function(){
+    if (currentAlertId === alertIdAtShow) {
+      speakHelpRequestInRussian(req, urgLabel, gpsText);
+    }
+  }, 5000);
 }
 
 // Translates the help request to Russian (via free MyMemory API, no key required)
@@ -877,6 +885,7 @@ document.getElementById('btn-ack-alert').addEventListener('click', function() {
   if ('speechSynthesis' in window) window.speechSynthesis.cancel();
   sbPatch('help_requests',currentAlertId,{acked:true,acked_by:currentGuardName});
   document.getElementById('alert-modal').classList.remove('open');
+  currentAlertId = null;
   addTL('Help request acknowledged','Responding');
   showToast('Acknowledged');
   loadHelpRequests();
@@ -884,6 +893,7 @@ document.getElementById('btn-ack-alert').addEventListener('click', function() {
 document.getElementById('btn-dismiss-alert').addEventListener('click', function() {
   if ('speechSynthesis' in window) window.speechSynthesis.cancel();
   document.getElementById('alert-modal').classList.remove('open');
+  currentAlertId = null;
 });
 
 // MOBILE PATROL ASSIGNMENTS — admin broadcasts to all guards on shift.
