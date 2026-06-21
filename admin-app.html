@@ -192,6 +192,8 @@ select:focus,input:focus{border-color:#00e5a0}
 .tab-nav{display:grid;grid-template-columns:repeat(5,1fr);background:#0d0f12;padding:8px 12px;gap:6px;border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0;position:sticky;top:62px;z-index:8}
 .tab-btn{padding:7px 4px;font-size:9px;font-family:monospace;color:#8b90a0;cursor:pointer;border:1px solid rgba(139,144,160,0.2);background:#151820;border-radius:6px;white-space:nowrap;letter-spacing:0.5px;transition:all 0.15s;text-align:center;width:100%}
 .tab-btn.active{color:#00e5a0;border-color:rgba(0,229,160,0.5);background:rgba(0,229,160,0.08)}
+.mp-loc-btn{padding:10px 12px;font-size:12px;font-family:monospace;color:#8b90a0;cursor:pointer;border:1px solid rgba(139,144,160,0.2);background:#151820;border-radius:8px;text-align:left;transition:all 0.15s}
+.mp-loc-btn.selected{color:#00e5a0;border-color:rgba(0,229,160,0.5);background:rgba(0,229,160,0.08)}
 .content{flex:1;padding:14px 16px}
 .card{background:#151820;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px;margin-bottom:12px}
 .clabel{font-family:monospace;font-size:10px;color:#555a6a;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px}
@@ -296,7 +298,7 @@ select:focus,input:focus{border-color:#00e5a0}
     <button type="button" class="tab-btn" onclick="showTab('tab-reports',this);loadShiftsForReport()">REPORTS</button>
     <button type="button" class="tab-btn" onclick="showTab('tab-incidents',this);loadIncidents()">INCIDENTS<span id="inc-badge" style="display:none;background:#ff4d4d;color:#fff;border-radius:10px;padding:1px 5px;font-size:9px;margin-left:2px"></span></button>
     <button type="button" class="tab-btn" onclick="showTab('tab-log',this);loadLogShiftList()">📋 LOG</button>
-    <button type="button" class="tab-btn" onclick="showTab('tab-sendmp',this)">SEND MP</button>
+    <button type="button" class="tab-btn" onclick="showTab('tab-sendmp',this);initSendMP()">SEND MP</button>
   </div>
 
   <div class="content">
@@ -350,7 +352,39 @@ select:focus,input:focus{border-color:#00e5a0}
 
     <!-- SEND MP -->
     <div class="tab-panel" id="tab-sendmp">
-      <div style="font-size:13px;color:#555a6a;font-family:monospace;padding:12px 0">Coming soon — functionality to be added.</div>
+      <div style="font-size:13px;color:#8b90a0;font-family:monospace;margin-bottom:14px">Send a Mobile Patrol assignment to a guard.</div>
+
+      <label style="font-family:monospace;font-size:10px;color:#555a6a;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px">Guard</label>
+      <select id="mp-guard-select" style="width:100%;background:#151820;border:1px solid rgba(139,144,160,0.2);color:#e8eaf0;padding:9px 10px;border-radius:8px;font-family:monospace;font-size:13px;margin-bottom:16px">
+        <option value="">Select guard...</option>
+      </select>
+
+      <label style="font-family:monospace;font-size:10px;color:#555a6a;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px">Location</label>
+      <div id="mp-loc-grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:10px">
+        <button type="button" class="mp-loc-btn" data-loc="NEC">NEC</button>
+        <button type="button" class="mp-loc-btn" data-loc="PD">PD</button>
+        <button type="button" class="mp-loc-btn" data-loc="Emb">Emb</button>
+        <button type="button" class="mp-loc-btn" data-loc="custom">Specify Location</button>
+      </div>
+
+      <div id="mp-custom-loc-wrap" style="display:none;margin-bottom:16px">
+        <input type="text" id="mp-custom-loc" placeholder="Brief description of location" style="width:100%;background:#151820;border:1px solid rgba(139,144,160,0.2);color:#e8eaf0;padding:9px 10px;border-radius:8px;font-family:monospace;font-size:13px">
+      </div>
+
+      <label style="font-family:monospace;font-size:10px;color:#555a6a;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;margin-top:6px">Live coordinates <span style="color:#555a6a;text-transform:none">(optional override)</span></label>
+      <div id="mp-gps-box" style="display:flex;align-items:center;gap:10px;background:#151820;border:1px solid rgba(139,144,160,0.15);border-radius:8px;padding:10px 12px;margin-bottom:16px">
+        <div style="font-size:14px;color:#555a6a">📍</div>
+        <div style="flex:1">
+          <div id="mp-gps-text" style="font-family:monospace;font-size:12px;color:#8b90a0">Acquiring location...</div>
+          <div id="mp-gps-sub" style="font-size:10px;color:#555a6a;margin-top:2px"></div>
+        </div>
+        <button type="button" id="mp-gps-refresh" style="background:none;border:1px solid rgba(139,144,160,0.2);color:#8b90a0;border-radius:6px;padding:5px 9px;font-family:monospace;font-size:11px;cursor:pointer">Refresh</button>
+      </div>
+
+      <label style="font-family:monospace;font-size:10px;color:#555a6a;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px">Notes <span style="color:#555a6a;text-transform:none">(itinerary / instructions)</span></label>
+      <textarea id="mp-notes" rows="4" placeholder="e.g. Patrol route, checkpoints to prioritize, timing..." style="width:100%;background:#151820;border:1px solid rgba(139,144,160,0.2);color:#e8eaf0;padding:9px 10px;border-radius:8px;font-family:monospace;font-size:13px;resize:vertical;margin-bottom:18px"></textarea>
+
+      <button type="button" id="btn-send-mp" style="width:100%;background:#00e5a0;color:#0d0f12;border:none;border-radius:8px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:monospace">Send MP</button>
     </div>
 
     <!-- REQUESTS -->
@@ -639,6 +673,7 @@ function loadAnchorsFromSupabase() {
 }
 
 let currentAdminKey=null;
+let currentAdminName=null;
 let currentAdminRole=null;
 let lastSeenRequestId=localStorage.getItem('mp_admin_last_req')||null;
 
@@ -785,7 +820,7 @@ function doLogin(){
     if(!acc||p!==acc.pass){err.style.display='block';return;}
     err.style.display='none';
     var name=acc.name;
-    currentAdminKey=k;currentAdminRole=acc.role;
+    currentAdminKey=k;currentAdminRole=acc.role;currentAdminName=name;
     document.getElementById('status-name').textContent=''+name+(acc.role==='main'?' (Main Admin)':' (Admin)');
     document.getElementById('admin-role-badge').textContent=acc.role==='main'?'MAIN ADMIN':'ADMIN';
     document.getElementById('screen-login').classList.remove('active');
@@ -828,6 +863,112 @@ function showTab(id,btn){
     logTimeline.innerHTML = '';
   }
 }
+
+// ── SEND MP ──────────────────────────────────────────────────────────────────
+var mpSelectedLoc = null;
+var mpGPS = null;
+
+function initSendMP() {
+  // Populate guard dropdown (skip if already populated)
+  var sel = document.getElementById('mp-guard-select');
+  if (sel.options.length <= 1) {
+    Object.keys(guardProfiles).forEach(function(k) {
+      var g = guardProfiles[k];
+      var opt = document.createElement('option');
+      opt.value = g.name;
+      opt.textContent = g.vacant ? 'Replacement (Vacant)' : g.name;
+      sel.appendChild(opt);
+    });
+  }
+
+  // Reset location selection
+  mpSelectedLoc = null;
+  document.querySelectorAll('.mp-loc-btn').forEach(function(b){ b.classList.remove('selected'); });
+  document.getElementById('mp-custom-loc-wrap').style.display = 'none';
+  document.getElementById('mp-custom-loc').value = '';
+  document.getElementById('mp-notes').value = '';
+
+  // Auto-acquire GPS
+  acquireMPGPS();
+}
+
+function acquireMPGPS() {
+  var textEl = document.getElementById('mp-gps-text');
+  var subEl = document.getElementById('mp-gps-sub');
+  textEl.textContent = 'Acquiring location...';
+  subEl.textContent = '';
+  if (!navigator.geolocation) {
+    textEl.textContent = 'Geolocation not available on this device';
+    mpGPS = null;
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    function(p) {
+      mpGPS = {lat: p.coords.latitude, lng: p.coords.longitude};
+      textEl.textContent = mpGPS.lat.toFixed(5) + '° N, ' + mpGPS.lng.toFixed(5) + '° E';
+      subEl.textContent = 'Auto-captured just now — overrides location above if sent';
+    },
+    function() {
+      textEl.textContent = 'Could not get location (permission denied or unavailable)';
+      subEl.textContent = '';
+      mpGPS = null;
+    },
+    {enableHighAccuracy:true, timeout:10000}
+  );
+}
+
+document.getElementById('mp-gps-refresh').addEventListener('click', acquireMPGPS);
+
+document.querySelectorAll('.mp-loc-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.mp-loc-btn').forEach(function(b){ b.classList.remove('selected'); });
+    btn.classList.add('selected');
+    mpSelectedLoc = btn.getAttribute('data-loc');
+    document.getElementById('mp-custom-loc-wrap').style.display = (mpSelectedLoc === 'custom') ? 'block' : 'none';
+  });
+});
+
+document.getElementById('btn-send-mp').addEventListener('click', function() {
+  var guardName = document.getElementById('mp-guard-select').value;
+  if (!guardName) { showToast('Please select a guard'); return; }
+  if (!mpSelectedLoc) { showToast('Please select a location'); return; }
+  var customLoc = document.getElementById('mp-custom-loc').value.trim();
+  if (mpSelectedLoc === 'custom' && !customLoc) { showToast('Please describe the location'); return; }
+  var notes = document.getElementById('mp-notes').value.trim();
+
+  var locLabelMap = {NEC:'NEC', PD:'PD', Emb:'Emb', custom: customLoc};
+  var payload = {
+    id: 'MP-' + Date.now(),
+    sent_by: (currentAdminName || 'Admin'),
+    guard_name: guardName,
+    location_type: mpSelectedLoc,
+    location_label: locLabelMap[mpSelectedLoc],
+    custom_location: mpSelectedLoc === 'custom' ? customLoc : null,
+    gps_lat: mpGPS ? mpGPS.lat : null,
+    gps_lng: mpGPS ? mpGPS.lng : null,
+    notes: notes,
+    acked: false,
+    timestamp: new Date().toISOString()
+  };
+
+  var btn = this;
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+
+  fetch(SUPABASE_URL + '/rest/v1/mp_assignments', {
+    method: 'POST',
+    headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+    body: JSON.stringify(payload)
+  }).then(function() {
+    showToast('MP sent to ' + guardName);
+    initSendMP();
+  }).catch(function() {
+    showToast('Failed to send — check connection');
+  }).finally(function() {
+    btn.disabled = false;
+    btn.textContent = 'Send MP';
+  });
+});
 
 // ── LIVE DATA ──
 function loadLiveData(){
