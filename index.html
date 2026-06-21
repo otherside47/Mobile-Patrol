@@ -889,6 +889,10 @@ function updateMPBadge() {
 }
 
 function showMPAlert(mp) {
+  // Mark as seen right away — prevents the next poll cycle (every 7s) from
+  // re-triggering this same alert (and re-cancelling in-progress speech)
+  // while the popup is still open and the guard hasn't acted on it yet.
+  markMPSeen(mp.id);
   currentMPAlertId = mp.id;
   var locText = mp.location_label || mp.custom_location || '—';
   var gpsText = (mp.gps_lat && mp.gps_lng) ? mp.gps_lat.toFixed(5)+' N, '+mp.gps_lng.toFixed(5)+' E' : null;
@@ -925,10 +929,12 @@ function speakMPAssignmentInRussian(mp, locText, gpsText) {
   var transTextEl = document.getElementById('mp-alert-translation-text');
   transEl.style.display = 'none';
 
-  // Build a single readable sentence summarizing the assignment in English first
+  // Build a single readable sentence summarizing the assignment in English first.
+  // Just the severity word itself — no "severity assignment from..." wrapper.
   var sevWord = mp.severity || 'Low';
   var parts = [];
-  parts.push(sevWord + ' severity assignment from ' + (mp.sent_by || 'Admin') + '.');
+  parts.push(sevWord + '.');
+  parts.push('From ' + (mp.sent_by || 'Admin') + '.');
   parts.push('Location: ' + locText + '.');
   if (gpsText) parts.push('Coordinates: ' + gpsText + '.');
   if (mp.notes) parts.push(mp.notes + '.');
