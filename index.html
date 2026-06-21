@@ -911,16 +911,23 @@ function showMPAlert(mp) {
 function playMPSound() {
   try {
     var ctx = new (window.AudioContext||window.webkitAudioContext)();
-    var o = ctx.createOscillator();
-    var g = ctx.createGain();
-    o.type = 'sine';
-    o.frequency.value = 660;
-    g.gain.value = 0.001;
-    o.connect(g); g.connect(ctx.destination);
-    o.start();
-    g.gain.exponentialRampToValueAtTime(0.15, ctx.currentTime+0.02);
-    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+0.35);
-    setTimeout(function(){ o.stop(); ctx.close(); }, 400);
+    function tone(freq, startTime, duration, peakGain) {
+      var o = ctx.createOscillator();
+      var g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.value = freq;
+      g.gain.value = 0.0001;
+      o.connect(g); g.connect(ctx.destination);
+      o.start(startTime);
+      g.gain.exponentialRampToValueAtTime(peakGain, startTime+0.015);
+      g.gain.exponentialRampToValueAtTime(0.0001, startTime+duration);
+      o.stop(startTime+duration+0.02);
+    }
+    var now = ctx.currentTime;
+    // Two-note descending chime, similar to common phone notification tones
+    tone(1318.5, now, 0.16, 0.16);
+    tone(987.77, now+0.13, 0.22, 0.14);
+    setTimeout(function(){ ctx.close(); }, 500);
   } catch(e) {}
 }
 
