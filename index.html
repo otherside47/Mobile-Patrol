@@ -483,6 +483,10 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
   <div class="alert-box">
     <div class="alert-title">HELP REQUEST <span id="alert-urgency" style="font-family:monospace;font-size:11px;padding:2px 7px;border-radius:4px;background:rgba(255,77,77,0.2);color:#ff6b6b;border:1px solid rgba(255,77,77,0.3)">CRITICAL</span></div>
     <div class="alert-info" id="alert-info"></div>
+    <div id="help-alert-translation" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.1);font-size:13px;color:#8b90a0;line-height:1.5">
+      <span style="font-family:monospace;font-size:10px;color:#555a6a;text-transform:uppercase;letter-spacing:0.5px">Russian / Русский</span>
+      <div id="help-alert-translation-text" style="margin-top:4px;color:#e8eaf0"></div>
+    </div>
     <div class="alert-row">
       <button type="button" style="background:#1c2030;color:#8b90a0" id="btn-dismiss-alert">Dismiss</button>
       <button type="button" style="background:#ff4d4d;color:#fff" id="btn-ack-alert">Responding</button>
@@ -828,9 +832,49 @@ function showHelpAlert(req) {
     '<span>Time:</span> '+time;
   document.getElementById('alert-modal').classList.add('open');
   playAlert();
+  speakHelpRequestInRussian(req, urgLabel, gpsText);
+}
+
+// Translates the help request to Russian (via free MyMemory API, no key required)
+// and reads it aloud — same pattern as MP assignments. No field-label prefixes
+// like "Location:" or "GPS:" are spoken, only the values themselves.
+function speakHelpRequestInRussian(req, urgLabel, gpsText) {
+  var transEl = document.getElementById('help-alert-translation');
+  var transTextEl = document.getElementById('help-alert-translation-text');
+  transEl.style.display = 'none';
+
+  var parts = [];
+  parts.push(urgLabel + '.');
+  parts.push('From ' + (req.name || 'Guard') + '.');
+  if (req.type) parts.push(req.type + '.');
+  if (req.loc_desc) parts.push(req.loc_desc + '.');
+  if (gpsText && gpsText !== 'GPS unavailable') parts.push(gpsText + '.');
+  if (req.notes) parts.push(req.notes + '.');
+  var fullText = parts.join(' ');
+  // MyMemory's free tier caps requests at 500 bytes — trim defensively so long notes don't fail translation
+  if (fullText.length > 480) fullText = fullText.slice(0, 480) + '...';
+
+  fetch('https://api.mymemory.translated.net/get?q=' + encodeURIComponent(fullText) + '&langpair=en|ru')
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if (data && data.responseStatus === 200 && data.responseData && data.responseData.translatedText) {
+        var russianText = data.responseData.translatedText;
+        transTextEl.textContent = russianText;
+        transEl.style.display = 'block';
+        speakRussian(russianText);
+      } else {
+        // Translation failed — fall back to reading the original English aloud
+        speakRussian(fullText, true);
+      }
+    })
+    .catch(function(){
+      // Network/translation failure — fall back to English speech so the guard still hears something
+      speakRussian(fullText, true);
+    });
 }
 
 document.getElementById('btn-ack-alert').addEventListener('click', function() {
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
   sbPatch('help_requests',currentAlertId,{acked:true,acked_by:currentGuardName});
   document.getElementById('alert-modal').classList.remove('open');
   addTL('Help request acknowledged','Responding');
@@ -838,6 +882,7 @@ document.getElementById('btn-ack-alert').addEventListener('click', function() {
   loadHelpRequests();
 });
 document.getElementById('btn-dismiss-alert').addEventListener('click', function() {
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
   document.getElementById('alert-modal').classList.remove('open');
 });
 
@@ -930,13 +975,13 @@ function speakMPAssignmentInRussian(mp, locText, gpsText) {
   transEl.style.display = 'none';
 
   // Build a single readable sentence summarizing the assignment in English first.
-  // Just the severity word itself — no "severity assignment from..." wrapper.
+  // No field-label prefixes like "Location:" — just speak the values themselves.
   var sevWord = mp.severity || 'Low';
   var parts = [];
   parts.push(sevWord + '.');
   parts.push('From ' + (mp.sent_by || 'Admin') + '.');
-  parts.push('Location: ' + locText + '.');
-  if (gpsText) parts.push('Coordinates: ' + gpsText + '.');
+  parts.push(locText + '.');
+  if (gpsText) parts.push(gpsText + '.');
   if (mp.notes) parts.push(mp.notes + '.');
   var fullText = parts.join(' ');
   // MyMemory's free tier caps requests at 500 bytes — trim defensively so long notes don't fail translation
