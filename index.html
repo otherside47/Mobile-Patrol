@@ -496,6 +496,10 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
   <div class="alert-box" id="mp-alert-box" style="border-color:#8b90a0">
     <div class="alert-title" style="color:#4da3ff">MOBILE PATROL ASSIGNMENT <span id="mp-alert-severity" style="font-family:monospace;font-size:11px;padding:2px 7px;border-radius:4px;background:rgba(139,144,160,0.2);color:#8b90a0;border:1px solid rgba(139,144,160,0.3)">LOW</span></div>
     <div class="alert-info" id="mp-alert-info"></div>
+    <div id="mp-alert-translation" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.1);font-size:13px;color:#8b90a0;line-height:1.5">
+      <span style="font-family:monospace;font-size:10px;color:#555a6a;text-transform:uppercase;letter-spacing:0.5px">Russian / Русский</span>
+      <div id="mp-alert-translation-text" style="margin-top:4px;color:#e8eaf0"></div>
+    </div>
     <div class="alert-row">
       <button type="button" style="background:#1c2030;color:#8b90a0" id="btn-dismiss-mp-alert">Dismiss</button>
       <button type="button" style="background:#00e5a0;color:#0d0f12" id="btn-ack-mp-alert">Acknowledge</button>
@@ -905,6 +909,62 @@ function showMPAlert(mp) {
     '<span>Time:</span> '+time;
   document.getElementById('mp-alert-modal').classList.add('open');
   playMPSound();
+  speakMPAssignmentInRussian(mp, locText, gpsText);
+}
+
+// Translates the assignment to Russian (via free MyMemory API, no key required)
+// and reads it aloud using the browser's built-in speech synthesis.
+function speakMPAssignmentInRussian(mp, locText, gpsText) {
+  var transEl = document.getElementById('mp-alert-translation');
+  var transTextEl = document.getElementById('mp-alert-translation-text');
+  transEl.style.display = 'none';
+
+  // Build a single readable sentence summarizing the assignment in English first
+  var sevWord = mp.severity || 'Low';
+  var parts = [];
+  parts.push(sevWord + ' severity assignment from ' + (mp.sent_by || 'Admin') + '.');
+  parts.push('Location: ' + locText + '.');
+  if (gpsText) parts.push('Coordinates: ' + gpsText + '.');
+  if (mp.notes) parts.push(mp.notes + '.');
+  var fullText = parts.join(' ');
+  // MyMemory's free tier caps requests at 500 bytes — trim defensively so long notes don't fail translation
+  if (fullText.length > 480) fullText = fullText.slice(0, 480) + '...';
+
+  fetch('https://api.mymemory.translated.net/get?q=' + encodeURIComponent(fullText) + '&langpair=en|ru')
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if (data && data.responseStatus === 200 && data.responseData && data.responseData.translatedText) {
+        var russianText = data.responseData.translatedText;
+        transTextEl.textContent = russianText;
+        transEl.style.display = 'block';
+        speakRussian(russianText);
+      } else {
+        // Translation failed — fall back to reading the original English aloud
+        speakRussian(fullText, true);
+      }
+    })
+    .catch(function(){
+      // Network/translation failure — fall back to English speech so the guard still hears something
+      speakRussian(fullText, true);
+    });
+}
+
+function speakRussian(text, fallbackEnglish) {
+  if (!('speechSynthesis' in window)) return;
+  try {
+    window.speechSynthesis.cancel();
+    var utter = new SpeechSynthesisUtterance(text);
+    utter.lang = fallbackEnglish ? 'en-US' : 'ru-RU';
+    utter.rate = 0.95;
+    utter.pitch = 1.0;
+    // Prefer an actual Russian voice if the device has one installed
+    if (!fallbackEnglish) {
+      var voices = window.speechSynthesis.getVoices();
+      var ruVoice = voices.find(function(v){ return v.lang && v.lang.toLowerCase().indexOf('ru') === 0; });
+      if (ruVoice) utter.voice = ruVoice;
+    }
+    window.speechSynthesis.speak(utter);
+  } catch(e) {}
 }
 
 // Non-blinking sound-only notification (distinct from the red help-request alert flash)
@@ -932,6 +992,7 @@ function playMPSound() {
 }
 
 document.getElementById('btn-ack-mp-alert').addEventListener('click', function() {
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
   markMPSeen(currentMPAlertId);
   recordMPAckStatus(currentMPAlertId, 'acknowledged');
   document.getElementById('mp-alert-modal').classList.remove('open');
@@ -940,6 +1001,7 @@ document.getElementById('btn-ack-mp-alert').addEventListener('click', function()
   loadMPAssignmentsList();
 });
 document.getElementById('btn-dismiss-mp-alert').addEventListener('click', function() {
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
   markMPSeen(currentMPAlertId);
   recordMPAckStatus(currentMPAlertId, 'dismissed');
   document.getElementById('mp-alert-modal').classList.remove('open');
