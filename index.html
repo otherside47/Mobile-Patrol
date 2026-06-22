@@ -859,13 +859,6 @@ function showHelpAlert(req) {
 // and reads it aloud — same pattern as MP assignments. No field-label prefixes
 // like "Location:" or "GPS:" are spoken, only the values themselves.
 function speakHelpRequestInRussian(req, urgLabel, gpsText) {
-  var transEl = document.getElementById('help-alert-translation');
-  var transTextEl = document.getElementById('help-alert-translation-text');
-  transEl.style.display = 'none';
-
-  // GPS coordinates are numbers, not language — translating them is pointless
-  // and risks the API mangling the digits. Keep them out of the translated
-  // text and speak them separately afterward, untouched.
   var hasGps = gpsText && gpsText !== 'GPS unavailable';
   var parts = [];
   parts.push(urgLabel + '.');
@@ -873,28 +866,12 @@ function speakHelpRequestInRussian(req, urgLabel, gpsText) {
   if (req.type) parts.push(req.type + '.');
   if (req.loc_desc) parts.push(req.loc_desc + '.');
   if (req.notes) parts.push(req.notes + '.');
-  var fullText = parts.join(' ');
-  // MyMemory's free tier caps requests at 500 bytes — trim defensively so long notes don't fail translation
-  if (fullText.length > 480) fullText = fullText.slice(0, 480) + '...';
-
-  fetch('https://api.mymemory.translated.net/get?q=' + encodeURIComponent(fullText) + '&langpair=en|ru')
-    .then(function(r){ return r.json(); })
-    .then(function(data){
-      if (data && data.responseStatus === 200 && data.responseData && data.responseData.translatedText) {
-        var russianText = data.responseData.translatedText;
-        var displayText = russianText + (hasGps ? ' ' + gpsText : '');
-        transTextEl.textContent = displayText;
-        transEl.style.display = 'block';
-        speakRussian(russianText, false, hasGps ? gpsText : null);
-      } else {
-        // Translation failed — fall back to reading the original English aloud
-        speakRussian(fullText, true, hasGps ? gpsText : null);
-      }
-    })
-    .catch(function(){
-      // Network/translation failure — fall back to English speech so the guard still hears something
-      speakRussian(fullText, true, hasGps ? gpsText : null);
-    });
+  translateAndSpeak(
+    parts.join(' '),
+    hasGps ? gpsText : null,
+    document.getElementById('help-alert-translation'),
+    document.getElementById('help-alert-translation-text')
+  );
 }
 
 document.getElementById('btn-ack-alert').addEventListener('click', function() {
@@ -1035,38 +1012,41 @@ function speakMPAssignmentInRussian(mp, locText, gpsText) {
 }
 
 function speakRussian(text, fallbackEnglish, gpsText, retryCount) {
-  if (!('speechSynthesis' in window)) { playMPSound(); return; }
-  retryCount = retryCount || 0;
-  // Safari/iOS can return an empty voice list on the very first call after
-  // page load — getVoices() loads asynchronously and voiceschanged is
-  // unreliable. Retry briefly before giving up and using the lang-only fallback,
-  // so we don't silently end up speaking with the device's default English voice.
-  if (!fallbackEnglish && retryCount < 6) {
-    var checkVoices = window.speechSynthesis.getVoices();
-    var hasRu = checkVoices.some(function(v){ return v.lang && v.lang.toLowerCase().indexOf('ru') === 0; });
-    if (!hasRu && checkVoices.length === 0) {
-      setTimeout(function(){ speakRussian(text, fallbackEnglish, gpsText, retryCount + 1); }, 150);
-      return;
-    }
+  if (!fallbackEnglish) {
+    // Use Google Translate TTS — returns real audio in the requested language,
+    // no API key needed, no dependence on whatever voices the device has installed.
+    // This guarantees actual Russian speech regardless of device voice settings.
+    var ttsUrl = 'https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=ru&q=' + encodeURIComponent(text);
+    var audio = new Audio(ttsUrl);
+    audio.volume = 1.0;
+    audio.onended = function() {
+      if (gpsText) {
+        // Speak GPS digits in English after Russian text finishes
+        var gpsUrl = 'https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=en&q=' + encodeURIComponent(gpsText);
+        var gpsAudio = new Audio(gpsUrl);
+        gpsAudio.volume = 1.0;
+        gpsAudio.play().catch(function(){});
+      }
+    };
+    audio.onerror = function() {
+      // Google TTS failed (network/CORS) — fall back to browser speech
+      speakRussian(text, true, gpsText);
+    };
+    audio.play().catch(function() {
+      // Autoplay blocked or network error — fall back to browser speech
+      speakRussian(text, true, gpsText);
+    });
+    return;
   }
+  // Fallback: browser built-in speech synthesis (English, when Russian TTS unavailable)
+  if (!('speechSynthesis' in window)) { playMPSound(); return; }
   try {
     window.speechSynthesis.cancel();
     var utter = new SpeechSynthesisUtterance(text);
-    utter.lang = fallbackEnglish ? 'en-US' : 'ru-RU';
+    utter.lang = 'en-US';
     utter.rate = 0.95;
     utter.pitch = 1.0;
-    // Prefer an actual Russian voice if the device has one installed
-    if (!fallbackEnglish) {
-      var voices = window.speechSynthesis.getVoices();
-      var ruVoice = voices.find(function(v){ return v.lang && v.lang.toLowerCase().indexOf('ru') === 0; });
-      if (ruVoice) utter.voice = ruVoice;
-    }
-    // If speech genuinely fails to produce audio, fall back to the chime
-    // so the guard still gets some notification rather than silence.
     utter.onerror = function(){ playMPSound(); };
-    // GPS coordinates are numbers, not language — read them as a separate
-    // untranslated utterance straight after, in English, so digits aren't
-    // mangled by being run through the Russian translation/voice.
     if (gpsText) {
       utter.onend = function(){
         var gpsUtter = new SpeechSynthesisUtterance(gpsText);
