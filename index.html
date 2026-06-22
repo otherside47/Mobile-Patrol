@@ -716,6 +716,7 @@ function endShift() {
   if (window._autoEndInterval) { clearInterval(window._autoEndInterval); window._autoEndInterval = null; }
   // Mark shift as ended in Supabase
   if (!window._shiftId) window._shiftId = localStorage.getItem('mp_current_shift_id');
+  if (!window._shiftStartedAt) window._shiftStartedAt = localStorage.getItem('mp_shift_started_at');
   if (window._shiftId) {
     fetch(SUPABASE_URL+'/rest/v1/active_shifts?id=eq.'+window._shiftId, {
       method: 'PATCH',
@@ -818,7 +819,12 @@ function buildShiftReport() {
 
 // POLL
 function pollRequests() {
-  sbGet('help_requests','order=timestamp.desc&limit=1',function(data) {
+  // Only alert on help requests that arrived during the current shift —
+  // requests from a previous shift should stay in the log, not pop up again.
+  var since = window._shiftStartedAt;
+  if (!since) return; // no active shift, don't poll
+  var query = 'order=timestamp.desc&limit=1&timestamp=gte.' + encodeURIComponent(since);
+  sbGet('help_requests', query, function(data) {
     if (!data||!data.length) return;
     var latest = data[0];
     if (!seenRequestIds[latest.id] && !latest.acked) {
@@ -861,11 +867,8 @@ function showHelpAlert(req) {
 function speakHelpRequestInRussian(req, urgLabel, gpsText) {
   var hasGps = gpsText && gpsText !== 'GPS unavailable';
   var parts = [];
-  parts.push(urgLabel + '.');
-  parts.push('From ' + (req.name || 'Guard') + '.');
-  if (req.type) parts.push(req.type + '.');
-  if (req.loc_desc) parts.push(req.loc_desc + '.');
   if (req.notes) parts.push(req.notes + '.');
+  else if (req.type) parts.push(req.type + '.');
   translateAndSpeak(
     parts.join(' '),
     hasGps ? gpsText : null,
@@ -906,7 +909,11 @@ function markMPSeen(id) {
 
 function pollMPAssignments() {
   if (!currentGuardName) return;
-  fetch(SUPABASE_URL+'/rest/v1/mp_assignments?guard_name=eq.ALL&order=timestamp.desc&limit=5', {
+  // Only alert on assignments sent during the current shift —
+  // assignments from a previous shift should stay in the log, not pop up again.
+  var since = window._shiftStartedAt;
+  if (!since) return; // no active shift, don't poll
+  fetch(SUPABASE_URL+'/rest/v1/mp_assignments?guard_name=eq.ALL&order=timestamp.desc&limit=5&timestamp=gte.'+encodeURIComponent(since), {
     headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
   }).then(function(r){return r.json();}).then(function(data){
     if (!Array.isArray(data) || !data.length) return;
@@ -983,10 +990,8 @@ function speakMPAssignmentInRussian(mp, locText, gpsText) {
   // and speak them separately afterward, untranslated.
   var sevWord = mp.severity || 'Low';
   var parts = [];
-  parts.push(sevWord + '.');
-  parts.push('From ' + (mp.sent_by || 'Admin') + '.');
-  parts.push(locText + '.');
   if (mp.notes) parts.push(mp.notes + '.');
+  else parts.push(locText + '.');
   var fullText = parts.join(' ');
   // MyMemory's free tier caps requests at 500 bytes — trim defensively so long notes don't fail translation
   if (fullText.length > 480) fullText = fullText.slice(0, 480) + '...';
@@ -1011,25 +1016,23 @@ function speakMPAssignmentInRussian(mp, locText, gpsText) {
     });
 }
 
-function speakRussian(text, fallbackEnglish, gpsText, retryCount) {
+function speakRussian(text, fallbackEnglish, gpsText) {
   if (!fallbackEnglish) {
-    // Use Google Translate TTS — returns real audio in the requested language,
-    // no API key needed, no dependence on whatever voices the device has installed.
-    // This guarantees actual Russian speech regardless of device voice settings.
-    var ttsUrl = 'https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=ru&q=' + encodeURIComponent(text);
-    var audio = new Audio(ttsUrl);
+    // Call our own Supabase TTS proxy — fetches Google Translate TTS server-side
+    // so CORS never blocks the audio on iOS Safari (direct Google TTS fetches are CORS-blocked).
+    var proxyUrl = 'https://hzvegzkjogcjqzogxvvm.supabase.co/functions/v1/tts-proxy?lang=ru&text=' + encodeURIComponent(text);
+    var audio = new Audio(proxyUrl);
     audio.volume = 1.0;
     audio.onended = function() {
       if (gpsText) {
-        // Speak GPS digits in English after Russian text finishes
-        var gpsUrl = 'https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=en&q=' + encodeURIComponent(gpsText);
+        var gpsUrl = 'https://hzvegzkjogcjqzogxvvm.supabase.co/functions/v1/tts-proxy?lang=en&text=' + encodeURIComponent(gpsText);
         var gpsAudio = new Audio(gpsUrl);
         gpsAudio.volume = 1.0;
         gpsAudio.play().catch(function(){});
       }
     };
     audio.onerror = function() {
-      // Google TTS failed (network/CORS) — fall back to browser speech
+      // Proxy failed — fall back to browser speech synthesis
       speakRussian(text, true, gpsText);
     };
     audio.play().catch(function() {
@@ -1038,7 +1041,7 @@ function speakRussian(text, fallbackEnglish, gpsText, retryCount) {
     });
     return;
   }
-  // Fallback: browser built-in speech synthesis (English, when Russian TTS unavailable)
+  // Fallback: browser built-in speech synthesis (English, when proxy unavailable)
   if (!('speechSynthesis' in window)) { playMPSound(); return; }
   try {
     window.speechSynthesis.cancel();
@@ -1373,7 +1376,9 @@ function startShift() {
         box.style.display = 'none';
         mainBtn.style.display = 'block';
         window._shiftId = prev.id;
+        window._shiftStartedAt = prev.started_at || new Date().toISOString();
         localStorage.setItem('mp_current_shift_id', prev.id);
+        localStorage.setItem('mp_shift_started_at', window._shiftStartedAt);
         fetch(SUPABASE_URL+'/rest/v1/active_shifts?id=eq.'+prev.id, {
           method:'PATCH',
           headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},
@@ -1465,8 +1470,11 @@ function doStartShift(type, label, startDate, endDate, isContinue) {
   // Save shift to Supabase - only create new record if not continuing existing shift
   if (!isContinue) {
     var shiftId = 'SHIFT-' + Date.now();
+    var shiftStartedAt = new Date().toISOString();
     window._shiftId = shiftId;
+    window._shiftStartedAt = shiftStartedAt;
     localStorage.setItem('mp_current_shift_id', shiftId);
+    localStorage.setItem('mp_shift_started_at', shiftStartedAt);
     var shiftRecord = {
       id: shiftId,
       guard_name: currentGuardName,
@@ -1474,7 +1482,7 @@ function doStartShift(type, label, startDate, endDate, isContinue) {
       shift_label: currentShift.label,
       start_date: currentShift.startDate,
       end_date: currentShift.endDate,
-      started_at: new Date().toISOString(),
+      started_at: shiftStartedAt,
       status: 'active'
     };
     // End any previously active shifts, then insert new one (chained to avoid race condition)
@@ -1548,7 +1556,9 @@ function checkAutoEndShift() {
   }).catch(function(){});
 
   localStorage.removeItem('mp_current_shift_id');
+  localStorage.removeItem('mp_shift_started_at');
   window._shiftId = null;
+  window._shiftStartedAt = null;
 
   // Show a clear, dismissible notice rather than forcing the user off their current screen
   var notice = document.getElementById('auto-end-notice');
