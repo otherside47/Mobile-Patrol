@@ -497,6 +497,10 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
   <div class="alert-box" id="mp-alert-box" style="border-color:#8b90a0">
     <div class="alert-title" style="color:#4da3ff">MOBILE PATROL ASSIGNMENT <span id="mp-alert-severity" style="font-family:monospace;font-size:11px;padding:2px 7px;border-radius:4px;background:rgba(139,144,160,0.2);color:#8b90a0;border:1px solid rgba(139,144,160,0.3)">LOW</span></div>
     <div class="alert-info" id="mp-alert-info"></div>
+    <div id="mp-alert-translation" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08);font-size:12px;color:#8b90a0;line-height:1.5">
+      <span style="font-family:monospace;font-size:9px;color:#555a6a;text-transform:uppercase;letter-spacing:0.5px">Перевод</span>
+      <div id="mp-alert-translation-text" style="margin-top:4px;color:#c8cad4"></div>
+    </div>
 
     <div class="alert-row">
       <button type="button" style="background:#1c2030;color:#8b90a0" id="btn-dismiss-mp-alert">Dismiss</button>
@@ -921,35 +925,51 @@ function showMPAlert(mp) {
     (mp.notes ? '<span>Notes:</span> '+mp.notes+'<br>' : '')+
     '<span>Time:</span> '+time;
   document.getElementById('mp-alert-modal').classList.add('open');
-  // If speech synthesis isn't available on this device, fall back to the chime
-  // as the only notification. Otherwise let the spoken Russian be the sound
-  // cue — playing both at once made it sound like a repeated/interrupted alert.
   playMPSound();
+  // Fetch Russian translation for display only — no speech
+  var transEl = document.getElementById('mp-alert-translation');
+  var transTextEl = document.getElementById('mp-alert-translation-text');
+  transEl.style.display = 'none';
+  var textToTranslate = mp.notes || locText;
+  if (textToTranslate && textToTranslate !== '—') {
+    var q = textToTranslate.slice(0, 480);
+    fetch('https://api.mymemory.translated.net/get?q='+encodeURIComponent(q)+'&langpair=en|ru')
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if (d && d.responseStatus===200 && d.responseData && d.responseData.translatedText) {
+          transTextEl.textContent = d.responseData.translatedText;
+          transEl.style.display = 'block';
+        }
+      })
+      .catch(function(){});
+  }
 }
 
 
 
 // Non-blinking sound-only notification (distinct from the red help-request alert flash)
 function playMPSound() {
+  // Use the shared audioCtx that was unlocked by the "Enable Alerts" tap.
+  // Creating a new AudioContext here would be blocked by iOS since it's
+  // called from a timer, not a direct user gesture.
+  if (!audioReady || !audioCtx) return;
   try {
-    var ctx = new (window.AudioContext||window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
     function tone(freq, startTime, duration, peakGain) {
-      var o = ctx.createOscillator();
-      var g = ctx.createGain();
+      var o = audioCtx.createOscillator();
+      var g = audioCtx.createGain();
       o.type = 'sine';
       o.frequency.value = freq;
       g.gain.value = 0.0001;
-      o.connect(g); g.connect(ctx.destination);
+      o.connect(g); g.connect(audioCtx.destination);
       o.start(startTime);
       g.gain.exponentialRampToValueAtTime(peakGain, startTime+0.015);
       g.gain.exponentialRampToValueAtTime(0.0001, startTime+duration);
       o.stop(startTime+duration+0.02);
     }
-    var now = ctx.currentTime;
-    // Two-note descending chime, similar to common phone notification tones
+    var now = audioCtx.currentTime;
     tone(1318.5, now, 0.16, 0.16);
     tone(987.77, now+0.13, 0.22, 0.14);
-    setTimeout(function(){ ctx.close(); }, 500);
   } catch(e) {}
 }
 
