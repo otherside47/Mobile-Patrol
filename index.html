@@ -176,7 +176,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
   </div>
   <div id="sound-banner" style="background:rgba(255,176,32,0.12);border-bottom:1px solid rgba(255,176,32,0.25);padding:8px 16px;display:flex;align-items:center;justify-content:space-between;font-size:12px;color:#ffb020;font-family:monospace;flex-shrink:0">
     <span>Tap to enable alerts</span>
-    <button type="button" style="background:#ffb020;color:#000;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer" onclick="document.getElementById('sound-banner').style.display='none';_unlockAudio();try{var AC=window.AudioContext||window.webkitAudioContext;if(AC){audioCtx=new AC();audioReady=true;var o=audioCtx.createOscillator();var g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.frequency.value=880;g.gain.setValueAtTime(0.8,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.8);o.start(audioCtx.currentTime);o.stop(audioCtx.currentTime+0.8);}}catch(e){}if(navigator.vibrate)navigator.vibrate([200,100,200]);showToast('Alerts enabled');">Enable Alerts</button>
+    <button type="button" style="background:#ffb020;color:#000;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer" onclick="document.getElementById('sound-banner').style.display='none';try{var AC=window.AudioContext||window.webkitAudioContext;if(AC){audioCtx=new AC();audioReady=true;var o=audioCtx.createOscillator();var g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.frequency.value=880;g.gain.setValueAtTime(0.8,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.8);o.start(audioCtx.currentTime);o.stop(audioCtx.currentTime+0.8);}}catch(e){}if(navigator.vibrate)navigator.vibrate([200,100,200]);showToast('Alerts enabled');">Enable Alerts</button>
   </div>
 
   <!-- PATROL HOME -->
@@ -483,10 +483,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
   <div class="alert-box">
     <div class="alert-title">HELP REQUEST <span id="alert-urgency" style="font-family:monospace;font-size:11px;padding:2px 7px;border-radius:4px;background:rgba(255,77,77,0.2);color:#ff6b6b;border:1px solid rgba(255,77,77,0.3)">CRITICAL</span></div>
     <div class="alert-info" id="alert-info"></div>
-    <div id="help-alert-translation" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.1);font-size:13px;color:#8b90a0;line-height:1.5">
-      <span style="font-family:monospace;font-size:10px;color:#555a6a;text-transform:uppercase;letter-spacing:0.5px">Russian / Русский</span>
-      <div id="help-alert-translation-text" style="margin-top:4px;color:#e8eaf0"></div>
-    </div>
+
     <div class="alert-row">
       <button type="button" style="background:#1c2030;color:#8b90a0" id="btn-dismiss-alert">Dismiss</button>
       <button type="button" style="background:#ff4d4d;color:#fff" id="btn-ack-alert">Responding</button>
@@ -500,10 +497,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
   <div class="alert-box" id="mp-alert-box" style="border-color:#8b90a0">
     <div class="alert-title" style="color:#4da3ff">MOBILE PATROL ASSIGNMENT <span id="mp-alert-severity" style="font-family:monospace;font-size:11px;padding:2px 7px;border-radius:4px;background:rgba(139,144,160,0.2);color:#8b90a0;border:1px solid rgba(139,144,160,0.3)">LOW</span></div>
     <div class="alert-info" id="mp-alert-info"></div>
-    <div id="mp-alert-translation" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.1);font-size:13px;color:#8b90a0;line-height:1.5">
-      <span style="font-family:monospace;font-size:10px;color:#555a6a;text-transform:uppercase;letter-spacing:0.5px">Russian / Русский</span>
-      <div id="mp-alert-translation-text" style="margin-top:4px;color:#e8eaf0"></div>
-    </div>
+
     <div class="alert-row">
       <button type="button" style="background:#1c2030;color:#8b90a0" id="btn-dismiss-mp-alert">Dismiss</button>
       <button type="button" style="background:#00e5a0;color:#0d0f12" id="btn-ack-mp-alert">Acknowledge</button>
@@ -533,33 +527,9 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
 var SUPABASE_URL = 'https://hzvegzkjogcjqzogxvvm.supabase.co';
 
 // iOS Safari blocks programmatic audio until a user gesture has occurred in the
-// session. We unlock it on the very first tap anywhere in the app by playing a
-// silent audio clip — after that, all subsequent Audio.play() calls (including
-// TTS from incoming alerts) work without needing a direct tap.
-var _audioUnlocked = false;
-function _unlockAudio() {
-  if (_audioUnlocked) return;
-  _audioUnlocked = true;
-  var silentAudio = new Audio('data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjI5LjEwMAAAAAAAAAAAAAAA/+M4wAAAAAAAAAAAAEluZm8AAAAPAAAAAwAAAbAAqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV////////////////////////////////////////////AAAAAExhdmYAAAAAAAAAAAAAAAAAAAAAACQAAAAAAAABsJ4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/+MYxAANCAZGUAAAAGkIAANIAAABMQU1FMy45OS41VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV');
-  silentAudio.play().catch(function(){});
-  document.removeEventListener('touchstart', _unlockAudio);
-  document.removeEventListener('click', _unlockAudio);
-}
-document.addEventListener('touchstart', _unlockAudio, {once: true});
-document.addEventListener('click', _unlockAudio, {once: true});
 var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh6dmVnemtqb2djanF6b2d4dnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwOTA3NjgsImV4cCI6MjA5NTY2Njc2OH0.jDvCtntJjFd0tp9h5vFHm3xKa6s5HOGAschU-QrnmAE';
 
-// Pre-warm the speech synthesis voice list as early as possible. On Safari/iOS,
-// getVoices() can return an empty array on first call because the voice list
-// loads asynchronously — without this warm-up, the very first alert spoken
-// after a fresh page load can silently miss the Russian voice and fall back
-// to whatever the default English voice is.
-if ('speechSynthesis' in window) {
-  window.speechSynthesis.getVoices();
-  window.speechSynthesis.addEventListener('voiceschanged', function(){
-    window.speechSynthesis.getVoices();
-  });
-}
+
 
 // Guard profiles - loaded exclusively from Supabase
 // Fallback profiles — always available instantly, synced from Supabase on load
@@ -836,12 +806,8 @@ function buildShiftReport() {
 
 // POLL
 function pollRequests() {
-  // Only alert on help requests that arrived during the current shift —
-  // requests from a previous shift should stay in the log, not pop up again.
-  var since = window._shiftStartedAt;
-  if (!since) return; // no active shift, don't poll
-  var query = 'order=timestamp.desc&limit=1&timestamp=gte.' + encodeURIComponent(since);
-  sbGet('help_requests', query, function(data) {
+  if (!currentGuardName) return;
+  sbGet('help_requests', 'order=timestamp.desc&limit=1', function(data) {
     if (!data||!data.length) return;
     var latest = data[0];
     if (!seenRequestIds[latest.id] && !latest.acked) {
@@ -867,35 +833,12 @@ function showHelpAlert(req) {
     '<span>Time:</span> '+time;
   document.getElementById('alert-modal').classList.add('open');
   playAlert();
-  // Wait for the siren (≈4.8s) to finish before starting speech, so the voice
-  // isn't drowned out by the alert tone playing at full volume simultaneously.
-  // Skip if the guard already acknowledged/dismissed before the delay elapsed.
-  var alertIdAtShow = req.id;
-  setTimeout(function(){
-    if (currentAlertId === alertIdAtShow) {
-      speakHelpRequestInRussian(req, urgLabel, gpsText);
-    }
-  }, 5000);
 }
 
-// Translates the help request to Russian (via free MyMemory API, no key required)
+
 // and reads it aloud — same pattern as MP assignments. No field-label prefixes
 // like "Location:" or "GPS:" are spoken, only the values themselves.
-function speakHelpRequestInRussian(req, urgLabel, gpsText) {
-  var hasGps = gpsText && gpsText !== 'GPS unavailable';
-  var parts = [];
-  if (req.notes) parts.push(req.notes + '.');
-  else if (req.type) parts.push(req.type + '.');
-  translateAndSpeak(
-    parts.join(' '),
-    hasGps ? gpsText : null,
-    document.getElementById('help-alert-translation'),
-    document.getElementById('help-alert-translation-text')
-  );
-}
-
 document.getElementById('btn-ack-alert').addEventListener('click', function() {
-  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
   sbPatch('help_requests',currentAlertId,{acked:true,acked_by:currentGuardName});
   document.getElementById('alert-modal').classList.remove('open');
   currentAlertId = null;
@@ -904,7 +847,6 @@ document.getElementById('btn-ack-alert').addEventListener('click', function() {
   loadHelpRequests();
 });
 document.getElementById('btn-dismiss-alert').addEventListener('click', function() {
-  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
   document.getElementById('alert-modal').classList.remove('open');
   currentAlertId = null;
 });
@@ -926,16 +868,11 @@ function markMPSeen(id) {
 
 function pollMPAssignments() {
   if (!currentGuardName) return;
-  // Only alert on assignments sent during the current shift —
-  // assignments from a previous shift should stay in the log, not pop up again.
-  var since = window._shiftStartedAt;
-  if (!since) return; // no active shift, don't poll
-  fetch(SUPABASE_URL+'/rest/v1/mp_assignments?guard_name=eq.ALL&order=timestamp.desc&limit=5&timestamp=gte.'+encodeURIComponent(since), {
+  fetch(SUPABASE_URL+'/rest/v1/mp_assignments?guard_name=eq.ALL&order=timestamp.desc&limit=5', {
     headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
   }).then(function(r){return r.json();}).then(function(data){
     if (!Array.isArray(data) || !data.length) return;
     var seen = getSeenMPIds();
-    // Find the newest one not yet seen by this guard
     for (var i=0;i<data.length;i++) {
       if (!seen[data[i].id]) {
         showMPAlert(data[i]);
@@ -987,111 +924,10 @@ function showMPAlert(mp) {
   // If speech synthesis isn't available on this device, fall back to the chime
   // as the only notification. Otherwise let the spoken Russian be the sound
   // cue — playing both at once made it sound like a repeated/interrupted alert.
-  if ('speechSynthesis' in window) {
-    speakMPAssignmentInRussian(mp, locText, gpsText);
-  } else {
-    playMPSound();
-  }
+  playMPSound();
 }
 
-// Translates the assignment to Russian (via free MyMemory API, no key required)
-// and reads it aloud using the browser's built-in speech synthesis.
-function speakMPAssignmentInRussian(mp, locText, gpsText) {
-  var transEl = document.getElementById('mp-alert-translation');
-  var transTextEl = document.getElementById('mp-alert-translation-text');
-  transEl.style.display = 'none';
 
-  // Build a single readable sentence summarizing the assignment in English first.
-  // No field-label prefixes like "Location:" — just speak the values themselves.
-  // GPS coordinates are numbers, not language — keep them out of translation
-  // and speak them separately afterward, untranslated.
-  var sevWord = mp.severity || 'Low';
-  var parts = [];
-  if (mp.notes) parts.push(mp.notes + '.');
-  else parts.push(locText + '.');
-  var fullText = parts.join(' ');
-  // MyMemory's free tier caps requests at 500 bytes — trim defensively so long notes don't fail translation
-  if (fullText.length > 480) fullText = fullText.slice(0, 480) + '...';
-
-  fetch('https://api.mymemory.translated.net/get?q=' + encodeURIComponent(fullText) + '&langpair=en|ru')
-    .then(function(r){ return r.json(); })
-    .then(function(data){
-      if (data && data.responseStatus === 200 && data.responseData && data.responseData.translatedText) {
-        var russianText = data.responseData.translatedText;
-        var displayText = russianText + (gpsText ? ' ' + gpsText : '');
-        transTextEl.textContent = displayText;
-        transEl.style.display = 'block';
-        speakRussian(russianText, false, gpsText);
-      } else {
-        // Translation failed — fall back to reading the original English aloud
-        speakRussian(fullText, true, gpsText);
-      }
-    })
-    .catch(function(){
-      // Network/translation failure — fall back to English speech so the guard still hears something
-      speakRussian(fullText, true, gpsText);
-    });
-}
-
-function speakRussian(text, fallbackEnglish, gpsText) {
-  // Use AudioContext to play TTS audio fetched from our Supabase proxy.
-  // AudioContext is already unlocked by the "Enable Alerts" tap, so this
-  // works from setInterval/setTimeout without being blocked by iOS autoplay policy.
-  // speechSynthesis called from a timer (not a direct user gesture) is silently
-  // blocked on iOS — AudioContext.decodeAudioData is not subject to this restriction.
-  if (!fallbackEnglish && audioReady && audioCtx) {
-    var lang = 'ru';
-    var proxyUrl = 'https://hzvegzkjogcjqzogxvvm.supabase.co/functions/v1/tts-proxy?lang='+lang+'&text='+encodeURIComponent(text);
-    fetch(proxyUrl)
-      .then(function(r){ return r.arrayBuffer(); })
-      .then(function(buf){
-        return audioCtx.decodeAudioData(buf);
-      })
-      .then(function(decoded){
-        var src = audioCtx.createBufferSource();
-        src.buffer = decoded;
-        src.connect(audioCtx.destination);
-        src.start(0);
-        if (gpsText) {
-          src.onended = function(){
-            var gpsUrl = 'https://hzvegzkjogcjqzogxvvm.supabase.co/functions/v1/tts-proxy?lang=en&text='+encodeURIComponent(gpsText);
-            fetch(gpsUrl)
-              .then(function(r){ return r.arrayBuffer(); })
-              .then(function(buf){ return audioCtx.decodeAudioData(buf); })
-              .then(function(decoded){
-                var gpsSrc = audioCtx.createBufferSource();
-                gpsSrc.buffer = decoded;
-                gpsSrc.connect(audioCtx.destination);
-                gpsSrc.start(0);
-              }).catch(function(){});
-          };
-        }
-      })
-      .catch(function(){
-        // Proxy failed — fall back to speechSynthesis
-        speakRussian(text, true, gpsText);
-      });
-    return;
-  }
-  // Fallback: browser speechSynthesis (when AudioContext not yet unlocked, or English fallback)
-  if (!('speechSynthesis' in window)) { playMPSound(); return; }
-  try {
-    window.speechSynthesis.cancel();
-    var utter = new SpeechSynthesisUtterance(text);
-    utter.lang = fallbackEnglish ? 'en-US' : 'ru-RU';
-    utter.rate = 0.9;
-    utter.volume = 1.0;
-    utter.onerror = function(){ playMPSound(); };
-    if (gpsText) {
-      utter.onend = function(){
-        var g = new SpeechSynthesisUtterance(gpsText);
-        g.lang = 'en-US'; g.rate = 0.9;
-        window.speechSynthesis.speak(g);
-      };
-    }
-    window.speechSynthesis.speak(utter);
-  } catch(e) { playMPSound(); }
-}
 
 // Non-blinking sound-only notification (distinct from the red help-request alert flash)
 function playMPSound() {
@@ -1118,7 +954,6 @@ function playMPSound() {
 }
 
 document.getElementById('btn-ack-mp-alert').addEventListener('click', function() {
-  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
   markMPSeen(currentMPAlertId);
   recordMPAckStatus(currentMPAlertId, 'acknowledged');
   document.getElementById('mp-alert-modal').classList.remove('open');
@@ -1127,7 +962,6 @@ document.getElementById('btn-ack-mp-alert').addEventListener('click', function()
   loadMPAssignmentsList();
 });
 document.getElementById('btn-dismiss-mp-alert').addEventListener('click', function() {
-  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
   markMPSeen(currentMPAlertId);
   recordMPAckStatus(currentMPAlertId, 'dismissed');
   document.getElementById('mp-alert-modal').classList.remove('open');
