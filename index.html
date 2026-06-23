@@ -760,6 +760,7 @@ function endShift() {
   if (window._pollInterval) { clearInterval(window._pollInterval); window._pollInterval = null; }
   if (window._helpInterval) { clearInterval(window._helpInterval); window._helpInterval = null; }
   if (window._autoEndInterval) { clearInterval(window._autoEndInterval); window._autoEndInterval = null; }
+  if (window._mpInterval) { clearInterval(window._mpInterval); window._mpInterval = null; }
   // Mark shift as ended in Supabase
   if (!window._shiftId) window._shiftId = localStorage.getItem('mp_current_shift_id');
   if (!window._shiftStartedAt) window._shiftStartedAt = localStorage.getItem('mp_shift_started_at');
@@ -1521,6 +1522,7 @@ function checkAutoEndShift() {
   if (window._pollInterval) { clearInterval(window._pollInterval); window._pollInterval = null; }
   if (window._helpInterval) { clearInterval(window._helpInterval); window._helpInterval = null; }
   if (window._autoEndInterval) { clearInterval(window._autoEndInterval); window._autoEndInterval = null; }
+  if (window._mpInterval) { clearInterval(window._mpInterval); window._mpInterval = null; }
 
   var shiftIdToEnd = window._shiftId;
   fetch(SUPABASE_URL+'/rest/v1/active_shifts?id=eq.'+shiftIdToEnd, {
