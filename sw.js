@@ -32,7 +32,7 @@ self.addEventListener('notificationclick', function(event) {
         }
       }
       // Otherwise open it
-      if (clients.openWindow) return clients.openWindow('/index.html');
+      if (clients.openWindow) return clients.openWindow('./index.html');
     })
   );
 });

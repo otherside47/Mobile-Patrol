@@ -3,6 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="manifest" href="./manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Patrol">
+<meta name="theme-color" content="#0d0f12">
 <title>Mobile Patrol — Guard App</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 <style>
@@ -539,7 +544,7 @@ var VAPID_PUBLIC_KEY = 'BM5pCWXwJwq4uIOgKG6SB5QsgaVB6eyJIUg1d3GLvGlfWdTowKFYkE2C
 // Called after the guard logs in so we have their name to store with the subscription.
 function registerPushNotifications(guardName) {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-  navigator.serviceWorker.register('/sw.js').then(function(reg) {
+  navigator.serviceWorker.register('./sw.js').then(function(reg) {
     return reg.pushManager.getSubscription().then(function(existing) {
       if (existing) {
         // Already subscribed — save to Supabase in case it's a new device/login
