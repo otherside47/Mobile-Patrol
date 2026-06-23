@@ -926,22 +926,32 @@ function showMPAlert(mp) {
     '<span>Time:</span> '+time;
   document.getElementById('mp-alert-modal').classList.add('open');
   playMPSound();
-  // Fetch Russian translation for display only — no speech
+  // Fetch Russian translation via Claude API — contextually aware, understands
+  // security/patrol terminology, no separate account or key needed.
   var transEl = document.getElementById('mp-alert-translation');
   var transTextEl = document.getElementById('mp-alert-translation-text');
   transEl.style.display = 'none';
   var textToTranslate = mp.notes || locText;
   if (textToTranslate && textToTranslate !== '—') {
-    var q = textToTranslate.slice(0, 480);
-    fetch('https://api.mymemory.translated.net/get?q='+encodeURIComponent(q)+'&langpair=en|ru')
-      .then(function(r){ return r.json(); })
-      .then(function(d){
-        if (d && d.responseStatus===200 && d.responseData && d.responseData.translatedText) {
-          transTextEl.textContent = d.responseData.translatedText;
-          transEl.style.display = 'block';
-        }
+    fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 256,
+        system: 'You are a translator for a diplomatic security patrol app. Translate the following text to Russian. Reply with ONLY the Russian translation, nothing else — no explanation, no quotes, no preamble.',
+        messages: [{role: 'user', content: textToTranslate}]
       })
-      .catch(function(){});
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var text = d && d.content && d.content[0] && d.content[0].text;
+      if (text) {
+        transTextEl.textContent = text;
+        transEl.style.display = 'block';
+      }
+    })
+    .catch(function(){});
   }
 }
 
