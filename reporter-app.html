@@ -201,6 +201,13 @@ async function submitRequest() {
     });
 
     if (response.ok || response.status === 201) {
+      // Push notification to all guards so they're alerted even if app is closed
+      var pushBody = (request.name || 'Guard') + ' — ' + (request.type || 'Help request') + (request.loc_desc ? ': ' + request.loc_desc : '');
+      fetch(SUPABASE_URL + '/functions/v1/send-push', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY},
+        body: JSON.stringify({ title: '🚨 Help Request', body: pushBody })
+      }).catch(function(){});
       document.getElementById('form-section').style.display = 'none';
       document.getElementById('success-section').style.display = 'flex';
     } else {

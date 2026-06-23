@@ -1040,6 +1040,14 @@ document.getElementById('btn-send-mp').addEventListener('click', function() {
     body: JSON.stringify(payload)
   }).then(function() {
     showToast('Successfully assigned');
+    // Trigger Web Push to all guards so they get notified even if app is closed
+    var locLabel = payload.location_label || payload.custom_location || 'Assignment';
+    var pushBody = (payload.severity ? payload.severity + ' — ' : '') + locLabel + (payload.notes ? ': ' + payload.notes : '');
+    fetch(SUPABASE_URL+'/functions/v1/send-push', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY},
+      body: JSON.stringify({ title: 'MP Assignment', body: pushBody })
+    }).catch(function(){});
     initSendMP();
   }).catch(function() {
     showToast('Failed to send — check connection');

@@ -176,7 +176,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
   </div>
   <div id="sound-banner" style="background:rgba(255,176,32,0.12);border-bottom:1px solid rgba(255,176,32,0.25);padding:8px 16px;display:flex;align-items:center;justify-content:space-between;font-size:12px;color:#ffb020;font-family:monospace;flex-shrink:0">
     <span>Tap to enable alerts</span>
-    <button type="button" style="background:#ffb020;color:#000;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer" onclick="document.getElementById('sound-banner').style.display='none';try{var AC=window.AudioContext||window.webkitAudioContext;if(AC){audioCtx=new AC();audioReady=true;var o=audioCtx.createOscillator();var g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.frequency.value=880;g.gain.setValueAtTime(0.8,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.8);o.start(audioCtx.currentTime);o.stop(audioCtx.currentTime+0.8);}}catch(e){}if(navigator.vibrate)navigator.vibrate([200,100,200]);showToast('Alerts enabled');">Enable Alerts</button>
+    <button type="button" style="background:#ffb020;color:#000;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer" onclick="document.getElementById('sound-banner').style.display='none';try{var AC=window.AudioContext||window.webkitAudioContext;if(AC){audioCtx=new AC();audioReady=true;var o=audioCtx.createOscillator();var g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.frequency.value=880;g.gain.setValueAtTime(0.8,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.8);o.start(audioCtx.currentTime);o.stop(audioCtx.currentTime+0.8);}}catch(e){}if(navigator.vibrate)navigator.vibrate([200,100,200]);registerPushNotifications(currentGuardName);showToast('Alerts enabled');">Enable Alerts</button>
   </div>
 
   <!-- PATROL HOME -->
@@ -532,6 +532,57 @@ var SUPABASE_URL = 'https://hzvegzkjogcjqzogxvvm.supabase.co';
 
 // iOS Safari blocks programmatic audio until a user gesture has occurred in the
 var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh6dmVnemtqb2djanF6b2d4dnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwOTA3NjgsImV4cCI6MjA5NTY2Njc2OH0.jDvCtntJjFd0tp9h5vFHm3xKa6s5HOGAschU-QrnmAE';
+
+var VAPID_PUBLIC_KEY = 'BM5pCWXwJwq4uIOgKG6SB5QsgaVB6eyJIUg1d3GLvGlfWdTowKFYkE2CtsQR-_-PJbrBfhj-IRykCw0bF0bVx8M';
+
+// Register service worker and subscribe to Web Push notifications.
+// Called after the guard logs in so we have their name to store with the subscription.
+function registerPushNotifications(guardName) {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  navigator.serviceWorker.register('/sw.js').then(function(reg) {
+    return reg.pushManager.getSubscription().then(function(existing) {
+      if (existing) {
+        // Already subscribed — save to Supabase in case it's a new device/login
+        savePushSubscription(guardName, existing);
+        return;
+      }
+      // Ask for permission and subscribe
+      return Notification.requestPermission().then(function(perm) {
+        if (perm !== 'granted') return;
+        var rawKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+        return reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: rawKey
+        }).then(function(sub) {
+          savePushSubscription(guardName, sub);
+        });
+      });
+    });
+  }).catch(function(e) { console.warn('Push registration failed:', e); });
+}
+
+function savePushSubscription(guardName, sub) {
+  fetch(SUPABASE_URL+'/rest/v1/push_subscriptions', {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': 'Bearer '+SUPABASE_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': 'resolution=merge-duplicates'
+    },
+    body: JSON.stringify({ guard_name: guardName, subscription: sub.toJSON() })
+  }).catch(function(){});
+}
+
+function urlBase64ToUint8Array(base64String) {
+  var padding = '='.repeat((4 - base64String.length % 4) % 4);
+  var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  var rawData = atob(base64);
+  var output = new Uint8Array(rawData.length);
+  for (var i = 0; i < rawData.length; ++i) output[i] = rawData.charCodeAt(i);
+  return output;
+}
+
 
 
 
