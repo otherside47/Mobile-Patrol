@@ -1039,7 +1039,7 @@ document.getElementById('btn-send-mp').addEventListener('click', function() {
     headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
     body: JSON.stringify(payload)
   }).then(function() {
-    showToast('MP sent to all guards on shift');
+    showToast('Successfully assigned');
     initSendMP();
   }).catch(function() {
     showToast('Failed to send — check connection');
