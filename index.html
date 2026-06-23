@@ -932,12 +932,25 @@ function showMPAlert(mp) {
   transEl.style.display = 'none';
   var textToTranslate = mp.notes || locText;
   if (textToTranslate && textToTranslate !== '—') {
+    // Protect known acronyms from translation by swapping them out
+    // temporarily, then restoring them in the translated result.
+    var acronyms = ['NEC', 'PD', 'Emb'];
+    var placeholders = {};
     var q = textToTranslate.slice(0, 480);
+    acronyms.forEach(function(a, i) {
+      var ph = '§§'+i+'§§';
+      placeholders[ph] = a;
+      q = q.replace(new RegExp('\\b'+a+'\\b', 'gi'), ph);
+    });
     fetch('https://api.mymemory.translated.net/get?q='+encodeURIComponent(q)+'&langpair=en|ru')
       .then(function(r){ return r.json(); })
       .then(function(d){
         if (d && d.responseStatus===200 && d.responseData && d.responseData.translatedText) {
-          transTextEl.textContent = d.responseData.translatedText;
+          var translated = d.responseData.translatedText;
+          Object.keys(placeholders).forEach(function(ph){
+            translated = translated.split(ph).join(placeholders[ph]);
+          });
+          transTextEl.textContent = translated;
           transEl.style.display = 'block';
         }
       })
