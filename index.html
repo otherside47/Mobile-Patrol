@@ -1033,44 +1033,28 @@ function speakMPAssignmentInRussian(mp, locText, gpsText) {
 }
 
 function speakRussian(text, fallbackEnglish, gpsText) {
-  if (!fallbackEnglish) {
-    // Call our own Supabase TTS proxy — fetches Google Translate TTS server-side
-    // so CORS never blocks the audio on iOS Safari (direct Google TTS fetches are CORS-blocked).
-    var proxyUrl = 'https://hzvegzkjogcjqzogxvvm.supabase.co/functions/v1/tts-proxy?lang=ru&text=' + encodeURIComponent(text);
-    var audio = new Audio(proxyUrl);
-    audio.volume = 1.0;
-    audio.onended = function() {
-      if (gpsText) {
-        var gpsUrl = 'https://hzvegzkjogcjqzogxvvm.supabase.co/functions/v1/tts-proxy?lang=en&text=' + encodeURIComponent(gpsText);
-        var gpsAudio = new Audio(gpsUrl);
-        gpsAudio.volume = 1.0;
-        gpsAudio.play().catch(function(){});
-      }
-    };
-    audio.onerror = function() {
-      // Proxy failed — fall back to browser speech synthesis
-      speakRussian(text, true, gpsText);
-    };
-    audio.play().catch(function() {
-      // Autoplay blocked or network error — fall back to browser speech
-      speakRussian(text, true, gpsText);
-    });
-    return;
-  }
-  // Fallback: browser built-in speech synthesis (English, when proxy unavailable)
   if (!('speechSynthesis' in window)) { playMPSound(); return; }
   try {
     window.speechSynthesis.cancel();
     var utter = new SpeechSynthesisUtterance(text);
-    utter.lang = 'en-US';
-    utter.rate = 0.95;
+    utter.lang = fallbackEnglish ? 'en-US' : 'ru-RU';
+    utter.rate = 0.9;
     utter.pitch = 1.0;
+    utter.volume = 1.0;
+    // Pick an actual Russian voice if available
+    if (!fallbackEnglish) {
+      var voices = window.speechSynthesis.getVoices();
+      var ruVoice = voices.find(function(v){ return v.lang && v.lang.toLowerCase().indexOf('ru') === 0; });
+      if (ruVoice) utter.voice = ruVoice;
+    }
     utter.onerror = function(){ playMPSound(); };
+    // Speak GPS coordinates separately after the main text, in English,
+    // so numbers aren't affected by Russian pronunciation rules.
     if (gpsText) {
       utter.onend = function(){
         var gpsUtter = new SpeechSynthesisUtterance(gpsText);
         gpsUtter.lang = 'en-US';
-        gpsUtter.rate = 0.95;
+        gpsUtter.rate = 0.9;
         window.speechSynthesis.speak(gpsUtter);
       };
     }
