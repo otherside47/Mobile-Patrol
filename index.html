@@ -741,6 +741,7 @@ function endShift() {
     }).catch(function(){});
   }
   localStorage.removeItem('mp_current_shift_id');
+  localStorage.removeItem('mp_seen_assignment_ids');
   buildShiftReport();
   var allScreens = document.querySelectorAll('.screen');
   for (var i = 0; i < allScreens.length; i++) {
@@ -1033,29 +1034,59 @@ function speakMPAssignmentInRussian(mp, locText, gpsText) {
 }
 
 function speakRussian(text, fallbackEnglish, gpsText) {
+  // Use AudioContext to play TTS audio fetched from our Supabase proxy.
+  // AudioContext is already unlocked by the "Enable Alerts" tap, so this
+  // works from setInterval/setTimeout without being blocked by iOS autoplay policy.
+  // speechSynthesis called from a timer (not a direct user gesture) is silently
+  // blocked on iOS — AudioContext.decodeAudioData is not subject to this restriction.
+  if (!fallbackEnglish && audioReady && audioCtx) {
+    var lang = 'ru';
+    var proxyUrl = 'https://hzvegzkjogcjqzogxvvm.supabase.co/functions/v1/tts-proxy?lang='+lang+'&text='+encodeURIComponent(text);
+    fetch(proxyUrl)
+      .then(function(r){ return r.arrayBuffer(); })
+      .then(function(buf){
+        return audioCtx.decodeAudioData(buf);
+      })
+      .then(function(decoded){
+        var src = audioCtx.createBufferSource();
+        src.buffer = decoded;
+        src.connect(audioCtx.destination);
+        src.start(0);
+        if (gpsText) {
+          src.onended = function(){
+            var gpsUrl = 'https://hzvegzkjogcjqzogxvvm.supabase.co/functions/v1/tts-proxy?lang=en&text='+encodeURIComponent(gpsText);
+            fetch(gpsUrl)
+              .then(function(r){ return r.arrayBuffer(); })
+              .then(function(buf){ return audioCtx.decodeAudioData(buf); })
+              .then(function(decoded){
+                var gpsSrc = audioCtx.createBufferSource();
+                gpsSrc.buffer = decoded;
+                gpsSrc.connect(audioCtx.destination);
+                gpsSrc.start(0);
+              }).catch(function(){});
+          };
+        }
+      })
+      .catch(function(){
+        // Proxy failed — fall back to speechSynthesis
+        speakRussian(text, true, gpsText);
+      });
+    return;
+  }
+  // Fallback: browser speechSynthesis (when AudioContext not yet unlocked, or English fallback)
   if (!('speechSynthesis' in window)) { playMPSound(); return; }
   try {
     window.speechSynthesis.cancel();
     var utter = new SpeechSynthesisUtterance(text);
     utter.lang = fallbackEnglish ? 'en-US' : 'ru-RU';
     utter.rate = 0.9;
-    utter.pitch = 1.0;
     utter.volume = 1.0;
-    // Pick an actual Russian voice if available
-    if (!fallbackEnglish) {
-      var voices = window.speechSynthesis.getVoices();
-      var ruVoice = voices.find(function(v){ return v.lang && v.lang.toLowerCase().indexOf('ru') === 0; });
-      if (ruVoice) utter.voice = ruVoice;
-    }
     utter.onerror = function(){ playMPSound(); };
-    // Speak GPS coordinates separately after the main text, in English,
-    // so numbers aren't affected by Russian pronunciation rules.
     if (gpsText) {
       utter.onend = function(){
-        var gpsUtter = new SpeechSynthesisUtterance(gpsText);
-        gpsUtter.lang = 'en-US';
-        gpsUtter.rate = 0.9;
-        window.speechSynthesis.speak(gpsUtter);
+        var g = new SpeechSynthesisUtterance(gpsText);
+        g.lang = 'en-US'; g.rate = 0.9;
+        window.speechSynthesis.speak(g);
       };
     }
     window.speechSynthesis.speak(utter);
@@ -1557,6 +1588,7 @@ function checkAutoEndShift() {
 
   localStorage.removeItem('mp_current_shift_id');
   localStorage.removeItem('mp_shift_started_at');
+  localStorage.removeItem('mp_seen_assignment_ids');
   window._shiftId = null;
   window._shiftStartedAt = null;
 
@@ -1792,6 +1824,7 @@ function doLogout() {
   seenRequestIds={};
   mpUnreadCount=0;
   lastSeenRequestId=null;
+  localStorage.removeItem('mp_seen_assignment_ids');
   currentShift={type:'',label:'',startDate:'',endDate:''};
   document.getElementById('shift-banner').style.display='none';
   navApp('s-home'); setNav('nav-home');
