@@ -176,7 +176,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
   </div>
   <div id="sound-banner" style="background:rgba(255,176,32,0.12);border-bottom:1px solid rgba(255,176,32,0.25);padding:8px 16px;display:flex;align-items:center;justify-content:space-between;font-size:12px;color:#ffb020;font-family:monospace;flex-shrink:0">
     <span>Tap to enable alerts</span>
-    <button type="button" style="background:#ffb020;color:#000;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer" onclick="document.getElementById('sound-banner').style.display='none';try{var AC=window.AudioContext||window.webkitAudioContext;if(AC){audioCtx=new AC();audioReady=true;var o=audioCtx.createOscillator();var g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.frequency.value=880;g.gain.setValueAtTime(0.8,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.8);o.start(audioCtx.currentTime);o.stop(audioCtx.currentTime+0.8);}}catch(e){}if(navigator.vibrate)navigator.vibrate([200,100,200]);showToast('Alerts enabled');">Enable Alerts</button>
+    <button type="button" style="background:#ffb020;color:#000;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer" onclick="document.getElementById('sound-banner').style.display='none';_unlockAudio();try{var AC=window.AudioContext||window.webkitAudioContext;if(AC){audioCtx=new AC();audioReady=true;var o=audioCtx.createOscillator();var g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.frequency.value=880;g.gain.setValueAtTime(0.8,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.8);o.start(audioCtx.currentTime);o.stop(audioCtx.currentTime+0.8);}}catch(e){}if(navigator.vibrate)navigator.vibrate([200,100,200]);showToast('Alerts enabled');">Enable Alerts</button>
   </div>
 
   <!-- PATROL HOME -->
@@ -531,6 +531,22 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
 
 <script>
 var SUPABASE_URL = 'https://hzvegzkjogcjqzogxvvm.supabase.co';
+
+// iOS Safari blocks programmatic audio until a user gesture has occurred in the
+// session. We unlock it on the very first tap anywhere in the app by playing a
+// silent audio clip — after that, all subsequent Audio.play() calls (including
+// TTS from incoming alerts) work without needing a direct tap.
+var _audioUnlocked = false;
+function _unlockAudio() {
+  if (_audioUnlocked) return;
+  _audioUnlocked = true;
+  var silentAudio = new Audio('data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjI5LjEwMAAAAAAAAAAAAAAA/+M4wAAAAAAAAAAAAEluZm8AAAAPAAAAAwAAAbAAqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV////////////////////////////////////////////AAAAAExhdmYAAAAAAAAAAAAAAAAAAAAAACQAAAAAAAABsJ4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/+MYxAANCAZGUAAAAGkIAANIAAABMQU1FMy45OS41VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV');
+  silentAudio.play().catch(function(){});
+  document.removeEventListener('touchstart', _unlockAudio);
+  document.removeEventListener('click', _unlockAudio);
+}
+document.addEventListener('touchstart', _unlockAudio, {once: true});
+document.addEventListener('click', _unlockAudio, {once: true});
 var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh6dmVnemtqb2djanF6b2d4dnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwOTA3NjgsImV4cCI6MjA5NTY2Njc2OH0.jDvCtntJjFd0tp9h5vFHm3xKa6s5HOGAschU-QrnmAE';
 
 // Pre-warm the speech synthesis voice list as early as possible. On Safari/iOS,
