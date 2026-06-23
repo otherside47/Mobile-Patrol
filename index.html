@@ -998,19 +998,27 @@ function showMPAlert(mp) {
       placeholders[ph] = a;
       q = q.replace(new RegExp('\\b'+a+'\\b', 'gi'), ph);
     });
-    fetch('https://api.mymemory.translated.net/get?q='+encodeURIComponent(q)+'&langpair=en|ru')
-      .then(function(r){ return r.json(); })
-      .then(function(d){
-        if (d && d.responseStatus===200 && d.responseData && d.responseData.translatedText) {
-          var translated = d.responseData.translatedText;
-          Object.keys(placeholders).forEach(function(ph){
-            translated = translated.split(ph).join(placeholders[ph]);
-          });
-          transTextEl.textContent = translated;
-          transEl.style.display = 'block';
-        }
-      })
-      .catch(function(){});
+    // If nothing is left to translate after removing acronyms,
+    // just show the original text — no point sending placeholders to the API.
+    var qStripped = q.replace(/§§\d+§§/g, '').trim();
+    if (!qStripped) {
+      transTextEl.textContent = textToTranslate;
+      transEl.style.display = 'block';
+    } else {
+      fetch('https://api.mymemory.translated.net/get?q='+encodeURIComponent(q)+'&langpair=en|ru')
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+          if (d && d.responseStatus===200 && d.responseData && d.responseData.translatedText) {
+            var translated = d.responseData.translatedText;
+            Object.keys(placeholders).forEach(function(ph){
+              translated = translated.split(ph).join(placeholders[ph]);
+            });
+            transTextEl.textContent = translated;
+            transEl.style.display = 'block';
+          }
+        })
+        .catch(function(){});
+    }
   }
 }
 
