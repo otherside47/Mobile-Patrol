@@ -91,7 +91,7 @@ async function loadActivityLog(shiftId) {
       fetch(SUPABASE_URL+'/rest/v1/patrol_scans?order=timestamp.asc&timestamp=gte.'+dateFrom+'&timestamp=lte.'+dateUntil+gf, {headers}).then(r=>r.json()),
       // Query incidents by shift_id directly — most reliable, avoids timestamp edge cases
       fetch(SUPABASE_URL+'/rest/v1/incidents?order=timestamp.asc&shift_id=eq.'+shiftId, {headers}).then(r=>r.json()),
-      fetch(SUPABASE_URL+'/rest/v1/help_requests?order=timestamp.asc&timestamp=gte.'+dateFrom+'&timestamp=lte.'+dateUntil+(guardName?'&name=eq.'+encodeURIComponent(guardName):''), {headers}).then(r=>r.json()),
+      fetch(SUPABASE_URL+'/rest/v1/help_requests?order=timestamp.asc&timestamp=gte.'+dateFrom+'&timestamp=lte.'+dateUntil, {headers}).then(r=>r.json()),
       fetch(SUPABASE_URL+'/rest/v1/surveillance_notes?order=timestamp.asc&timestamp=gte.'+dateFrom+'&timestamp=lte.'+dateUntil+gf, {headers}).then(r=>r.json()),
       fetch(SUPABASE_URL+'/rest/v1/mp_assignments?order=timestamp.asc&timestamp=gte.'+dateFrom+'&timestamp=lte.'+dateUntil+'&guard_name=eq.ALL', {headers}).then(r=>r.json()),
       guardName ? fetch(SUPABASE_URL+'/rest/v1/mp_assignment_acks?guard_name=eq.'+encodeURIComponent(guardName), {headers}).then(r=>r.json()) : Promise.resolve([])
