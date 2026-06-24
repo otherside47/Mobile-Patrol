@@ -404,14 +404,17 @@ function loadAssist(){
 
 function ackAssist(btn,id){
   btn.disabled=true;btn.textContent='Acknowledging...';
-  fetch(SURL+'/rest/v1/assistance_requests?id=eq.'+id,{
+  fetch(SURL+'/rest/v1/assistance_requests?id=eq.'+encodeURIComponent(id),{
     method:'PATCH',
     headers:{'apikey':SKEY,'Authorization':'Bearer '+SKEY,'Content-Type':'application/json','Prefer':'return=minimal'},
     body:JSON.stringify({acked:true,acked_by:'Monitor',acked_at:new Date().toISOString()})
   }).then(function(r){
-    if(r.ok||r.status===204){loadAssist();}
-    else{btn.disabled=false;btn.textContent='ACKNOWLEDGE';}
-  }).catch(function(){btn.disabled=false;btn.textContent='ACKNOWLEDGE';});
+    if(r.ok||r.status===204||r.status===200){loadAssist();}
+    else{
+      r.text().then(function(t){console.error('Ack failed:',r.status,t);});
+      btn.disabled=false;btn.textContent='ACKNOWLEDGE';
+    }
+  }).catch(function(e){console.error('Ack error:',e);btn.disabled=false;btn.textContent='ACKNOWLEDGE';});
 }
 
 function load(){

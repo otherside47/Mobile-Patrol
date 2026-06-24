@@ -317,7 +317,17 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
       <input type="text" id="inc-loc" placeholder="Describe location">
       <label class="fl">Notes</label>
       <textarea rows="4" id="inc-notes" placeholder="Describe what you observed..."></textarea>
-      <div class="gps-bar"><div class="gps-dot"></div><span id="incident-gps">Acquiring GPS...</span></div>
+      <button type="button" id="inc-gps-toggle" style="display:flex;align-items:center;gap:6px;background:none;border:1px solid rgba(139,144,160,0.2);color:#8b90a0;border-radius:8px;padding:8px 10px;font-family:monospace;font-size:11px;cursor:pointer;margin-bottom:10px;width:100%;justify-content:center">
+        <span>📍</span><span>Add live coordinates (optional)</span>
+      </button>
+      <div id="inc-gps-box" style="display:none;align-items:center;gap:10px;background:#151820;border:1px solid rgba(139,144,160,0.15);border-radius:8px;padding:9px 12px;margin-bottom:10px">
+        <div style="font-size:14px;color:#555a6a">📍</div>
+        <div style="flex:1">
+          <div id="incident-gps" style="font-family:monospace;font-size:12px;color:#8b90a0">Acquiring location...</div>
+          <div id="inc-gps-sub" style="font-size:10px;color:#555a6a;margin-top:2px"></div>
+        </div>
+        <button type="button" id="inc-gps-refresh" style="background:none;border:1px solid rgba(139,144,160,0.2);color:#8b90a0;border-radius:6px;padding:5px 9px;font-family:monospace;font-size:11px;cursor:pointer">Refresh</button>
+      </div>
       <button type="button" class="btn btn-d" id="btn-submit-incident">Submit incident report</button>
       <button type="button" class="btn" id="btn-cancel-edit-incident" style="display:none;margin-top:8px;color:#8b90a0;border-color:rgba(139,144,160,0.3)">Cancel edit</button>
     </div>
@@ -383,7 +393,17 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
         <input type="text" id="assist-loc" placeholder="Describe your location">
         <label class="fl">Notes</label>
         <textarea rows="4" id="assist-notes" placeholder="Describe what assistance you need..."></textarea>
-        <div class="gps-bar"><div class="gps-dot"></div><span id="assist-gps-status">Acquiring GPS...</span></div>
+        <button type="button" id="assist-gps-toggle" style="display:flex;align-items:center;gap:6px;background:none;border:1px solid rgba(139,144,160,0.2);color:#8b90a0;border-radius:8px;padding:8px 10px;font-family:monospace;font-size:11px;cursor:pointer;margin-bottom:10px;width:100%;justify-content:center">
+          <span>📍</span><span>Add live coordinates (optional)</span>
+        </button>
+        <div id="assist-gps-box" style="display:none;align-items:center;gap:10px;background:#151820;border:1px solid rgba(139,144,160,0.15);border-radius:8px;padding:9px 12px;margin-bottom:10px">
+          <div style="font-size:14px;color:#555a6a">📍</div>
+          <div style="flex:1">
+            <div id="assist-gps-status" style="font-family:monospace;font-size:12px;color:#8b90a0">Acquiring location...</div>
+            <div id="assist-gps-sub" style="font-size:10px;color:#555a6a;margin-top:2px"></div>
+          </div>
+          <button type="button" id="assist-gps-refresh" style="background:none;border:1px solid rgba(139,144,160,0.2);color:#8b90a0;border-radius:6px;padding:5px 9px;font-family:monospace;font-size:11px;cursor:pointer">Refresh</button>
+        </div>
         <button type="button" class="btn btn-d" id="btn-submit-assist">Send assistance request</button>
       </div>
     </div>
@@ -1285,11 +1305,60 @@ function updateGPS() {
   getGPS(function(gps) {
     var txt = gps?gps.lat.toFixed(4)+' N, '+gps.lng.toFixed(4)+' E':'GPS unavailable';
     var el1=document.getElementById('gps-status');
-    var el2=document.getElementById('incident-gps');
     if(el1)el1.textContent=txt;
-    if(el2)el2.textContent=txt;
   });
 }
+
+// Incident GPS toggle
+var incidentGPSLat = null, incidentGPSLng = null;
+function acquireIncidentGPS() {
+  var textEl = document.getElementById('incident-gps');
+  var subEl = document.getElementById('inc-gps-sub');
+  incidentGPSLat = null; incidentGPSLng = null;
+  textEl.textContent = 'Acquiring location...';
+  subEl.textContent = '';
+  if (!navigator.geolocation) { textEl.textContent = 'Geolocation not available'; return; }
+  navigator.geolocation.getCurrentPosition(function(p) {
+    incidentGPSLat = p.coords.latitude;
+    incidentGPSLng = p.coords.longitude;
+    textEl.textContent = incidentGPSLat.toFixed(5)+'° N, '+incidentGPSLng.toFixed(5)+'° E';
+    subEl.textContent = 'Coordinates captured';
+  }, function() {
+    textEl.textContent = 'Could not get location';
+    subEl.textContent = '';
+  }, {enableHighAccuracy:true, timeout:10000});
+}
+document.getElementById('inc-gps-toggle').addEventListener('click', function() {
+  this.style.display = 'none';
+  document.getElementById('inc-gps-box').style.display = 'flex';
+  acquireIncidentGPS();
+});
+document.getElementById('inc-gps-refresh').addEventListener('click', acquireIncidentGPS);
+
+// Assist GPS toggle
+function acquireAssistGPS() {
+  var textEl = document.getElementById('assist-gps-status');
+  var subEl = document.getElementById('assist-gps-sub');
+  assistGpsLat = null; assistGpsLng = null;
+  textEl.textContent = 'Acquiring location...';
+  subEl.textContent = '';
+  if (!navigator.geolocation) { textEl.textContent = 'Geolocation not available'; return; }
+  navigator.geolocation.getCurrentPosition(function(p) {
+    assistGpsLat = p.coords.latitude;
+    assistGpsLng = p.coords.longitude;
+    textEl.textContent = assistGpsLat.toFixed(5)+'° N, '+assistGpsLng.toFixed(5)+'° E';
+    subEl.textContent = 'Coordinates captured';
+  }, function() {
+    textEl.textContent = 'Could not get location';
+    subEl.textContent = '';
+  }, {enableHighAccuracy:true, timeout:10000});
+}
+document.getElementById('assist-gps-toggle').addEventListener('click', function() {
+  this.style.display = 'none';
+  document.getElementById('assist-gps-box').style.display = 'flex';
+  acquireAssistGPS();
+});
+document.getElementById('assist-gps-refresh').addEventListener('click', acquireAssistGPS);
 function getDist(lat1,lon1,lat2,lon2) {
   var R=6371000,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180;
   var a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
@@ -1884,25 +1953,12 @@ var _assistPollInterval = null;
 document.getElementById('nav-assist').addEventListener('click', function(){
   navApp('s-assist'); setNav('nav-assist');
   resetAssistForm();
-  getAssistGPS();
 });
 document.getElementById('btn-assist-back').addEventListener('click', function(){
   clearInterval(_assistPollInterval);
   navApp('s-home'); setNav('nav-home');
 });
 
-function getAssistGPS() {
-  assistGpsLat = null; assistGpsLng = null;
-  var el = document.getElementById('assist-gps-status');
-  if (!navigator.geolocation) { if(el) el.textContent = 'GPS unavailable'; return; }
-  navigator.geolocation.getCurrentPosition(function(pos) {
-    assistGpsLat = pos.coords.latitude;
-    assistGpsLng = pos.coords.longitude;
-    if(el) el.textContent = assistGpsLat.toFixed(5)+' N, '+assistGpsLng.toFixed(5)+' E';
-  }, function() {
-    if(el) el.textContent = 'GPS unavailable';
-  }, {timeout:8000});
-}
 
 function resetAssistForm() {
   currentAssistId = null;
@@ -1912,9 +1968,11 @@ function resetAssistForm() {
   document.getElementById('assist-sev').value = 'Medium';
   document.getElementById('assist-loc').value = '';
   document.getElementById('assist-notes').value = '';
+  assistGpsLat = null; assistGpsLng = null;
+  document.getElementById('assist-gps-toggle').style.display = 'flex';
+  document.getElementById('assist-gps-box').style.display = 'none';
   document.getElementById('assist-ack-info').style.display = 'none';
   document.getElementById('assist-nav-badge').style.display = 'none';
-  getAssistGPS();
 }
 
 document.getElementById('btn-submit-assist').addEventListener('click', function() {
@@ -2136,6 +2194,9 @@ function resetIncidentForm() {
   document.getElementById('inc-notes').value = '';
   document.getElementById('btn-submit-incident').textContent = 'Submit incident report';
   document.getElementById('btn-cancel-edit-incident').style.display = 'none';
+  incidentGPSLat = null; incidentGPSLng = null;
+  document.getElementById('inc-gps-toggle').style.display = 'flex';
+  document.getElementById('inc-gps-box').style.display = 'none';
 }
 
 function loadSessionIncidents() {
@@ -2163,8 +2224,8 @@ document.getElementById('btn-submit-incident').addEventListener('click', functio
   var loc = document.getElementById('inc-loc').value.trim();
   var notes = document.getElementById('inc-notes').value.trim();
   var editId = document.getElementById('inc-edit-id').value;
-  var lat = currentGPS ? currentGPS.lat : null;
-  var lng = currentGPS ? currentGPS.lng : null;
+  var lat = incidentGPSLat || (currentGPS ? currentGPS.lat : null);
+  var lng = incidentGPSLng || (currentGPS ? currentGPS.lng : null);
   var now = new Date().toISOString();
 
   if (editId) {
