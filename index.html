@@ -785,6 +785,7 @@ function endShift() {
   }
   localStorage.removeItem('mp_current_shift_id');
   localStorage.removeItem('mp_seen_assignment_ids');
+  localStorage.removeItem('mp_timeline');
   buildShiftReport();
   var allScreens = document.querySelectorAll('.screen');
   for (var i = 0; i < allScreens.length; i++) {
@@ -1474,6 +1475,8 @@ function doStartShift(type, label, startDate, endDate, isContinue) {
   });
   // Save shift to Supabase - only create new record if not continuing existing shift
   if (!isContinue) {
+    // New shift — clear the saved timeline
+    localStorage.removeItem('mp_timeline');
     var shiftId = 'SHIFT-' + Date.now();
     var shiftStartedAt = new Date().toISOString();
     window._shiftId = shiftId;
@@ -1507,11 +1510,16 @@ function doStartShift(type, label, startDate, endDate, isContinue) {
   }
   updateGPS();
   showToast('Shift started');
-  // Set the patrol started time in the timeline
+  // Timeline: restore previous entries if continuing, set start time if new shift
   var tlTime = document.getElementById('tl-patrol-started-time');
-  if (tlTime) {
-    var now = new Date();
-    tlTime.textContent = now.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+  if (isContinue) {
+    restoreTL();
+    if (tlTime) tlTime.textContent = 'resumed';
+  } else {
+    if (tlTime) {
+      var now = new Date();
+      tlTime.textContent = now.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+    }
   }
   sbGet('help_requests','order=timestamp.desc&limit=50',function(data) {
     if (data&&data.length) {
@@ -1575,6 +1583,7 @@ function checkAutoEndShift() {
   localStorage.removeItem('mp_current_shift_id');
   localStorage.removeItem('mp_shift_started_at');
   localStorage.removeItem('mp_seen_assignment_ids');
+  localStorage.removeItem('mp_timeline');
   window._shiftId = null;
   window._shiftStartedAt = null;
 
@@ -1811,6 +1820,7 @@ function doLogout() {
   mpUnreadCount=0;
   lastSeenRequestId=null;
   localStorage.removeItem('mp_seen_assignment_ids');
+  localStorage.removeItem('mp_timeline');
   currentShift={type:'',label:'',startDate:'',endDate:''};
   document.getElementById('shift-banner').style.display='none';
   navApp('s-home'); setNav('nav-home');
@@ -2060,6 +2070,25 @@ function addTL(title, meta) {
   item.className='tl-item';
   item.innerHTML='<div class="tl-dot"></div><div><div style="font-size:13px;font-weight:500">'+title+'</div><div style="font-family:monospace;font-size:11px;color:#555a6a">'+timeStr+(meta?' · '+meta:'')+'</div></div>';
   list.appendChild(item);
+  // Persist to localStorage so timeline survives app close/reopen
+  try {
+    var saved = JSON.parse(localStorage.getItem('mp_timeline') || '[]');
+    saved.push({ title: title, meta: meta || '', time: timeStr });
+    localStorage.setItem('mp_timeline', JSON.stringify(saved));
+  } catch(e) {}
+}
+
+function restoreTL() {
+  try {
+    var saved = JSON.parse(localStorage.getItem('mp_timeline') || '[]');
+    var list = document.getElementById('timeline-list');
+    saved.forEach(function(entry) {
+      var item = document.createElement('div');
+      item.className = 'tl-item';
+      item.innerHTML = '<div class="tl-dot"></div><div><div style="font-size:13px;font-weight:500">'+entry.title+'</div><div style="font-family:monospace;font-size:11px;color:#555a6a">'+entry.time+(entry.meta?' · '+entry.meta:'')+'</div></div>';
+      list.appendChild(item);
+    });
+  } catch(e) {}
 }
 
 // NAV HELPERS
