@@ -1,0 +1,13 @@
+{
+  "name": "MP Monitor",
+  "short_name": "Monitor",
+  "start_url": "./monitor-app.html",
+  "display": "standalone",
+  "background_color": "#0e1117",
+  "theme_color": "#0e1117",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "./icon-192-monitor.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "./icon-512-monitor.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
