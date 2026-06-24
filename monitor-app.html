@@ -313,10 +313,7 @@ function loadDuty(){
         '<div class="duty-badge">ON DUTY</div>'+
         '<div class="duty-card-name">'+s.guard_name+'</div>'+
         '<div class="duty-shift-row"><div class="duty-dot"></div><div class="duty-shift-lbl">'+(s.shift_label||s.shift_type||'SHIFT')+'</div></div>'+
-        '<div class="duty-meta">'+
-          (s.shift_label&&s.start_date?s.shift_label+': '+s.start_date+' '+(s.start_time||'')+' to '+(s.end_time||'')+'<br>':'')+
-          'Started '+fmt(s.started_at)+
-        '</div>'+
+        '<div class="duty-meta">Started '+fmt(s.started_at)+'</div>'+
       '</div>';
     }).join('');
   });
@@ -398,19 +395,23 @@ function loadAssist(){
           '<div class="item-time">'+ft(r.timestamp)+'</div>'+
         '</div>'+
         '<div class="item-sub">'+(r.notes||'')+(r.location?' · '+r.location:'')+'</div>'+
-        (!r.acked?'<button onclick="ackAssist("'+r.id+'")" style="margin-top:10px;width:100%;padding:10px;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.35);border-radius:8px;color:#a78bfa;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:1px">ACKNOWLEDGE</button>':
+        (!r.acked?'<button onclick="ackAssist(this,"'+r.id+'")" style="margin-top:10px;width:100%;padding:10px;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.35);border-radius:8px;color:#a78bfa;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:1px">ACKNOWLEDGE</button>':
           '<div style="font-family:monospace;font-size:10px;color:#34d399;margin-top:8px">Acknowledged by '+(r.acked_by||'Monitor')+' · '+fmt(r.acked_at)+'</div>')+
       '</div>';
     }).join('');
   });
 }
 
-function ackAssist(id){
+function ackAssist(btn,id){
+  btn.disabled=true;btn.textContent='Acknowledging...';
   fetch(SURL+'/rest/v1/assistance_requests?id=eq.'+id,{
     method:'PATCH',
     headers:{'apikey':SKEY,'Authorization':'Bearer '+SKEY,'Content-Type':'application/json','Prefer':'return=minimal'},
     body:JSON.stringify({acked:true,acked_by:'Monitor',acked_at:new Date().toISOString()})
-  }).then(function(){loadAssist();});
+  }).then(function(r){
+    if(r.ok||r.status===204){loadAssist();}
+    else{btn.disabled=false;btn.textContent='ACKNOWLEDGE';}
+  }).catch(function(){btn.disabled=false;btn.textContent='ACKNOWLEDGE';});
 }
 
 function load(){
