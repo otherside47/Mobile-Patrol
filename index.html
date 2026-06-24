@@ -341,7 +341,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
     <div class="content">
       <div style="font-family:monospace;font-size:11px;color:#555a6a;margin-bottom:14px" id="tl-header">Mobile Patrol</div>
       <div id="timeline-list">
-        <div class="tl-item"><div class="tl-dot blue"></div><div><div style="font-size:13px;font-weight:500">Patrol started</div><div style="font-family:monospace;font-size:11px;color:#555a6a">Shift began</div></div></div>
+        <div id="tl-patrol-started" class="tl-item"><div class="tl-dot blue"></div><div><div style="font-size:13px;font-weight:500">Patrol started</div><div style="font-family:monospace;font-size:11px;color:#555a6a" id="tl-patrol-started-time">—</div></div></div>
       </div>
     </div>
   </div>
@@ -901,7 +901,7 @@ document.getElementById('btn-ack-alert').addEventListener('click', function() {
   sbPatch('help_requests',currentAlertId,{acked:true,acked_by:currentGuardName});
   document.getElementById('alert-modal').classList.remove('open');
   currentAlertId = null;
-  addTL('Help request acknowledged','Responding');
+  addTL('Help request acknowledged', '');
   showToast('Acknowledged');
   loadHelpRequests();
 });
@@ -1065,7 +1065,7 @@ document.getElementById('btn-ack-mp-alert').addEventListener('click', function()
   markMPSeen(currentMPAlertId);
   recordMPAckStatus(currentMPAlertId, 'acknowledged');
   document.getElementById('mp-alert-modal').classList.remove('open');
-  addTL('MP assignment acknowledged','Responding');
+  addTL('MP assignment acknowledged', '');
   showToast('Acknowledged');
   loadMPAssignmentsList();
 });
@@ -1197,7 +1197,7 @@ function loadHelpRequests() {
 
 function ackRequest(id) {
   sbPatch('help_requests',id,{acked:true,acked_by:currentGuardName});
-  addTL('Help request acknowledged','Responding · '+id);
+  addTL('Help request acknowledged', '');
   showToast('Acknowledged — en route');
   setTimeout(function(){loadHelpRequests();},500);
 }
@@ -1475,6 +1475,12 @@ function doStartShift(type, label, startDate, endDate, isContinue) {
   }
   updateGPS();
   showToast('Shift started');
+  // Set the patrol started time in the timeline
+  var tlTime = document.getElementById('tl-patrol-started-time');
+  if (tlTime) {
+    var now = new Date();
+    tlTime.textContent = now.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+  }
   sbGet('help_requests','order=timestamp.desc&limit=50',function(data) {
     if (data&&data.length) {
       // Only mark already-acknowledged requests as seen so they don't re-alert.
@@ -1847,7 +1853,7 @@ function onScanSuccess(decodedText) {
     document.getElementById('scan-result-title').textContent=cp.name+' scanned at '+timeStr;
     document.getElementById('scan-result-meta').textContent=cp.type+(gps&&cp.gps?' · GPS verified':' · GPS logged');
     document.getElementById('scan-result').style.display='block';
-    addTL(cp.name+' scanned',timeStr+' · '+cp.id);
+    addTL(cp.name+' scanned', cp.id);
     renderLists();
     showToast(cp.name+' scanned');
     if(cp.type==='surveillance'){
@@ -1875,7 +1881,7 @@ document.getElementById('btn-submit-surv').addEventListener('click', function(){
   var category=document.getElementById('surv-category').value;
   var now=new Date();
   sbPost('surveillance_notes',{id:'NOTE-'+Date.now(),guard_name:currentGuardName,checkpoint:currentScanCP?currentScanCP.name:'Unknown',title:title,body:body,category:category,photos:0,gps_lat:currentGPS?currentGPS.lat:null,gps_lng:currentGPS?currentGPS.lng:null,shift_type:currentShift.type,shift_label:currentShift.label},null);
-  addTL('Surveillance note submitted',now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})+' · '+category);
+  addTL('Surveillance note submitted', category);
   document.getElementById('surv-form').style.display='none';
   showToast('Observation note submitted');
   setTimeout(function(){navApp('s-home');setNav('nav-home');document.getElementById('scan-result').style.display='none';},1500);
@@ -2005,7 +2011,7 @@ document.getElementById('btn-submit-incident').addEventListener('click', functio
       sessionStorage.setItem('mp_incidents', incidentCount);
       renderIncidentList();
       renderLists();
-      addTL('Incident: ' + type, new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'}));
+      addTL('Incident: ' + type, '');
       resetIncidentForm();
       showToast('Incident logged');
       setTimeout(function(){ navApp('s-incidents-list'); setNav('nav-incident'); }, 800);
