@@ -367,8 +367,22 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
     </div>
   </div>
 
-  <!-- ASSISTANCE REQUEST -->
-  <div class="screen" id="s-assist" style="min-height:unset;flex:1">
+  <!-- ASSISTANCE LIST -->
+  <div class="screen" id="s-assist" style="min-height:unset;flex:1;display:flex;flex-direction:column">
+    <div class="topbar">
+      <h1>Assistance</h1>
+      <button type="button" class="btn btn-back" style="margin-left:auto;color:#00e5a0;border-color:rgba(0,229,160,0.3)" onclick="loadAssistList()">Refresh</button>
+    </div>
+    <div class="content" style="flex:1;overflow-y:auto;padding-bottom:80px">
+      <div id="assist-list-items"><div style="font-size:13px;color:#555a6a;font-family:monospace;padding:8px 0">No assistance requests yet.</div></div>
+    </div>
+    <div style="position:fixed;bottom:56px;left:0;right:0;padding:10px 14px;background:#0d0f12;border-top:1px solid rgba(255,255,255,0.06)">
+      <button type="button" class="btn btn-d" onclick="navApp('s-assist-form');setNav('nav-assist')">+ Submit New Assistance Request</button>
+    </div>
+  </div>
+
+  <!-- ASSISTANCE FORM -->
+  <div class="screen" id="s-assist-form" style="min-height:unset;flex:1">
     <div class="topbar">
       <button type="button" class="btn btn-back" id="btn-assist-back">Back</button>
       <h1>Request Assistance</h1>
@@ -383,7 +397,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
           <div style="font-size:11px;font-weight:700;color:#00e5a0;letter-spacing:1px;margin-bottom:4px">ACKNOWLEDGED</div>
           <div style="font-family:monospace;font-size:11px;color:#8b90a0" id="assist-ack-by"></div>
         </div>
-        <button type="button" class="btn" style="color:#8b90a0;border-color:rgba(139,144,160,0.3)" onclick="resetAssistForm()">New Request</button>
+        <button type="button" class="btn" style="color:#8b90a0;border-color:rgba(139,144,160,0.3)" onclick="navApp('s-assist');setNav('nav-assist');loadAssistList()">Back to list</button>
       </div>
       <!-- FORM STATE -->
       <div id="assist-form">
@@ -1952,12 +1966,48 @@ var _assistPollInterval = null;
 
 document.getElementById('nav-assist').addEventListener('click', function(){
   navApp('s-assist'); setNav('nav-assist');
-  resetAssistForm();
+  loadAssistList();
 });
 document.getElementById('btn-assist-back').addEventListener('click', function(){
   clearInterval(_assistPollInterval);
-  navApp('s-home'); setNav('nav-home');
+  resetAssistForm();
+  navApp('s-assist'); setNav('nav-assist');
+  loadAssistList();
 });
+
+function loadAssistList() {
+  if (!currentGuardName) return;
+  fetch(SUPABASE_URL+'/rest/v1/assistance_requests?guard_name=eq.'+encodeURIComponent(currentGuardName)+'&order=timestamp.desc&limit=20', {
+    headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+  }).then(function(r){return r.json();}).then(function(data){
+    var el = document.getElementById('assist-list-items');
+    if (!data||!data.length) {
+      el.innerHTML = '<div style="font-size:13px;color:#555a6a;font-family:monospace;padding:8px 0">No assistance requests yet.</div>';
+      return;
+    }
+    el.innerHTML = '';
+    data.forEach(function(r) {
+      var sevColor = r.severity==='Critical'||r.severity==='High' ? '#ff4d4d' : r.severity==='Medium' ? '#ffb020' : '#00e5a0';
+      var time = new Date(r.timestamp).toLocaleString('en-GB',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).replace(',',' ');
+      var card = document.createElement('div');
+      card.style.cssText = 'background:#131720;border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:14px;margin-bottom:10px';
+      var statusHtml = r.acked
+        ? '<span style="font-size:9px;font-weight:700;letter-spacing:1px;padding:2px 8px;border-radius:4px;background:rgba(0,229,160,0.12);color:#00e5a0;border:1px solid rgba(0,229,160,0.25)">ACKNOWLEDGED</span>'
+        : '<span style="font-size:9px;font-weight:700;letter-spacing:1px;padding:2px 8px;border-radius:4px;background:rgba(255,77,77,0.12);color:#ff6b6b;border:1px solid rgba(255,77,77,0.25)">PENDING</span>';
+      card.innerHTML =
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">'+
+          '<div>'+statusHtml+
+            ' <span style="font-size:9px;font-weight:700;letter-spacing:1px;padding:2px 8px;border-radius:4px;color:'+sevColor+';border:1px solid '+sevColor+'44">'+(r.severity||'').toUpperCase()+'</span>'+
+          '</div>'+
+          '<div style="font-family:monospace;font-size:10px;color:#555a6a">'+time+'</div>'+
+        '</div>'+
+        '<div style="font-size:13px;color:#e8eaf0;margin-bottom:4px">'+(r.notes||'')+'</div>'+
+        (r.location?'<div style="font-family:monospace;font-size:11px;color:#555a6a">'+r.location+'</div>':'')+
+        (r.acked?'<div style="font-family:monospace;font-size:10px;color:#00e5a0;margin-top:6px">Acked by '+(r.acked_by||'Monitor')+'</div>':'');
+      el.appendChild(card);
+    });
+  }).catch(function(){});
+}
 
 
 function resetAssistForm() {
@@ -2004,6 +2054,7 @@ document.getElementById('btn-submit-assist').addEventListener('click', function(
       document.getElementById('assist-submitted-status').textContent = 'Awaiting acknowledgment...';
       document.getElementById('assist-submitted-icon').textContent = '📡';
       addTL('Assistance requested', payload.severity);
+      loadAssistList();
       // Poll for acknowledgment
       _assistPollInterval = setInterval(pollAssistAck, 5000);
     } else {
