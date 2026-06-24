@@ -203,7 +203,7 @@ body{
     <div class="stat-card c-blue" onclick="nav('assist')">
       <div class="stat-icon">🛡</div>
       <div class="stat-num" id="stat-assist">--</div>
-      <div class="stat-lbl">ASSISTANCE</div>
+      <div class="stat-lbl">PENDING ASSIST</div>
     </div>
   </div>
 </div>
@@ -240,8 +240,8 @@ body{
   <button class="back-btn" onclick="nav('duty')">
     <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>BACK
   </button>
-  <div class="sec-lbl">ASSISTANCE</div>
-  <div class="empty">Coming soon</div>
+  <div class="sec-lbl">ASSISTANCE REQUESTS</div>
+  <div class="list-scroll" id="assist-list"></div>
 </div>
 
 <!-- MODAL -->
@@ -385,11 +385,40 @@ function showSurv(j){
   openModal('Surveillance Note',mr('Guard',d.guard_name)+mr('Category',d.category)+mr('Note',d.content||d.notes)+mr('Time',fmt(d.created_at)));
 }
 
+function loadAssist(){
+  get('assistance_requests','order=timestamp.desc&limit=50',function(data){
+    var el=document.getElementById('assist-list');
+    if(!data||!data.length){el.innerHTML='<div class="empty">No assistance requests</div>';return;}
+    el.innerHTML=data.map(function(r){
+      var sp=r.acked?'<span class="pill p-green">ACKED</span>':'<span class="pill p-red">PENDING</span>';
+      var sc=r.severity==='High'||r.severity==='Critical'?'p-red':r.severity==='Medium'?'p-amber':'p-green';
+      return '<div class="item">'+
+        '<div class="item-row">'+
+          '<div class="item-title">'+sp+'<span class="pill '+sc+'">'+(r.severity||'').toUpperCase()+'</span>'+(r.guard_name||'Guard')+'</div>'+
+          '<div class="item-time">'+ft(r.timestamp)+'</div>'+
+        '</div>'+
+        '<div class="item-sub">'+(r.notes||'')+(r.location?' · '+r.location:'')+'</div>'+
+        (!r.acked?'<button onclick="ackAssist("'+r.id+'")" style="margin-top:10px;width:100%;padding:10px;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.35);border-radius:8px;color:#a78bfa;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:1px">ACKNOWLEDGE</button>':
+          '<div style="font-family:monospace;font-size:10px;color:#34d399;margin-top:8px">Acknowledged by '+(r.acked_by||'Monitor')+' · '+fmt(r.acked_at)+'</div>')+
+      '</div>';
+    }).join('');
+  });
+}
+
+function ackAssist(id){
+  fetch(SURL+'/rest/v1/assistance_requests?id=eq.'+id,{
+    method:'PATCH',
+    headers:{'apikey':SKEY,'Authorization':'Bearer '+SKEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+    body:JSON.stringify({acked:true,acked_by:'Monitor',acked_at:new Date().toISOString()})
+  }).then(function(){loadAssist();});
+}
+
 function load(){
   if(cur==='duty')loadDuty();
   if(cur==='incidents')loadIncidents();
   if(cur==='help')loadHelp();
   if(cur==='surv')loadSurv();
+  if(cur==='assist')loadAssist();
 }
 
 load();
