@@ -264,6 +264,44 @@ var SURL='https://hzvegzkjogcjqzogxvvm.supabase.co';
 var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh6dmVnemtqb2djanF6b2d4dnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwOTA3NjgsImV4cCI6MjA5NTY2Njc2OH0.jDvCtntJjFd0tp9h5vFHm3xKa6s5HOGAschU-QrnmAE';
 var cur='duty';
 
+var VAPID_PUBLIC_KEY='BM5pCWXwJwq4uIOgKG6SB5QsgaVB6eyJIUg1d3GLvGlfWdTowKFYkE2CtsQR-_-PJbrBfhj-IRykCw0bF0bVx8M';
+
+function urlBase64ToUint8Array(b){
+  var s=b.replace(/-/g,'+').replace(/_/g,'/');
+  var pad='='.repeat((4-s.length%4)%4);
+  var raw=atob(s+pad);
+  var out=new Uint8Array(raw.length);
+  for(var i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);
+  return out;
+}
+
+function registerMonitorPush(){
+  if(!('serviceWorker' in navigator)||!('PushManager' in window))return;
+  navigator.serviceWorker.register('./sw-monitor.js').then(function(reg){
+    return reg.pushManager.getSubscription().then(function(existing){
+      if(existing){saveMonitorSub(existing);return;}
+      return Notification.requestPermission().then(function(perm){
+        if(perm!=='granted')return;
+        return reg.pushManager.subscribe({
+          userVisibleOnly:true,
+          applicationServerKey:urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+        }).then(function(sub){saveMonitorSub(sub);});
+      });
+    });
+  }).catch(function(e){console.warn('Monitor push reg failed:',e);});
+}
+
+function saveMonitorSub(sub){
+  fetch(SURL+'/rest/v1/push_subscriptions',{
+    method:'POST',
+    headers:{'apikey':SKEY,'Authorization':'Bearer '+SKEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
+    body:JSON.stringify({guard_name:'monitor',subscription:sub.toJSON(),role:'monitor'})
+  }).then(function(r){console.log('Monitor push sub saved:',r.status);}).catch(function(e){console.warn('Monitor sub save failed:',e);});
+}
+
+// Register push on load
+window.addEventListener('load',function(){registerMonitorPush();});
+
 function get(t,q,cb){
   fetch(SURL+'/rest/v1/'+t+'?'+q,{headers:{'apikey':SKEY,'Authorization':'Bearer '+SKEY}})
   .then(function(r){return r.json();}).then(cb).catch(function(){cb([]);});
@@ -422,17 +460,32 @@ function loadAssist(){
 
 function ackAssist(btn,id){
   btn.disabled=true;btn.textContent='Acknowledging...';
+  // First fetch the request to get guard_name
   fetch(SURL+'/rest/v1/assistance_requests?id=eq.'+encodeURIComponent(id),{
-    method:'PATCH',
-    headers:{'apikey':SKEY,'Authorization':'Bearer '+SKEY,'Content-Type':'application/json','Prefer':'return=minimal'},
-    body:JSON.stringify({acked:true,acked_by:'Monitor',acked_at:new Date().toISOString()})
-  }).then(function(r){
-    if(r.ok||r.status===204||r.status===200){loadAssist();}
-    else{
-      r.text().then(function(t){console.error('Ack failed:',r.status,t);});
-      btn.disabled=false;btn.textContent='ACKNOWLEDGE';
-    }
-  }).catch(function(e){console.error('Ack error:',e);btn.disabled=false;btn.textContent='ACKNOWLEDGE';});
+    headers:{'apikey':SKEY,'Authorization':'Bearer '+SKEY}
+  }).then(function(r){return r.json();}).then(function(data){
+    var guardName = data&&data[0]?data[0].guard_name:null;
+    fetch(SURL+'/rest/v1/assistance_requests?id=eq.'+encodeURIComponent(id),{
+      method:'PATCH',
+      headers:{'apikey':SKEY,'Authorization':'Bearer '+SKEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+      body:JSON.stringify({acked:true,acked_by:'Monitor',acked_at:new Date().toISOString()})
+    }).then(function(r){
+      if(r.ok||r.status===204||r.status===200){
+        loadAssist();
+        // Push to the specific guard
+        if(guardName){
+          fetch(SURL+'/functions/v1/send-push',{
+            method:'POST',
+            headers:{'apikey':SKEY,'Authorization':'Bearer '+SKEY,'Content-Type':'application/json'},
+            body:JSON.stringify({title:'Assistance Acknowledged',body:'Your request has been acknowledged. Help is on the way.',role:'guard',guard_name:guardName})
+          }).catch(function(){});
+        }
+      } else {
+        r.text().then(function(t){console.error('Ack failed:',r.status,t);});
+        btn.disabled=false;btn.textContent='ACKNOWLEDGE';
+      }
+    }).catch(function(e){console.error('Ack error:',e);btn.disabled=false;btn.textContent='ACKNOWLEDGE';});
+  }).catch(function(e){console.error('Fetch error:',e);btn.disabled=false;btn.textContent='ACKNOWLEDGE';});
 }
 
 function load(){

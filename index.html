@@ -658,7 +658,7 @@ function savePushSubscription(guardName, sub) {
       'Content-Type': 'application/json',
       'Prefer': 'resolution=merge-duplicates,return=minimal'
     },
-    body: JSON.stringify({ guard_name: guardName, subscription: sub.toJSON() })
+    body: JSON.stringify({ guard_name: guardName, subscription: sub.toJSON(), role: 'guard' })
   }).catch(function(){});
 }
 
@@ -2055,6 +2055,12 @@ document.getElementById('btn-submit-assist').addEventListener('click', function(
       document.getElementById('assist-submitted-icon').textContent = '📡';
       addTL('Assistance requested', payload.severity);
       loadAssistList();
+      // Notify monitor
+      fetch(SUPABASE_URL+'/functions/v1/send-push', {
+        method:'POST',
+        headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY},
+        body:JSON.stringify({title:'Assistance Request',body:currentGuardName+' — '+payload.severity+(payload.notes?' · '+payload.notes.substring(0,60):''),role:'monitor'})
+      }).catch(function(){});
       // Poll for acknowledgment
       _assistPollInterval = setInterval(pollAssistAck, 5000);
     } else {
@@ -2314,6 +2320,12 @@ document.getElementById('btn-submit-incident').addEventListener('click', functio
       addTL('Incident: ' + type, '');
       resetIncidentForm();
       showToast('Incident logged');
+      // Notify monitor
+      fetch(SUPABASE_URL+'/functions/v1/send-push', {
+        method:'POST',
+        headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY},
+        body:JSON.stringify({title:'Incident Reported',body:currentGuardName+' — '+type+' ('+sev+')'+(loc?' · '+loc:''),role:'monitor'})
+      }).catch(function(){});
       setTimeout(function(){ navApp('s-incidents-list'); setNav('nav-incident'); }, 800);
     }).catch(function() { showToast('Save failed'); });
   }
