@@ -2015,10 +2015,12 @@ document.getElementById('btn-submit-incident').addEventListener('click', functio
 
 // TIMELINE
 function addTL(title, meta) {
+  var now = new Date();
+  var timeStr = now.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
   var list=document.getElementById('timeline-list');
   var item=document.createElement('div');
   item.className='tl-item';
-  item.innerHTML='<div class="tl-dot"></div><div><div style="font-size:13px;font-weight:500">'+title+'</div><div style="font-family:monospace;font-size:11px;color:#555a6a">'+meta+'</div></div>';
+  item.innerHTML='<div class="tl-dot"></div><div><div style="font-size:13px;font-weight:500">'+title+'</div><div style="font-family:monospace;font-size:11px;color:#555a6a">'+timeStr+(meta?' · '+meta:'')+'</div></div>';
   list.appendChild(item);
 }
 
