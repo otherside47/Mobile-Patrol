@@ -543,33 +543,25 @@ var VAPID_PUBLIC_KEY = 'BM5pCWXwJwq4uIOgKG6SB5QsgaVB6eyJIUg1d3GLvGlfWdTowKFYkE2C
 // Register service worker and subscribe to Web Push notifications.
 // Called after the guard logs in so we have their name to store with the subscription.
 function registerPushNotifications(guardName) {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    showToast('Push not supported on this device');
-    return;
-  }
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
   navigator.serviceWorker.register('./sw.js').then(function(reg) {
-    showToast('SW registered, subscribing...');
     return reg.pushManager.getSubscription().then(function(existing) {
-      var unsub = existing ? existing.unsubscribe() : Promise.resolve(true);
-      return unsub.then(function() {
-        return Notification.requestPermission().then(function(perm) {
-          if (perm !== 'granted') { showToast('Notification permission denied'); return; }
-          var rawKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
-          return reg.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: rawKey
-          }).then(function(sub) {
-            showToast('Subscribed! Saving...');
-            savePushSubscription(guardName, sub);
-          }).catch(function(e) {
-            showToast('Subscribe failed: '+e.message);
-          });
+      if (existing) {
+        savePushSubscription(guardName, existing);
+        return;
+      }
+      return Notification.requestPermission().then(function(perm) {
+        if (perm !== 'granted') return;
+        var rawKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+        return reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: rawKey
+        }).then(function(sub) {
+          savePushSubscription(guardName, sub);
         });
       });
     });
-  }).catch(function(e) {
-    showToast('SW register failed: '+e.message);
-  });
+  }).catch(function(e) { console.warn('Push registration failed:', e); });
 }
 
 function savePushSubscription(guardName, sub) {
@@ -582,11 +574,7 @@ function savePushSubscription(guardName, sub) {
       'Prefer': 'resolution=merge-duplicates,return=minimal'
     },
     body: JSON.stringify({ guard_name: guardName, subscription: sub.toJSON() })
-  }).then(function(r){
-    showToast('Push ready ✓ ('+r.status+')');
-  }).catch(function(e){
-    showToast('Push save failed: '+e.message);
-  });
+  }).catch(function(){});
 }
 
 function urlBase64ToUint8Array(base64String) {
