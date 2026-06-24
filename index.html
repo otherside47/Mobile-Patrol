@@ -507,6 +507,13 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
       <div id="mp-alert-translation-text" style="margin-top:4px;color:#c8cad4"></div>
     </div>
 
+    <div id="mp-alert-navigate" style="display:none;margin-top:10px">
+      <a id="btn-navigate-mp" href="#" target="_blank"
+         style="display:block;text-align:center;background:#1c2030;color:#4da3ff;border:1px solid rgba(77,163,255,0.3);border-radius:8px;padding:10px;font-size:13px;font-weight:700;text-decoration:none;letter-spacing:1px">
+        🗺 NAVIGATE
+      </a>
+    </div>
+
     <div class="alert-row">
       <button type="button" style="background:#1c2030;color:#8b90a0" id="btn-dismiss-mp-alert">Dismiss</button>
       <button type="button" style="background:#00e5a0;color:#0d0f12" id="btn-ack-mp-alert">Acknowledge</button>
@@ -992,6 +999,15 @@ function showMPAlert(mp) {
     (mp.notes ? '<span>Notes:</span> '+mp.notes+'<br>' : '')+
     '<span>Time:</span> '+time;
   document.getElementById('mp-alert-modal').classList.add('open');
+  // Navigate button — only shown when GPS coordinates are present
+  var navDiv = document.getElementById('mp-alert-navigate');
+  var navBtn = document.getElementById('btn-navigate-mp');
+  if (mp.gps_lat && mp.gps_lng) {
+    navBtn.href = 'https://maps.google.com/maps?daddr=' + mp.gps_lat + ',' + mp.gps_lng;
+    navDiv.style.display = 'block';
+  } else {
+    navDiv.style.display = 'none';
+  }
   playMPSound();
   // Fetch Russian translation via MyMemory API — free, no key required
   var transEl = document.getElementById('mp-alert-translation');
