@@ -567,16 +567,25 @@ function registerPushNotifications(guardName) {
 }
 
 function savePushSubscription(guardName, sub) {
-  fetch(SUPABASE_URL+'/rest/v1/push_subscriptions', {
-    method: 'POST',
-    headers: {
-      'apikey': SUPABASE_KEY,
-      'Authorization': 'Bearer '+SUPABASE_KEY,
-      'Content-Type': 'application/json',
-      'Prefer': 'resolution=merge-duplicates,return=minimal'
-    },
-    body: JSON.stringify({ guard_name: guardName, subscription: sub.toJSON() })
-  }).catch(function(){});
+  var endpoint = sub.toJSON().endpoint;
+  // First remove any subscription from a different guard on this same device,
+  // then upsert this guard's subscription — prevents duplicate pushes when
+  // multiple guards log in on the same iPhone.
+  fetch(SUPABASE_URL+'/rest/v1/push_subscriptions?subscription->>endpoint=eq.'+encodeURIComponent(endpoint)+'&guard_name=neq.'+encodeURIComponent(guardName), {
+    method: 'DELETE',
+    headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+  }).finally(function(){
+    fetch(SUPABASE_URL+'/rest/v1/push_subscriptions', {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': 'Bearer '+SUPABASE_KEY,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates,return=minimal'
+      },
+      body: JSON.stringify({ guard_name: guardName, subscription: sub.toJSON() })
+    }).catch(function(){});
+  });
 }
 
 function urlBase64ToUint8Array(base64String) {
@@ -1479,8 +1488,13 @@ function doStartShift(type, label, startDate, endDate, isContinue) {
   showToast('Shift started');
   sbGet('help_requests','order=timestamp.desc&limit=50',function(data) {
     if (data&&data.length) {
+      // Only mark already-acknowledged requests as seen so they don't re-alert.
+      // Unacknowledged ones that arrived while the guard was away will still
+      // trigger the alert popup when the first poll fires.
       for (var i=0;i<data.length;i++) {
-        seenRequestIds[data[i].id]=true;
+        if (data[i].acked) {
+          seenRequestIds[data[i].id]=true;
+        }
         lastSeenRequestId=data[i].id;
       }
     }
