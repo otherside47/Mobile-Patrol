@@ -1,0 +1,13 @@
+{
+  "name": "MP Help Request",
+  "short_name": "Help Request",
+  "start_url": "./reporter-app.html",
+  "display": "standalone",
+  "background_color": "#0d0f12",
+  "theme_color": "#0d0f12",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "./icon-192-reporter.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "./icon-512-reporter.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
