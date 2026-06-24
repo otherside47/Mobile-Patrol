@@ -546,20 +546,19 @@ function registerPushNotifications(guardName) {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
   navigator.serviceWorker.register('./sw.js').then(function(reg) {
     return reg.pushManager.getSubscription().then(function(existing) {
-      if (existing) {
-        // Already subscribed — save to Supabase in case it's a new device/login
-        savePushSubscription(guardName, existing);
-        return;
-      }
-      // Ask for permission and subscribe
-      return Notification.requestPermission().then(function(perm) {
-        if (perm !== 'granted') return;
-        var rawKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
-        return reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: rawKey
-        }).then(function(sub) {
-          savePushSubscription(guardName, sub);
+      // Always get a fresh subscription — unsubscribe first if one exists.
+      // This ensures we never send to a stale/expired Apple push endpoint.
+      var unsub = existing ? existing.unsubscribe() : Promise.resolve(true);
+      return unsub.then(function() {
+        return Notification.requestPermission().then(function(perm) {
+          if (perm !== 'granted') { console.warn('Push permission denied'); return; }
+          var rawKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+          return reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: rawKey
+          }).then(function(sub) {
+            savePushSubscription(guardName, sub);
+          });
         });
       });
     });
