@@ -72,15 +72,15 @@ body{
   display:grid;
   grid-template-columns:1fr 1fr;
   grid-template-rows:1fr 1fr;
-  gap:10px;
+  gap:8px;
   flex:1;
   min-height:0;
 }
 .stat-card{
   background:linear-gradient(145deg,#151c27,#111620);
   border:1px solid rgba(255,255,255,0.06);
-  border-radius:16px;
-  padding:22px 20px;
+  border-radius:14px;
+  padding:14px 16px;
   cursor:pointer;
   display:flex;flex-direction:column;justify-content:flex-end;
   transition:border-color 0.2s,background 0.2s;
@@ -100,9 +100,9 @@ body{
 .stat-card:active{border-color:rgba(255,255,255,0.18);background:linear-gradient(145deg,#1a2130,#151c27)}
 
 .stat-num{
-  font-size:44px;font-weight:800;
+  font-size:38px;font-weight:800;
   font-family:monospace;
-  line-height:1;margin-bottom:8px;
+  line-height:1;margin-bottom:6px;
 }
 .stat-card.c-red .stat-num{color:#f87171}
 .stat-card.c-amber .stat-num{color:#fbbf24}
@@ -183,7 +183,10 @@ body{
     <div class="live-dot"></div>
     <div class="hdr-title">MP MONITOR</div>
   </div>
-  <div class="hdr-time" id="hdr-time">--:--:--</div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <button id="monitor-notif-btn" onclick="registerMonitorPush()" style="display:none;background:#ffb020;color:#0d0f12;border:none;border-radius:6px;padding:5px 10px;font-size:10px;font-weight:700;cursor:pointer;letter-spacing:1px">ENABLE ALERTS</button>
+    <div class="hdr-time" id="hdr-time">--:--:--</div>
+  </div>
 </div>
 
 <!-- HOME -->
@@ -277,11 +280,16 @@ function urlBase64ToUint8Array(b){
 
 function registerMonitorPush(){
   if(!('serviceWorker' in navigator)||!('PushManager' in window))return;
+  // Show button if permission not granted yet
+  if(Notification.permission !== 'granted'){
+    document.getElementById('monitor-notif-btn').style.display = 'block';
+  }
   navigator.serviceWorker.register('./sw-monitor.js').then(function(reg){
     return reg.pushManager.getSubscription().then(function(existing){
       if(existing){saveMonitorSub(existing);return;}
       return Notification.requestPermission().then(function(perm){
         if(perm!=='granted')return;
+        document.getElementById('monitor-notif-btn').style.display = 'none';
         return reg.pushManager.subscribe({
           userVisibleOnly:true,
           applicationServerKey:urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
@@ -363,6 +371,7 @@ function loadDuty(){
   get('incidents','select=id',function(d){document.getElementById('stat-inc').textContent=(d||[]).length;});
   get('help_requests','select=id,acked',function(d){document.getElementById('stat-help').textContent=(d||[]).filter(function(r){return !r.acked;}).length;});
   get('surveillance_notes','select=id',function(d){document.getElementById('stat-surv').textContent=(d||[]).length;});
+  get('assistance_requests','select=id,acked',function(d){document.getElementById('stat-assist').textContent=(d||[]).filter(function(r){return !r.acked;}).length;});
 }
 
 function loadIncidents(){
