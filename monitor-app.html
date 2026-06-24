@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>MP Monitor</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+
+body{
+  background:#0e1117;
+  color:#dde1ec;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  height:100dvh;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+
+/* HEADER */
+.hdr{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 18px 12px;
+  flex-shrink:0;
+}
+.hdr-left{display:flex;align-items:center;gap:9px}
+.live-dot{
+  width:8px;height:8px;border-radius:50%;
+  background:#34d399;box-shadow:0 0 8px #34d39966;
+  animation:blink 2.5s infinite;flex-shrink:0;
+}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.25}}
+.hdr-title{font-size:14px;font-weight:700;letter-spacing:2px;color:#dde1ec}
+.hdr-time{font-family:monospace;font-size:12px;color:#4b5263}
+
+/* HOME SCREEN — fills viewport */
+#s-duty{
+  display:flex;flex-direction:column;
+  flex:1;overflow:hidden;
+  padding:0 12px 12px;
+}
+
+/* DUTY CARD — compact */
+.duty-card{
+  background:linear-gradient(135deg,#151c27,#111620);
+  border:1px solid rgba(52,211,153,0.2);
+  border-radius:14px;
+  padding:10px 14px;
+  position:relative;
+  flex-shrink:0;
+}
+.duty-card-name{font-size:17px;font-weight:800;letter-spacing:0.5px;margin-bottom:1px}
+.duty-shift-row{display:flex;align-items:center;gap:7px;margin-bottom:3px}
+.duty-dot{width:8px;height:8px;border-radius:50%;background:#34d399;flex-shrink:0}
+.duty-shift-lbl{font-size:10px;font-weight:700;letter-spacing:2px;color:#fbbf24}
+.duty-meta{font-family:monospace;font-size:10px;color:#4b5263;line-height:1.5}
+.duty-badge{
+  position:absolute;top:14px;right:14px;
+  font-size:9px;font-weight:700;letter-spacing:1.5px;
+  padding:4px 10px;border-radius:20px;
+  border:1px solid rgba(52,211,153,0.4);
+  color:#34d399;background:rgba(52,211,153,0.08);
+}
+
+/* STATS GRID — fills remaining space */
+.stats-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  grid-template-rows:1fr 1fr;
+  gap:10px;
+  flex:1;
+  min-height:0;
+}
+.stat-card{
+  background:linear-gradient(145deg,#151c27,#111620);
+  border:1px solid rgba(255,255,255,0.06);
+  border-radius:16px;
+  padding:22px 20px;
+  cursor:pointer;
+  display:flex;flex-direction:column;justify-content:flex-end;
+  transition:border-color 0.2s,background 0.2s;
+  position:relative;
+  overflow:hidden;
+}
+.stat-card::before{
+  content:'';position:absolute;
+  top:0;left:0;right:0;height:2px;
+  border-radius:16px 16px 0 0;
+  opacity:0.6;
+}
+.stat-card.c-red::before{background:#f87171}
+.stat-card.c-amber::before{background:#fbbf24}
+.stat-card.c-green::before{background:#34d399}
+.stat-card.c-blue::before{background:#60a5fa}
+.stat-card:active{border-color:rgba(255,255,255,0.18);background:linear-gradient(145deg,#1a2130,#151c27)}
+
+.stat-num{
+  font-size:44px;font-weight:800;
+  font-family:monospace;
+  line-height:1;margin-bottom:8px;
+}
+.stat-card.c-red .stat-num{color:#f87171}
+.stat-card.c-amber .stat-num{color:#fbbf24}
+.stat-card.c-green .stat-num{color:#34d399}
+.stat-card.c-blue .stat-num{color:#60a5fa}
+.stat-lbl{font-size:9px;font-weight:700;letter-spacing:2px;color:#4b5263}
+.stat-icon{font-size:22px;position:absolute;top:18px;right:18px;opacity:0.25}
+
+/* DETAIL SCREENS */
+.detail-screen{
+  display:none;flex-direction:column;
+  flex:1;overflow:hidden;
+  padding:0 12px 12px;
+}
+.detail-screen.active{display:flex}
+
+.back-btn{
+  display:flex;align-items:center;gap:6px;
+  background:none;border:none;
+  color:#4b5263;font-size:11px;font-weight:700;letter-spacing:1px;
+  cursor:pointer;padding:0 0 12px;flex-shrink:0;
+}
+.back-btn svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.sec-lbl{font-size:9px;font-weight:700;letter-spacing:2px;color:#4b5263;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.05);flex-shrink:0}
+
+.list-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.list-scroll::-webkit-scrollbar{display:none}
+
+/* LIST ITEMS */
+.item{
+  background:linear-gradient(145deg,#151c27,#111620);
+  border:1px solid rgba(255,255,255,0.06);
+  border-radius:12px;padding:14px;margin-bottom:8px;
+  cursor:pointer;transition:border-color 0.15s;
+}
+.item:active{border-color:rgba(52,211,153,0.35)}
+.item-row{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:4px}
+.item-title{font-size:13px;font-weight:600;flex:1;color:#dde1ec}
+.item-time{font-family:monospace;font-size:10px;color:#4b5263;white-space:nowrap}
+.item-sub{font-family:monospace;font-size:11px;color:#4b5263;line-height:1.5}
+
+/* PILLS */
+.pill{display:inline-block;font-size:9px;font-weight:700;letter-spacing:1px;padding:2px 8px;border-radius:20px;margin-right:5px}
+.p-red{background:rgba(248,113,113,0.12);color:#f87171;border:1px solid rgba(248,113,113,0.25)}
+.p-amber{background:rgba(251,191,36,0.12);color:#fbbf24;border:1px solid rgba(251,191,36,0.25)}
+.p-green{background:rgba(52,211,153,0.12);color:#34d399;border:1px solid rgba(52,211,153,0.25)}
+.p-blue{background:rgba(96,165,250,0.12);color:#60a5fa;border:1px solid rgba(96,165,250,0.25)}
+.p-violet{background:rgba(167,139,250,0.12);color:#a78bfa;border:1px solid rgba(167,139,250,0.25)}
+
+/* MODAL */
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:500;align-items:flex-end;justify-content:center}
+.modal.open{display:flex}
+.modal-box{
+  background:#151c27;border:1px solid rgba(255,255,255,0.08);
+  border-radius:20px 20px 0 0;
+  padding:20px 18px 44px;
+  width:100%;max-width:520px;max-height:80vh;overflow-y:auto;
+}
+.modal-handle{width:36px;height:3px;background:rgba(255,255,255,0.1);border-radius:2px;margin:0 auto 20px}
+.modal-title{font-size:16px;font-weight:800;margin-bottom:18px;color:#dde1ec}
+.modal-row{display:flex;gap:12px;margin-bottom:12px}
+.modal-lbl{font-family:monospace;font-size:11px;color:#4b5263;min-width:76px;padding-top:1px}
+.modal-val{font-family:monospace;font-size:11px;color:#dde1ec;flex:1;line-height:1.6}
+.modal-close{
+  width:100%;margin-top:20px;padding:14px;
+  background:#0e1117;border:1px solid rgba(255,255,255,0.07);
+  border-radius:12px;color:#4b5263;font-size:13px;font-weight:600;cursor:pointer;
+}
+
+.empty{text-align:center;padding:60px 20px;color:#4b5263;font-size:12px;letter-spacing:1px}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="hdr-left">
+    <div class="live-dot"></div>
+    <div class="hdr-title">MP MONITOR</div>
+  </div>
+  <div class="hdr-time" id="hdr-time">--:--:--</div>
+</div>
+
+<!-- HOME -->
+<div id="s-duty" style="display:flex;flex-direction:column;flex:1;overflow:hidden;padding:0 12px 12px">
+  <div id="duty-list" style="flex-shrink:0;margin-bottom:10px;max-height:28vh;overflow:hidden"></div>
+  <div class="stats-grid">
+    <div class="stat-card c-red" onclick="nav('incidents')">
+      <div class="stat-icon">⚠️</div>
+      <div class="stat-num" id="stat-inc">-</div>
+      <div class="stat-lbl">INCIDENTS</div>
+    </div>
+    <div class="stat-card c-amber" onclick="nav('help')">
+      <div class="stat-icon">🆘</div>
+      <div class="stat-num" id="stat-help">-</div>
+      <div class="stat-lbl">UNACKED REQUESTS</div>
+    </div>
+    <div class="stat-card c-green" onclick="nav('surv')">
+      <div class="stat-icon">👁</div>
+      <div class="stat-num" id="stat-surv">-</div>
+      <div class="stat-lbl">SURV. NOTES</div>
+    </div>
+    <div class="stat-card c-blue" onclick="nav('assist')">
+      <div class="stat-icon">🛡</div>
+      <div class="stat-num" id="stat-assist">--</div>
+      <div class="stat-lbl">ASSISTANCE</div>
+    </div>
+  </div>
+</div>
+
+<!-- INCIDENTS -->
+<div id="s-incidents" class="detail-screen">
+  <button class="back-btn" onclick="nav('duty')">
+    <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>BACK
+  </button>
+  <div class="sec-lbl">INCIDENTS</div>
+  <div class="list-scroll" id="inc-list"></div>
+</div>
+
+<!-- HELP -->
+<div id="s-help" class="detail-screen">
+  <button class="back-btn" onclick="nav('duty')">
+    <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>BACK
+  </button>
+  <div class="sec-lbl">HELP REQUESTS</div>
+  <div class="list-scroll" id="help-list"></div>
+</div>
+
+<!-- SURV -->
+<div id="s-surv" class="detail-screen">
+  <button class="back-btn" onclick="nav('duty')">
+    <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>BACK
+  </button>
+  <div class="sec-lbl">SURVEILLANCE NOTES</div>
+  <div class="list-scroll" id="surv-list"></div>
+</div>
+
+<!-- ASSIST -->
+<div id="s-assist" class="detail-screen">
+  <button class="back-btn" onclick="nav('duty')">
+    <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>BACK
+  </button>
+  <div class="sec-lbl">ASSISTANCE</div>
+  <div class="empty">Coming soon</div>
+</div>
+
+<!-- MODAL -->
+<div class="modal" id="modal">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modal-title"></div>
+    <div id="modal-body"></div>
+    <button class="modal-close" onclick="closeModal()">Close</button>
+  </div>
+</div>
+
+<script>
+var SURL='https://hzvegzkjogcjqzogxvvm.supabase.co';
+var SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh6dmVnemtqb2djanF6b2d4dnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwOTA3NjgsImV4cCI6MjA5NTY2Njc2OH0.jDvCtntJjFd0tp9h5vFHm3xKa6s5HOGAschU-QrnmAE';
+var cur='duty';
+
+function get(t,q,cb){
+  fetch(SURL+'/rest/v1/'+t+'?'+q,{headers:{'apikey':SKEY,'Authorization':'Bearer '+SKEY}})
+  .then(function(r){return r.json();}).then(cb).catch(function(){cb([]);});
+}
+function fmt(ts){
+  if(!ts)return '--';
+  var d=new Date(ts);
+  return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})+' '+
+         d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+}
+function ft(ts){
+  if(!ts)return '--';
+  return new Date(ts).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+}
+
+setInterval(function(){
+  document.getElementById('hdr-time').textContent=
+    new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+},1000);
+
+function nav(name){
+  document.getElementById('s-duty').style.display='none';
+  document.querySelectorAll('.detail-screen').forEach(function(s){s.classList.remove('active');});
+  if(name==='duty'){
+    document.getElementById('s-duty').style.display='flex';
+  } else {
+    document.getElementById('s-'+name).classList.add('active');
+  }
+  cur=name;load();
+}
+
+function openModal(title,html){
+  document.getElementById('modal-title').textContent=title;
+  document.getElementById('modal-body').innerHTML=html;
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal(){document.getElementById('modal').classList.remove('open');}
+function mr(l,v){
+  if(!v)return '';
+  return '<div class="modal-row"><div class="modal-lbl">'+l+'</div><div class="modal-val">'+v+'</div></div>';
+}
+
+function loadDuty(){
+  get('active_shifts','status=eq.active&order=started_at.desc',function(data){
+    var el=document.getElementById('duty-list');
+    if(!data||!data.length){
+      el.innerHTML='<div style="font-family:monospace;font-size:12px;color:#4b5263;padding:14px 0">No guards currently on duty</div>';
+      return;
+    }
+    el.innerHTML=data.map(function(s){
+      return '<div class="duty-card">'+
+        '<div class="duty-badge">ON DUTY</div>'+
+        '<div class="duty-card-name">'+s.guard_name+'</div>'+
+        '<div class="duty-shift-row"><div class="duty-dot"></div><div class="duty-shift-lbl">'+(s.shift_label||s.shift_type||'SHIFT')+'</div></div>'+
+        '<div class="duty-meta">'+
+          (s.shift_label&&s.start_date?s.shift_label+': '+s.start_date+' '+(s.start_time||'')+' to '+(s.end_time||'')+'<br>':'')+
+          'Started '+fmt(s.started_at)+
+        '</div>'+
+      '</div>';
+    }).join('');
+  });
+  get('incidents','select=id',function(d){document.getElementById('stat-inc').textContent=(d||[]).length;});
+  get('help_requests','select=id,acked',function(d){document.getElementById('stat-help').textContent=(d||[]).filter(function(r){return !r.acked;}).length;});
+  get('surveillance_notes','select=id',function(d){document.getElementById('stat-surv').textContent=(d||[]).length;});
+}
+
+function loadIncidents(){
+  get('incidents','order=timestamp.desc&limit=50',function(data){
+    var el=document.getElementById('inc-list');
+    if(!data||!data.length){el.innerHTML='<div class="empty">No incidents reported</div>';return;}
+    el.innerHTML=data.map(function(i){
+      var pc=i.severity==='High'?'p-red':i.severity==='Medium'?'p-amber':'p-green';
+      return '<div class="item" onclick=\'showInc('+JSON.stringify(JSON.stringify(i))+')\'>'+
+        '<div class="item-row"><div class="item-title"><span class="pill '+pc+'">'+(i.severity||'').toUpperCase()+'</span>'+(i.type||'Incident')+'</div><div class="item-time">'+ft(i.timestamp)+'</div></div>'+
+        '<div class="item-sub">'+(i.guard_name||'')+(i.location?' · '+i.location:'')+'</div>'+
+      '</div>';
+    }).join('');
+  });
+}
+function showInc(j){
+  var d=JSON.parse(j);
+  var pc=d.severity==='High'?'p-red':d.severity==='Medium'?'p-amber':'p-green';
+  openModal(d.type||'Incident',mr('Guard',d.guard_name)+mr('Type',d.type)+
+    '<div class="modal-row"><div class="modal-lbl">Severity</div><div class="modal-val"><span class="pill '+pc+'">'+(d.severity||'').toUpperCase()+'</span></div></div>'+
+    mr('Location',d.location)+mr('Notes',d.notes)+mr('Time',fmt(d.timestamp)));
+}
+
+function loadHelp(){
+  get('help_requests','order=timestamp.desc&limit=50',function(data){
+    var el=document.getElementById('help-list');
+    if(!data||!data.length){el.innerHTML='<div class="empty">No help requests</div>';return;}
+    el.innerHTML=data.map(function(r){
+      var sp=r.acked?'<span class="pill p-green">ACKED</span>':'<span class="pill p-red">OPEN</span>';
+      return '<div class="item" onclick=\'showHelp('+JSON.stringify(JSON.stringify(r))+')\'>'+
+        '<div class="item-row"><div class="item-title">'+sp+(r.type||'Help Request')+'</div><div class="item-time">'+ft(r.timestamp)+'</div></div>'+
+        '<div class="item-sub">'+(r.name||'Unknown')+(r.loc_desc?' · '+r.loc_desc:'')+'</div>'+
+      '</div>';
+    }).join('');
+  });
+}
+function showHelp(j){
+  var d=JSON.parse(j);
+  var uc=d.urgency==='critical'?'p-red':d.urgency==='high'?'p-amber':'p-blue';
+  openModal(d.type||'Help Request',mr('From',d.name)+mr('Type',d.type)+
+    '<div class="modal-row"><div class="modal-lbl">Urgency</div><div class="modal-val"><span class="pill '+uc+'">'+(d.urgency||'').toUpperCase()+'</span></div></div>'+
+    mr('Location',d.loc_desc)+mr('Notes',d.notes)+mr('Status',d.acked?'Acknowledged by '+d.acked_by:'Open')+mr('Time',fmt(d.timestamp)));
+}
+
+function loadSurv(){
+  get('surveillance_notes','order=created_at.desc&limit=50',function(data){
+    var el=document.getElementById('surv-list');
+    if(!data||!data.length){el.innerHTML='<div class="empty">No surveillance notes</div>';return;}
+    el.innerHTML=data.map(function(n){
+      var txt=(n.content||n.notes||'');
+      return '<div class="item" onclick=\'showSurv('+JSON.stringify(JSON.stringify(n))+')\'>'+
+        '<div class="item-row"><div class="item-title"><span class="pill p-violet">'+(n.category||'NOTE').toUpperCase()+'</span>'+(n.guard_name||'')+'</div><div class="item-time">'+ft(n.created_at)+'</div></div>'+
+        '<div class="item-sub">'+txt.substring(0,70)+(txt.length>70?'...':'')+'</div>'+
+      '</div>';
+    }).join('');
+  });
+}
+function showSurv(j){
+  var d=JSON.parse(j);
+  openModal('Surveillance Note',mr('Guard',d.guard_name)+mr('Category',d.category)+mr('Note',d.content||d.notes)+mr('Time',fmt(d.created_at)));
+}
+
+function load(){
+  if(cur==='duty')loadDuty();
+  if(cur==='incidents')loadIncidents();
+  if(cur==='help')loadHelp();
+  if(cur==='surv')loadSurv();
+}
+
+load();
+setInterval(load,15000);
+</script>
+</body>
+</html>
