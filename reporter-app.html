@@ -74,7 +74,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
         <option value="medium">Medium — non-urgent assistance</option>
       </select>
 
-      <label class="fl">Your location (describe)</label>
+      <label class="fl">Your location <span style="color:#555a6a;font-size:11px">(optional — GPS is included automatically)</span></label>
       <input type="text" id="location-desc" placeholder="e.g. 2nd floor corridor, near Room 204">
 
       <label class="fl">Additional details</label>
@@ -175,7 +175,7 @@ async function submitRequest() {
   const notes = document.getElementById('incident-notes').value.trim();
 
   if (!name) { showToast('Please enter your name'); return; }
-  if (!locDesc) { showToast('Please describe your location'); return; }
+  
   // GPS is optional - warn but allow submission without it
   if (!currentGPS) {
     var confirmSend = confirm('GPS location not available. Send help request without GPS coordinates?');
