@@ -194,31 +194,25 @@ async function submitRequest() {
   };
 
   try {
-    const response = await fetch(SUPABASE_URL + '/rest/v1/help_requests', {
+    // Single edge function call — saves to DB and sends push server-side.
+    // This avoids browser CORS restrictions that blocked push from reporter app.
+    const response = await fetch(SUPABASE_URL + '/functions/v1/submit-help-request', {
       method: 'POST',
       headers: {
         'apikey': SUPABASE_KEY,
         'Authorization': 'Bearer ' + SUPABASE_KEY,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=minimal'
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify(request)
     });
 
     if (response.ok || response.status === 201) {
-      // Push notification to all guards so they're alerted even if app is closed
-      var pushBody = (request.name || 'Guard') + ' — ' + (request.type || 'Help request') + (request.loc_desc ? ': ' + request.loc_desc : '');
-      fetch(SUPABASE_URL + '/functions/v1/send-push', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY},
-        body: JSON.stringify({ title: '🚨 Help Request', body: pushBody })
-      }).catch(function(){});
       document.getElementById('form-section').style.display = 'none';
       document.getElementById('success-section').style.display = 'flex';
     } else {
       const err = await response.text();
       showToast('⚠ Failed to send. Please try again.');
-      console.error('Supabase error:', err);
+      console.error('Error:', err);
     }
   } catch (e) {
     showToast('⚠ Network error. Please try again.');
