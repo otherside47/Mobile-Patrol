@@ -443,6 +443,7 @@ function loadAssist(){
     data.forEach(function(r){
       var div=document.createElement('div');
       div.className='item';
+      div.style.cursor='pointer';
       var sp=r.acked?'<span class="pill p-green">ACKED</span>':'<span class="pill p-red">PENDING</span>';
       var sc=r.severity==='High'||r.severity==='Critical'?'p-red':r.severity==='Medium'?'p-amber':'p-green';
       div.innerHTML=
@@ -450,53 +451,111 @@ function loadAssist(){
           '<div class="item-title">'+sp+'<span class="pill '+sc+'">'+(r.severity||'').toUpperCase()+'</span> '+(r.guard_name||'Guard')+'</div>'+
           '<div class="item-time">'+ft(r.timestamp)+'</div>'+
         '</div>'+
-        '<div class="item-sub">'+(r.notes||'')+(r.location?' - '+r.location:'')+'</div>';
-      if(!r.acked){
-        var btn=document.createElement('button');
-        btn.textContent='ACKNOWLEDGE';
-        btn.style.cssText='margin-top:10px;width:100%;padding:10px;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.35);border-radius:8px;color:#a78bfa;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:1px';
-        btn.addEventListener('click',function(){ackAssist(btn,r.id);});
-        div.appendChild(btn);
-      } else {
-        var ackDiv=document.createElement('div');
-        ackDiv.style.cssText='font-family:monospace;font-size:10px;color:#34d399;margin-top:8px';
-        ackDiv.textContent='Acknowledged by '+(r.acked_by||'Monitor')+' - '+fmt(r.acked_at);
-        div.appendChild(ackDiv);
-      }
+        '<div class="item-sub">'+(r.notes||'')+(r.location?' - '+r.location:'')+'</div>'+
+        '<div style="font-family:monospace;font-size:10px;color:#60a5fa;margin-top:6px">Tap to open chat</div>';
+      div.addEventListener('click',function(){openMonChat(r);});
       el.appendChild(div);
     });
   });
 }
 
-function ackAssist(btn,id){
-  btn.disabled=true;btn.textContent='Acknowledging...';
-  // First fetch the request to get guard_name
-  fetch(SURL+'/rest/v1/assistance_requests?id=eq.'+encodeURIComponent(id),{
-    headers:{'apikey':SKEY,'Authorization':'Bearer '+SKEY}
-  }).then(function(r){return r.json();}).then(function(data){
-    var guardName = data&&data[0]?data[0].guard_name:null;
-    fetch(SURL+'/rest/v1/assistance_requests?id=eq.'+encodeURIComponent(id),{
-      method:'PATCH',
+var currentMonChatId=null;
+var _monChatPoll=null;
+
+function openMonChat(req){
+  currentMonChatId=req.id;
+  document.getElementById('mon-chat-title').textContent=(req.severity||'').toUpperCase()+' - '+(req.guard_name||'Guard');
+  var st=document.getElementById('mon-chat-status');
+  if(req.acked){st.textContent='ACKNOWLEDGED';st.style.color='#34d399';st.style.background='rgba(52,211,153,0.12)';st.style.borderColor='rgba(52,211,153,0.3)';}
+  else{st.textContent='PENDING';st.style.color='#f87171';st.style.background='rgba(248,113,113,0.15)';st.style.borderColor='rgba(248,113,113,0.3)';}
+  document.getElementById('mon-ack-bar').style.display=req.acked?'none':'block';
+  document.querySelectorAll('.detail-screen').forEach(function(s){s.classList.remove('active');s.style.display='none';});
+  var cs=document.getElementById('s-assist-chat-mon');cs.style.display='flex';cs.classList.add('active');cur='assist-chat';
+  loadMonChatMessages(req.id);
+  clearInterval(_monChatPoll);
+  _monChatPoll=setInterval(function(){loadMonChatMessages(currentMonChatId);},4000);
+  fetch(SURL+'/rest/v1/assistance_messages?request_id=eq.'+encodeURIComponent(req.id)+'&sender=eq.guard',{
+    method:'PATCH',headers:{'apikey':SKEY,'Authorization':'Bearer '+SKEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+    body:JSON.stringify({read_by_monitor:true,read_at:new Date().toISOString()})
+  }).catch(function(){});
+}
+
+function loadMonChatMessages(requestId){
+  fetch(SURL+'/rest/v1/assistance_requests?id=eq.'+encodeURIComponent(requestId),{headers:{'apikey':SKEY,'Authorization':'Bearer '+SKEY}})
+  .then(function(r){return r.json();}).then(function(reqs){
+    var req=reqs&&reqs[0];if(!req)return;
+    fetch(SURL+'/rest/v1/assistance_messages?request_id=eq.'+encodeURIComponent(requestId)+'&order=sent_at.asc',{headers:{'apikey':SKEY,'Authorization':'Bearer '+SKEY}})
+    .then(function(r){return r.json();}).then(function(msgs){renderMonChat(req,msgs||[]);});
+  });
+}
+
+function renderMonChat(req,msgs){
+  var c=document.getElementById('mon-chat-messages');
+  var atBottom=c.scrollHeight-c.scrollTop<=c.clientHeight+50;
+  c.innerHTML='';
+  c.appendChild(monBubble('guard',req.guard_name,req.notes+(req.location?' - '+req.location:''),ft(req.timestamp),true,false));
+  msgs.forEach(function(m){
+    var isG=m.sender==='guard';
+    c.appendChild(monBubble(m.sender,m.sender_name||m.sender,m.message,ft(m.sent_at),isG,isG&&m.read_by_monitor));
+  });
+  if(atBottom)c.scrollTop=c.scrollHeight;
+}
+
+function monBubble(sender,name,text,time,isGuard,showEye){
+  var wrap=document.createElement('div');
+  wrap.style.cssText='display:flex;flex-direction:column;align-items:'+(isGuard?'flex-start':'flex-end');
+  var nm=document.createElement('div');
+  nm.style.cssText='font-size:10px;color:#4b5263;margin-bottom:3px;'+(isGuard?'padding-left:4px':'padding-right:4px');
+  nm.textContent=name;
+  var bub=document.createElement('div');
+  bub.style.cssText='max-width:80%;padding:10px 13px;border-radius:'+(isGuard?'4px 14px 14px 14px':'14px 4px 14px 14px')+';background:'+(isGuard?'rgba(255,255,255,0.05)':'rgba(52,211,153,0.1)')+';border:1px solid '+(isGuard?'rgba(255,255,255,0.08)':'rgba(52,211,153,0.25)')+';font-size:13px;color:#dde1ec;line-height:1.5;white-space:pre-wrap;word-break:break-word';
+  bub.textContent=text;
+  var mt=document.createElement('div');
+  mt.style.cssText='font-size:10px;color:#4b5263;margin-top:3px;'+(isGuard?'padding-left:4px':'padding-right:4px')+';display:flex;align-items:center;gap:4px';
+  mt.textContent=time;
+  if(showEye){var eye=document.createElement('span');eye.title='Seen';eye.style.cssText='font-size:12px;color:#60a5fa';eye.textContent='👁';mt.appendChild(eye);}
+  wrap.appendChild(nm);wrap.appendChild(bub);wrap.appendChild(mt);
+  return wrap;
+}
+
+document.getElementById('btn-mon-chat-send').addEventListener('click',function(){
+  var inp=document.getElementById('mon-chat-input');
+  var text=inp.value.trim();if(!text||!currentMonChatId)return;
+  inp.value='';inp.style.height='auto';
+  fetch(SURL+'/rest/v1/assistance_messages',{method:'POST',headers:{'apikey':SKEY,'Authorization':'Bearer '+SKEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+    body:JSON.stringify({request_id:currentMonChatId,sender:'monitor',sender_name:'Monitor',message:text,read_by_monitor:true})
+  }).then(function(){
+    loadMonChatMessages(currentMonChatId);
+    fetch(SURL+'/functions/v1/send-push',{method:'POST',headers:{'apikey':SKEY,'Authorization':'Bearer '+SKEY,'Content-Type':'application/json'},
+      body:JSON.stringify({title:'Monitor replied',body:text.substring(0,80),role:'guard'})}).catch(function(){});
+  }).catch(function(){});
+});
+
+document.getElementById('mon-chat-input').addEventListener('input',function(){
+  this.style.height='auto';this.style.height=Math.min(this.scrollHeight,80)+'px';
+});
+
+document.getElementById('btn-mon-ack').addEventListener('click',function(){
+  var btn=this;btn.disabled=true;btn.textContent='Acknowledging...';
+  fetch(SURL+'/rest/v1/assistance_requests?id=eq.'+encodeURIComponent(currentMonChatId),{headers:{'apikey':SKEY,'Authorization':'Bearer '+SKEY}})
+  .then(function(r){return r.json();}).then(function(data){
+    var gn=data&&data[0]?data[0].guard_name:null;
+    fetch(SURL+'/rest/v1/assistance_requests?id=eq.'+encodeURIComponent(currentMonChatId),{method:'PATCH',
       headers:{'apikey':SKEY,'Authorization':'Bearer '+SKEY,'Content-Type':'application/json','Prefer':'return=minimal'},
       body:JSON.stringify({acked:true,acked_by:'Monitor',acked_at:new Date().toISOString()})
     }).then(function(r){
       if(r.ok||r.status===204||r.status===200){
-        loadAssist();
-        // Push to the specific guard
-        if(guardName){
-          fetch(SURL+'/functions/v1/send-push',{
-            method:'POST',
-            headers:{'apikey':SKEY,'Authorization':'Bearer '+SKEY,'Content-Type':'application/json'},
-            body:JSON.stringify({title:'Assistance Acknowledged',body:'Your request has been acknowledged. Help is on the way.',role:'guard',guard_name:guardName})
-          }).catch(function(){});
-        }
-      } else {
-        r.text().then(function(t){console.error('Ack failed:',r.status,t);});
-        btn.disabled=false;btn.textContent='ACKNOWLEDGE';
-      }
-    }).catch(function(e){console.error('Ack error:',e);btn.disabled=false;btn.textContent='ACKNOWLEDGE';});
-  }).catch(function(e){console.error('Fetch error:',e);btn.disabled=false;btn.textContent='ACKNOWLEDGE';});
-}
+        document.getElementById('mon-ack-bar').style.display='none';
+        var st=document.getElementById('mon-chat-status');
+        st.textContent='ACKNOWLEDGED';st.style.color='#34d399';st.style.background='rgba(52,211,153,0.12)';st.style.borderColor='rgba(52,211,153,0.3)';
+        if(gn){fetch(SURL+'/functions/v1/send-push',{method:'POST',headers:{'apikey':SKEY,'Authorization':'Bearer '+SKEY,'Content-Type':'application/json'},
+          body:JSON.stringify({title:'Assistance Acknowledged',body:'Your request has been acknowledged.',role:'guard',guard_name:gn})}).catch(function(){});}
+      } else {btn.disabled=false;btn.textContent='ACKNOWLEDGE REQUEST';}
+    }).catch(function(){btn.disabled=false;btn.textContent='ACKNOWLEDGE REQUEST';});
+  });
+});
+
+function ackAssist(){}
 
 function load(){
   if(cur==='duty')loadDuty();
