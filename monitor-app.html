@@ -253,12 +253,36 @@ body{
   <div class="list-scroll" id="assist-list"></div>
 </div>
 
+<!-- ASSIST CHAT -->
+<div id="s-assist-chat-mon" class="detail-screen" style="flex-direction:column">
+  <div style="display:flex;align-items:center;gap:8px;padding-bottom:12px;flex-shrink:0">
+    <button class="back-btn" style="padding:0;margin:0" onclick="clearInterval(_monChatPoll);nav('assist')">
+      <svg viewBox="0 0 24 24" style="width:13px;height:13px"><polyline points="15 18 9 12 15 6"/></svg>BACK
+    </button>
+    <span id="mon-chat-title" style="font-size:12px;font-weight:700;color:#dde1ec;flex:1"></span>
+    <span id="mon-chat-status" style="font-size:9px;font-weight:700;letter-spacing:1px;padding:3px 8px;border-radius:10px;background:rgba(248,113,113,0.15);color:#f87171;border:1px solid rgba(248,113,113,0.3)">PENDING</span>
+  </div>
+  <div id="mon-chat-messages" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-bottom:8px;-webkit-overflow-scrolling:touch"></div>
+  <div style="padding-top:10px;border-top:1px solid rgba(255,255,255,0.06);flex-shrink:0">
+    <div id="mon-ack-bar" style="display:none;margin-bottom:8px">
+      <button id="btn-mon-ack" style="width:100%;padding:11px;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.35);border-radius:10px;color:#a78bfa;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:1px">ACKNOWLEDGE REQUEST</button>
+    </div>
+    <div style="display:flex;gap:8px;align-items:flex-end">
+      <textarea id="mon-chat-input" rows="1" placeholder="Type a reply..." style="flex:1;background:#151c27;border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:10px 12px;color:#dde1ec;font-size:13px;resize:none;font-family:-apple-system,sans-serif;max-height:80px;outline:none"></textarea>
+      <button id="btn-mon-chat-send" style="background:#34d399;border:none;border-radius:12px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0d0f12" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL -->
 <div class="modal" id="modal">
   <div class="modal-box">
     <div class="modal-handle"></div>
     <div class="modal-title" id="modal-title"></div>
     <div id="modal-body"></div>
+    <a id="modal-nav-btn" href="#" target="_blank" style="display:none;width:100%;margin-bottom:8px;padding:13px;background:rgba(77,163,255,0.1);border:1px solid rgba(77,163,255,0.3);border-radius:10px;color:#4da3ff;font-size:13px;font-weight:700;cursor:pointer;text-align:center;letter-spacing:1px;text-decoration:none;box-sizing:border-box">🗺 NAVIGATE</a>
     <button class="modal-close" onclick="closeModal()">Close</button>
   </div>
 </div>
@@ -342,9 +366,12 @@ function nav(name){
   cur=name;load();
 }
 
-function openModal(title,html){
+function openModal(title,html,lat,lng){
   document.getElementById('modal-title').textContent=title;
   document.getElementById('modal-body').innerHTML=html;
+  var navBtn=document.getElementById('modal-nav-btn');
+  if(lat&&lng){navBtn.href='https://maps.google.com/maps?daddr='+lat+','+lng;navBtn.style.display='block';}
+  else{navBtn.style.display='none';}
   document.getElementById('modal').classList.add('open');
 }
 function closeModal(){document.getElementById('modal').classList.remove('open');}
@@ -393,7 +420,9 @@ function showInc(j){
   var pc=d.severity==='High'?'p-red':d.severity==='Medium'?'p-amber':'p-green';
   openModal(d.type||'Incident',mr('Guard',d.guard_name)+mr('Type',d.type)+
     '<div class="modal-row"><div class="modal-lbl">Severity</div><div class="modal-val"><span class="pill '+pc+'">'+(d.severity||'').toUpperCase()+'</span></div></div>'+
-    mr('Location',d.location)+mr('Notes',d.notes)+mr('Time',fmt(d.timestamp)));
+    mr('Location',d.location)+mr('Notes',d.notes)+mr('Time',fmt(d.timestamp))+
+    (d.gps_lat&&d.gps_lng?mr('GPS',parseFloat(d.gps_lat).toFixed(5)+'N, '+parseFloat(d.gps_lng).toFixed(5)+'E'):''),
+    d.gps_lat, d.gps_lng);
 }
 
 function loadHelp(){
@@ -414,7 +443,9 @@ function showHelp(j){
   var uc=d.urgency==='critical'?'p-red':d.urgency==='high'?'p-amber':'p-blue';
   openModal(d.type||'Help Request',mr('From',d.name)+mr('Type',d.type)+
     '<div class="modal-row"><div class="modal-lbl">Urgency</div><div class="modal-val"><span class="pill '+uc+'">'+(d.urgency||'').toUpperCase()+'</span></div></div>'+
-    mr('Location',d.loc_desc)+mr('Notes',d.notes)+mr('Status',d.acked?'Acknowledged by '+d.acked_by:'Open')+mr('Time',fmt(d.timestamp)));
+    mr('Location',d.loc_desc)+mr('Notes',d.notes)+mr('Status',d.acked?'Acknowledged by '+d.acked_by:'Open')+mr('Time',fmt(d.timestamp))+
+    (d.gps_lat&&d.gps_lng?mr('GPS',parseFloat(d.gps_lat).toFixed(5)+'N, '+parseFloat(d.gps_lng).toFixed(5)+'E'):''),
+    d.gps_lat, d.gps_lng);
 }
 
 function loadSurv(){

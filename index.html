@@ -1718,11 +1718,14 @@ function checkAutoEndShift() {
   if (window._autoEndInterval) { clearInterval(window._autoEndInterval); window._autoEndInterval = null; }
   if (window._mpInterval) { clearInterval(window._mpInterval); window._mpInterval = null; }
 
+  // Use scheduled end time (not current time) as the official end time
+  var endedAt = scheduledEnd.toISOString();
+
   var shiftIdToEnd = window._shiftId;
   fetch(SUPABASE_URL+'/rest/v1/active_shifts?id=eq.'+shiftIdToEnd, {
     method: 'PATCH',
     headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},
-    body: JSON.stringify({status:'ended', ended_at: new Date().toISOString(), auto_ended: true})
+    body: JSON.stringify({status:'ended', ended_at: endedAt, auto_ended: true})
   }).catch(function(){});
 
   localStorage.removeItem('mp_current_shift_id');
@@ -2189,12 +2192,6 @@ document.getElementById('btn-submit-assist').addEventListener('click', function(
     body: JSON.stringify(payload)
   }).then(function(r) {
     if (r.ok || r.status === 201) {
-      // Show submitted state
-      document.getElementById('assist-form').style.display = 'none';
-      document.getElementById('assist-submitted').style.display = 'block';
-      document.getElementById('assist-submitted-title').textContent = 'Request Sent';
-      document.getElementById('assist-submitted-status').textContent = 'Awaiting acknowledgment...';
-      document.getElementById('assist-submitted-icon').textContent = '📡';
       addTL('Assistance requested', payload.severity);
       loadAssistList();
       // Notify monitor
@@ -2203,8 +2200,9 @@ document.getElementById('btn-submit-assist').addEventListener('click', function(
         headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY},
         body:JSON.stringify({title:'Assistance Request',body:currentGuardName+' — '+payload.severity+(payload.notes?' · '+payload.notes.substring(0,60):''),role:'monitor'})
       }).catch(function(){});
-      // Poll for acknowledgment
-      _assistPollInterval = setInterval(pollAssistAck, 5000);
+      // Go straight to chat — no antenna screen needed
+      currentAssistId = payload.id;
+      openAssistChat({id:payload.id, guard_name:currentGuardName, severity:payload.severity, notes:payload.notes, location:payload.location, timestamp:payload.timestamp, acked:false});
     } else {
       showToast('Failed to send request');
     }
