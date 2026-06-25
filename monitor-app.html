@@ -538,9 +538,8 @@ function renderMonChat(req,msgs){
   c.appendChild(monBubble('guard',req.guard_name,req.notes+(req.location?' - '+req.location:''),ft(req.timestamp),true,false));
   msgs.forEach(function(m){
     var isG=m.sender==='guard';
-    // Eye on monitor messages = guard has seen them (read_by_monitor=true)
-    // Eye on guard messages is not needed in monitor view
-    var showEye=!isG&&m.read_by_monitor;
+    // Eye on monitor's own messages = guard has read them (read_by_guard=true)
+    var showEye=!isG&&m.read_by_guard;
     c.appendChild(monBubble(m.sender,m.sender_name||m.sender,m.message,ft(m.sent_at),isG,showEye));
   });
   if(atBottom)c.scrollTop=c.scrollHeight;
@@ -568,7 +567,7 @@ document.getElementById('btn-mon-chat-send').addEventListener('click',function()
   var text=inp.value.trim();if(!text||!currentMonChatId)return;
   inp.value='';inp.style.height='auto';
   fetch(SURL+'/rest/v1/assistance_messages',{method:'POST',headers:{'apikey':SKEY,'Authorization':'Bearer '+SKEY,'Content-Type':'application/json','Prefer':'return=minimal'},
-    body:JSON.stringify({request_id:currentMonChatId,sender:'monitor',sender_name:'Monitor',message:text,read_by_monitor:true})
+    body:JSON.stringify({request_id:currentMonChatId,sender:'monitor',sender_name:'Monitor',message:text,read_by_monitor:true,read_by_guard:false})
   }).then(function(){
     loadMonChatMessages(currentMonChatId);
     fetch(SURL+'/functions/v1/send-push',{method:'POST',headers:{'apikey':SKEY,'Authorization':'Bearer '+SKEY,'Content-Type':'application/json'},

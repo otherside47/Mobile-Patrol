@@ -2073,11 +2073,11 @@ function loadChatMessages(requestId) {
       headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
     }).then(function(r){return r.json();}).then(function(msgs){
       renderChat(req, msgs||[]);
-      // Mark monitor messages as read
-      fetch(SUPABASE_URL+'/rest/v1/assistance_messages?request_id=eq.'+encodeURIComponent(requestId)+'&sender=eq.monitor&read_by_monitor=eq.false', {
+      // Mark monitor's messages as seen by guard (read_by_guard=true)
+      fetch(SUPABASE_URL+'/rest/v1/assistance_messages?request_id=eq.'+encodeURIComponent(requestId)+'&sender=eq.monitor&read_by_guard=eq.false', {
         method:'PATCH',
         headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
-        body: JSON.stringify({read_by_monitor: true, read_at: new Date().toISOString()})
+        body: JSON.stringify({read_by_guard: true, read_by_guard_at: new Date().toISOString()})
       }).catch(function(){});
     });
   });
@@ -2144,7 +2144,7 @@ document.getElementById('btn-assist-chat-send').addEventListener('click', functi
   fetch(SUPABASE_URL+'/rest/v1/assistance_messages', {
     method:'POST',
     headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
-    body: JSON.stringify({request_id:currentChatRequestId, sender:'guard', sender_name:currentGuardName, message:text, read_by_monitor:false})
+    body: JSON.stringify({request_id:currentChatRequestId, sender:'guard', sender_name:currentGuardName, message:text, read_by_monitor:false, read_by_guard:true})
   }).then(function(){
     loadChatMessages(currentChatRequestId);
     // Notify monitor
