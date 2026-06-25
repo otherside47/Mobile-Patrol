@@ -2090,21 +2090,23 @@ function renderChat(req, msgs) {
 
   // First bubble — guard's original request (left)
   var time0 = new Date(req.timestamp).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
-  var readIcon = msgs.some(function(m){return m.sender==='monitor';})
-    ? '<span title="Seen" style="font-size:11px;color:#4da3ff;margin-left:4px">👁</span>' : '';
-  container.appendChild(makeBubble('guard', req.guard_name, req.notes+(req.location?'\n📍 '+req.location:''), time0, readIcon));
+  // Eye on first message if monitor has opened the chat (marked any guard msg as read)
+  var monitorRead = msgs.some(function(m){return m.read_by_monitor;});
+  var firstEye = monitorRead ? true : false;
+  container.appendChild(makeBubble('guard', req.guard_name, req.notes+(req.location?'\n📍 '+req.location:''), time0, true, firstEye));
 
   // Subsequent messages
   msgs.forEach(function(m) {
     var t = new Date(m.sent_at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
-    var ri = (m.sender==='guard' && m.read_by_monitor) ? '<span title="Seen" style="font-size:11px;color:#4da3ff;margin-left:4px">👁</span>' : '';
-    container.appendChild(makeBubble(m.sender, m.sender_name||m.sender, m.message, t, ri));
+    // Eye only on guard's own messages that monitor has seen
+    var showEye = m.sender==='guard' && m.read_by_monitor;
+    container.appendChild(makeBubble(m.sender, m.sender_name||m.sender, m.message, t, false, showEye));
   });
 
   if (scrolledToBottom) container.scrollTop = container.scrollHeight;
 }
 
-function makeBubble(sender, name, text, time, readIcon) {
+function makeBubble(sender, name, text, time, isOwn, showEye) {
   var isGuard = sender === 'guard';
   var wrap = document.createElement('div');
   wrap.style.cssText = 'display:flex;flex-direction:column;align-items:'+(isGuard?'flex-start':'flex-end');
@@ -2118,8 +2120,15 @@ function makeBubble(sender, name, text, time, readIcon) {
     'font-size:13px;color:#e8eaf0;line-height:1.5;white-space:pre-wrap;word-break:break-word';
   bubble.textContent = text;
   var meta = document.createElement('div');
-  meta.style.cssText = 'font-size:10px;color:#555a6a;margin-top:3px;'+(isGuard?'padding-left:4px':'padding-right:4px')+';display:flex;align-items:center;gap:2px';
-  meta.innerHTML = time + (readIcon||'');
+  meta.style.cssText = 'font-size:10px;color:#555a6a;margin-top:3px;'+(isGuard?'padding-left:4px':'padding-right:4px')+';display:flex;align-items:center;gap:3px';
+  meta.textContent = time;
+  if(showEye) {
+    var eyeEl = document.createElement('span');
+    eyeEl.title = 'Seen';
+    eyeEl.style.cssText = 'display:inline-flex;align-items:center;margin-left:2px';
+    eyeEl.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#4da3ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+    meta.appendChild(eyeEl);
+  }
   wrap.appendChild(nameEl);
   wrap.appendChild(bubble);
   wrap.appendChild(meta);

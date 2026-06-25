@@ -255,12 +255,14 @@ body{
 
 <!-- ASSIST CHAT -->
 <div id="s-assist-chat-mon" class="detail-screen" style="flex-direction:column">
-  <div style="display:flex;align-items:center;gap:8px;padding-bottom:12px;flex-shrink:0">
-    <button class="back-btn" style="padding:0;margin:0" onclick="clearInterval(_monChatPoll);nav('assist')">
-      <svg viewBox="0 0 24 24" style="width:13px;height:13px"><polyline points="15 18 9 12 15 6"/></svg>BACK
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0 12px;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,0.06);margin-bottom:12px">
+    <button onclick="clearInterval(_monChatPoll);nav('assist')" style="background:none;border:none;color:#4b5263;font-size:12px;font-weight:700;letter-spacing:1px;cursor:pointer;display:flex;align-items:center;gap:4px;padding:0">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>BACK
     </button>
-    <span id="mon-chat-title" style="font-size:12px;font-weight:700;color:#dde1ec;flex:1"></span>
-    <span id="mon-chat-status" style="font-size:9px;font-weight:700;letter-spacing:1px;padding:3px 8px;border-radius:10px;background:rgba(248,113,113,0.15);color:#f87171;border:1px solid rgba(248,113,113,0.3)">PENDING</span>
+    <div style="flex:1;text-align:center;padding:0 8px">
+      <div id="mon-chat-title" style="font-size:13px;font-weight:700;color:#dde1ec"></div>
+    </div>
+    <span id="mon-chat-status" style="font-size:9px;font-weight:700;letter-spacing:1px;padding:3px 8px;border-radius:10px;background:rgba(248,113,113,0.15);color:#f87171;border:1px solid rgba(248,113,113,0.3);flex-shrink:0">PENDING</span>
   </div>
   <div id="mon-chat-messages" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-bottom:8px;-webkit-overflow-scrolling:touch"></div>
   <div style="padding-top:10px;border-top:1px solid rgba(255,255,255,0.06);flex-shrink:0">
@@ -495,7 +497,8 @@ var _monChatPoll=null;
 
 function openMonChat(req){
   currentMonChatId=req.id;
-  document.getElementById('mon-chat-title').textContent=(req.severity||'').toUpperCase()+' - '+(req.guard_name||'Guard');
+  var loc=req.notes?req.notes.substring(0,25)+(req.notes.length>25?'...':''):'Request';
+  document.getElementById('mon-chat-title').textContent=(req.guard_name||'Guard')+' - '+(req.severity||'').toUpperCase()+(req.location?' - '+req.location:'');
   var st=document.getElementById('mon-chat-status');
   if(req.acked){st.textContent='ACKNOWLEDGED';st.style.color='#34d399';st.style.background='rgba(52,211,153,0.12)';st.style.borderColor='rgba(52,211,153,0.3)';}
   else{st.textContent='PENDING';st.style.color='#f87171';st.style.background='rgba(248,113,113,0.15)';st.style.borderColor='rgba(248,113,113,0.3)';}
@@ -527,7 +530,10 @@ function renderMonChat(req,msgs){
   c.appendChild(monBubble('guard',req.guard_name,req.notes+(req.location?' - '+req.location:''),ft(req.timestamp),true,false));
   msgs.forEach(function(m){
     var isG=m.sender==='guard';
-    c.appendChild(monBubble(m.sender,m.sender_name||m.sender,m.message,ft(m.sent_at),isG,isG&&m.read_by_monitor));
+    // Eye on monitor messages = guard has seen them (read_by_monitor=true)
+    // Eye on guard messages is not needed in monitor view
+    var showEye=!isG&&m.read_by_monitor;
+    c.appendChild(monBubble(m.sender,m.sender_name||m.sender,m.message,ft(m.sent_at),isG,showEye));
   });
   if(atBottom)c.scrollTop=c.scrollHeight;
 }
@@ -544,7 +550,7 @@ function monBubble(sender,name,text,time,isGuard,showEye){
   var mt=document.createElement('div');
   mt.style.cssText='font-size:10px;color:#4b5263;margin-top:3px;'+(isGuard?'padding-left:4px':'padding-right:4px')+';display:flex;align-items:center;gap:4px';
   mt.textContent=time;
-  if(showEye){var eye=document.createElement('span');eye.title='Seen';eye.style.cssText='font-size:12px;color:#60a5fa';eye.textContent='👁';mt.appendChild(eye);}
+  if(showEye){var eye=document.createElement('span');eye.title='Seen';eye.style.cssText='display:inline-flex;align-items:center;margin-left:3px';eye.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';mt.appendChild(eye);}
   wrap.appendChild(nm);wrap.appendChild(bub);wrap.appendChild(mt);
   return wrap;
 }
