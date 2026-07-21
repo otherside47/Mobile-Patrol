@@ -790,7 +790,7 @@ async function saveGuardProfile(key) {
   const g = guardProfiles[key];
   await fetch(SUPABASE_URL+'/rest/v1/guard_profiles?id=eq.'+key, {
     method:'PATCH',
-    headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},
+    headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
     body:JSON.stringify({name:g.name, pass:g.pass, vacant:g.vacant||false, updated_at:new Date().toISOString()})
   });
 }
@@ -799,7 +799,7 @@ async function saveAdminProfile(key) {
   const a = adminProfiles[key];
   await fetch(SUPABASE_URL+'/rest/v1/admin_profiles?id=eq.'+key, {
     method:'PATCH',
-    headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},
+    headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
     body:JSON.stringify({name:a.name, pass:a.pass, role:a.role, updated_at:new Date().toISOString()})
   });
 }
@@ -824,7 +824,7 @@ async function deleteProfile(key, type) {
   const table = type==='guard' ? 'guard_profiles' : 'admin_profiles';
   await fetch(SUPABASE_URL+'/rest/v1/'+table+'?id=eq.'+key, {
     method:'DELETE',
-    headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+    headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'}
   });
 }
 
@@ -1399,7 +1399,7 @@ function removeProfile(key,type){
   var profile=type==='guard'?guardProfiles[key]:adminProfiles[key];
   if(!confirm('Remove profile for '+profile.name+'?'))return;
   var table=type==='guard'?'guard_profiles':'admin_profiles';
-  fetch(SUPABASE_URL+'/rest/v1/'+table+'?id=eq.'+key,{method:'DELETE',headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}}).catch(function(){});
+  fetch(SUPABASE_URL+'/rest/v1/'+table+'?id=eq.'+key,{method:'DELETE',headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'}}).catch(function(){});
   if(type==='guard')delete guardProfiles[key];else delete adminProfiles[key];
   renderProfiles();showToast('Profile removed: '+profile.name);
 }
@@ -1437,7 +1437,7 @@ function saveProfile(){
     var gPayload = {name: name, pass: guardProfiles[key].pass, vacant: guardProfiles[key].vacant || false};
     fetch(SUPABASE_URL + '/rest/v1/guard_profiles?id=eq.' + key, {
       method: 'PATCH',
-      headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json'},
+      headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal'},
       body: JSON.stringify(gPayload)
     }).then(function(r) {
       if (r.ok) { showToast('Guard profile updated: ' + name); }
@@ -1451,7 +1451,7 @@ function saveProfile(){
     var aPayload = {name: name, pass: adminProfiles[key].pass, role: adminProfiles[key].role || 'admin'};
     fetch(SUPABASE_URL + '/rest/v1/admin_profiles?id=eq.' + key, {
       method: 'PATCH',
-      headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json'},
+      headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal'},
       body: JSON.stringify(aPayload)
     }).then(function(r) {
       if (r.ok) { showToast('Admin profile updated: ' + name); }
