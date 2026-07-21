@@ -359,7 +359,7 @@ select:focus,input:focus{border-color:#00e5a0}
     <button type="button" class="tab-btn" onclick="showTab('tab-notes',this);loadNotes()">NOTES</button>
     <button type="button" class="tab-btn" onclick="showTab('tab-log',this);loadLogShiftList()">📋 LOG</button>
     <button type="button" class="tab-btn" onclick="showTab('tab-reports',this);loadShiftsForReport()">REPORTS</button>
-    <button type="button" class="tab-btn" onclick="showTab('tab-profiles',this);renderProfiles()">👤 PROFILES</button>
+    <button type="button" class="tab-btn" onclick="showTab('tab-profiles',this);openProfilesTab()">👤 PROFILES</button>
     <button type="button" class="tab-btn" onclick="showTab('tab-checkpoints',this);renderCheckpoints()">CHECKPOINTS</button>
     <button type="button" class="tab-btn" onclick="showTab('tab-qr',this);generateQRCodes()">QR CODES</button>
   </div>
@@ -635,35 +635,42 @@ async function sbGet(table,query=''){
 async function sbPatch(table,id,data){
   try{const r=await fetch(SUPABASE_URL+'/rest/v1/'+table+'?id=eq.'+id,{method:'PATCH',headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},body:JSON.stringify(data)});return r.ok;}catch(e){return false;}
 }
+async function sbRpc(fn,params){
+  try{
+    const r=await fetch(SUPABASE_URL+'/rest/v1/rpc/'+fn,{method:'POST',headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'},body:JSON.stringify(params)});
+    if(!r.ok)return null;
+    return await r.json();
+  }catch(e){return null;}
+}
 
 // ── STATE ──
 // Profiles loaded exclusively from Supabase - no hardcoded defaults
 let adminProfiles = {};
 let guardProfiles = {};
 
-// Load all profiles from Supabase
-function loadAllProfiles() {
+// Load profile NAMES ONLY from Supabase - safe to call before login (no passwords sent to browser)
+function loadProfileNames() {
   return new Promise(function(resolve) {
-    // Load guard profiles
-    fetch(SUPABASE_URL + '/rest/v1/guard_profiles?order=id.asc', {
+    // Load guard profiles (no pass column)
+    fetch(SUPABASE_URL + '/rest/v1/guard_profiles?select=id,name,vacant&order=id.asc', {
       headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY}
     }).then(function(r) { return r.json(); }).then(function(gData) {
       if (Array.isArray(gData) && gData.length) {
         guardProfiles = {};
         for (var i = 0; i < gData.length; i++) {
-          guardProfiles[gData[i].id] = {name:gData[i].name, pass:gData[i].pass, vacant:gData[i].vacant||false};
+          guardProfiles[gData[i].id] = {name:gData[i].name, vacant:gData[i].vacant||false};
         }
       }
     }).catch(function(){});
 
-    // Load admin profiles
-    fetch(SUPABASE_URL + '/rest/v1/admin_profiles?order=id.asc', {
+    // Load admin profiles (no pass column)
+    fetch(SUPABASE_URL + '/rest/v1/admin_profiles?select=id,name,role&order=id.asc', {
       headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY}
     }).then(function(r) { return r.json(); }).then(function(aData) {
       if (Array.isArray(aData) && aData.length) {
         adminProfiles = {};
         for (var i = 0; i < aData.length; i++) {
-          adminProfiles[aData[i].id] = {name:aData[i].name, pass:aData[i].pass, role:aData[i].role||'admin'};
+          adminProfiles[aData[i].id] = {name:aData[i].name, role:aData[i].role||'admin'};
         }
       }
       // Update dropdown
@@ -680,6 +687,35 @@ function loadAllProfiles() {
             opt.textContent = a.name + (a.role === 'main' ? ' (Main Admin)' : '');
             adminSel.appendChild(opt);
           }
+        }
+      }
+      resolve();
+    }).catch(function(){ resolve(); });
+  });
+}
+
+// Load FULL profiles including passwords - only call this AFTER an admin is already
+// authenticated (e.g. when opening the Profiles management tab), never before login.
+function loadProfilesWithPasswords() {
+  return new Promise(function(resolve) {
+    fetch(SUPABASE_URL + '/rest/v1/guard_profiles?order=id.asc', {
+      headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY}
+    }).then(function(r) { return r.json(); }).then(function(gData) {
+      if (Array.isArray(gData) && gData.length) {
+        guardProfiles = {};
+        for (var i = 0; i < gData.length; i++) {
+          guardProfiles[gData[i].id] = {name:gData[i].name, pass:gData[i].pass, vacant:gData[i].vacant||false};
+        }
+      }
+    }).catch(function(){});
+
+    fetch(SUPABASE_URL + '/rest/v1/admin_profiles?order=id.asc', {
+      headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY}
+    }).then(function(r) { return r.json(); }).then(function(aData) {
+      if (Array.isArray(aData) && aData.length) {
+        adminProfiles = {};
+        for (var i = 0; i < aData.length; i++) {
+          adminProfiles[aData[i].id] = {name:aData[i].name, pass:aData[i].pass, role:aData[i].role||'admin'};
         }
       }
       resolve();
@@ -795,8 +831,8 @@ async function deleteProfile(key, type) {
 // ── CLOCK ──
 function updateClock(){document.getElementById('status-time').textContent=new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});}
 setInterval(updateClock,1000);updateClock();
-// Load profiles from Supabase on page load
-loadAllProfiles();
+// Load profile names (no passwords) from Supabase on page load
+loadProfileNames();
 
 // Standalone active shifts loader - runs every 5 seconds
 function refreshActiveShifts() {
@@ -881,21 +917,24 @@ function doLogin(){
   var k=document.getElementById('acct-select').value;
   var p=document.getElementById('login-pw').value;
   var err=document.getElementById('login-err');
-  // Load latest from Supabase then validate
-  loadAllProfiles().then(function(){
+  // Refresh names (not passwords) so the dropdown/name list is current, then validate via RPC
+  loadProfileNames().then(function(){
     // Restore selected account after profile reload rebuilds the dropdown
     document.getElementById('acct-select').value=k;
     var acc=adminProfiles[k];
-    if(!acc||p!==acc.pass){err.style.display='block';return;}
-    err.style.display='none';
-    var name=acc.name;
-    currentAdminKey=k;currentAdminRole=acc.role;currentAdminName=name;
-    document.getElementById('status-name').textContent=''+name+(acc.role==='main'?' (Main Admin)':' (Admin)');
-    document.getElementById('admin-role-badge').textContent=acc.role==='main'?'MAIN ADMIN':'ADMIN';
-    document.getElementById('screen-login').classList.remove('active');
-    document.getElementById('screen-app').classList.add('active');
-    loadLiveData();pollRequests();startShiftPolling();loadAnchorsFromSupabase();
-    showToast('Welcome, '+name);
+    if(!acc){err.style.display='block';return;}
+    sbRpc('verify_admin_login',{p_name:acc.name,p_pass:p}).then(function(result){
+      if(!Array.isArray(result)||result.length===0){err.style.display='block';return;}
+      err.style.display='none';
+      var verified=result[0];
+      currentAdminKey=k;currentAdminRole=verified.role;currentAdminName=verified.name;
+      document.getElementById('status-name').textContent=''+verified.name+(verified.role==='main'?' (Main Admin)':' (Admin)');
+      document.getElementById('admin-role-badge').textContent=verified.role==='main'?'MAIN ADMIN':'ADMIN';
+      document.getElementById('screen-login').classList.remove('active');
+      document.getElementById('screen-app').classList.add('active');
+      loadLiveData();pollRequests();startShiftPolling();loadAnchorsFromSupabase();
+      showToast('Welcome, '+verified.name);
+    }).catch(function(){err.style.display='block';});
   });
 }
 function doLogout(){
@@ -1289,6 +1328,9 @@ async function loadNotes(){
 }
 
 // ── PROFILES ──
+function openProfilesTab(){
+  loadProfilesWithPasswords().then(function(){ renderProfiles(); });
+}
 function renderProfiles(){
   const isMain=currentAdminRole==='main';
   const btnG=document.getElementById('btn-add-guard');const btnA=document.getElementById('btn-add-admin');

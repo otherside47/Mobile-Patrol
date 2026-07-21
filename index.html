@@ -694,19 +694,31 @@ function urlBase64ToUint8Array(base64String) {
 
 // Guard profiles - loaded exclusively from Supabase
 // Fallback profiles — always available instantly, synced from Supabase on load
+// NOTE: no passwords here or anywhere in this file - login is verified server-side via RPC (see verifyGuardLogin)
 var guardProfiles = {
-  'guard1': {name:'EK', pass:'Guard1pass', vacant:false},
-  'guard2': {name:'AM', pass:'Guard2pass', vacant:false},
-  'guard3': {name:'AG', pass:'Guard3pass', vacant:false},
-  'guard4': {name:'MC', pass:'Guard4pass', vacant:false},
-  'guard5': {name:'Replacement', pass:'guardpass', vacant:true}
+  'guard1': {name:'EK', vacant:false},
+  'guard2': {name:'AM', vacant:false},
+  'guard3': {name:'AG', vacant:false},
+  'guard4': {name:'MC', vacant:false},
+  'guard5': {name:'Replacement', vacant:true}
 };
+
+function sbRpc(fn, params) {
+  return fetch(SUPABASE_URL + '/rest/v1/rpc/' + fn, {
+    method: 'POST',
+    headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json'},
+    body: JSON.stringify(params)
+  }).then(function(r) {
+    if (!r.ok) return null;
+    return r.json();
+  }).catch(function() { return null; });
+}
 
 function loadGuardProfiles(cb) {
   // Show dropdown immediately from fallback data
   updateLoginDropdown();
-  // Then sync latest from Supabase (updates passwords/names if changed)
-  fetch(SUPABASE_URL + '/rest/v1/guard_profiles?order=id.asc', {
+  // Then sync latest names from Supabase (updates names/vacant flags if changed) - never fetches passwords
+  fetch(SUPABASE_URL + '/rest/v1/guard_profiles?select=id,name,vacant&order=id.asc', {
     headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY}
   }).then(function(r) {
     if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -717,7 +729,6 @@ function loadGuardProfiles(cb) {
       for (var i = 0; i < data.length; i++) {
         guardProfiles[data[i].id] = {
           name: data[i].name,
-          pass: data[i].pass,
           vacant: data[i].vacant || false
         };
       }
@@ -1749,27 +1760,34 @@ document.getElementById('login-button').addEventListener('click', function() {
   var p=document.getElementById('login-pw').value;
   var acc=guardProfiles[k];
   var err=document.getElementById('login-err');
-  if (!acc||p!==acc.pass) { err.style.display='block'; return; }
-  err.style.display='none';
-  var name=acc.name;
-  if (!name||name==='Replacement') {
-    var fn=document.getElementById('input-fn').value.trim();
-    var ln=document.getElementById('input-ln').value.trim();
-    if (!fn||!ln) { err.textContent='Please enter your name.'; err.style.display='block'; return; }
-    name=fn+' '+ln;
-  }
-  currentGuardName=name;
-  sessionStorage.clear();
-  document.getElementById('status-name').textContent=name;
-  // Explicitly hide login and show shift screen
-  var loginEl = document.getElementById('screen-login');
-  var shiftEl = document.getElementById('screen-shift');
-  loginEl.classList.remove('active');
-  loginEl.style.display = 'none';
-  shiftEl.classList.add('active');
-  shiftEl.style.display = 'flex';
-  setupShiftScreen();
-  showToast('Welcome, '+name);
+  var loginBtn=document.getElementById('login-button');
+  if (!acc) { err.style.display='block'; return; }
+  loginBtn.disabled=true;
+  sbRpc('verify_guard_login', {p_name:acc.name, p_pass:p}).then(function(result) {
+    loginBtn.disabled=false;
+    if (!Array.isArray(result) || result.length===0) { err.style.display='block'; return; }
+    err.style.display='none';
+    var verified=result[0];
+    var name=verified.name;
+    if (!name||name==='Replacement') {
+      var fn=document.getElementById('input-fn').value.trim();
+      var ln=document.getElementById('input-ln').value.trim();
+      if (!fn||!ln) { err.textContent='Please enter your name.'; err.style.display='block'; return; }
+      name=fn+' '+ln;
+    }
+    currentGuardName=name;
+    sessionStorage.clear();
+    document.getElementById('status-name').textContent=name;
+    // Explicitly hide login and show shift screen
+    var loginEl = document.getElementById('screen-login');
+    var shiftEl = document.getElementById('screen-shift');
+    loginEl.classList.remove('active');
+    loginEl.style.display = 'none';
+    shiftEl.classList.add('active');
+    shiftEl.style.display = 'flex';
+    setupShiftScreen();
+    showToast('Welcome, '+name);
+  });
 });
 
 // LOGOUT
