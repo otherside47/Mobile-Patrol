@@ -327,7 +327,7 @@ function registerMonitorPush(){
 
 function saveMonitorSub(sub){
   document.getElementById('monitor-notif-btn').style.display = 'none';
-  fetch(SURL+'/rest/v1/push_subscriptions',{
+  fetch(SURL+'/rest/v1/push_subscriptions?on_conflict=guard_name',{
     method:'POST',
     headers:{'apikey':SKEY,'Authorization':'Bearer '+SKEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
     body:JSON.stringify({guard_name:'monitor',subscription:sub.toJSON(),role:'monitor'})

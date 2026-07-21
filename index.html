@@ -698,7 +698,7 @@ function registerPushNotifications(guardName) {
 }
 
 function savePushSubscription(guardName, sub) {
-  fetch(SUPABASE_URL+'/rest/v1/push_subscriptions', {
+  fetch(SUPABASE_URL+'/rest/v1/push_subscriptions?on_conflict=guard_name', {
     method: 'POST',
     headers: {
       'apikey': SUPABASE_KEY,
