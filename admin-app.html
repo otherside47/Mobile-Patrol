@@ -422,7 +422,7 @@ select:focus,input:focus{border-color:#00e5a0}
 
       <label style="font-family:monospace;font-size:10px;color:#555a6a;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:5px">Send to</label>
       <select id="mp-target-guard" style="width:100%;background:#151820;border:1px solid rgba(139,144,160,0.2);color:#e8eaf0;padding:9px 10px;border-radius:8px;font-family:monospace;font-size:13px;margin-bottom:8px">
-        <option value="">Loading guards on shift...</option>
+        <option value="">Loading guards...</option>
       </select>
       <label style="display:flex;align-items:center;gap:8px;font-family:monospace;font-size:12px;color:#8b90a0;margin-bottom:16px;cursor:pointer">
         <input type="checkbox" id="mp-send-all" style="width:16px;height:16px;accent-color:#00e5a0;cursor:pointer">
@@ -1036,24 +1036,55 @@ function initSendMP() {
 
 function loadMPTargetGuards() {
   var sel = document.getElementById('mp-target-guard');
-  sel.innerHTML = '<option value="">Loading guards on shift...</option>';
+  sel.innerHTML = '<option value="">Loading guards...</option>';
   sel.disabled = true;
-  fetch(SUPABASE_URL + '/rest/v1/active_shifts?status=eq.active&order=started_at.desc&limit=50', {
-    headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY}
-  }).then(function(r) { return r.json(); }).then(function(data) {
+  Promise.all([
+    fetch(SUPABASE_URL + '/rest/v1/active_shifts?status=eq.active&order=started_at.desc&limit=50', {
+      headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY}
+    }).then(function(r) { return r.json(); }).catch(function(){ return []; }),
+    fetch(SUPABASE_URL + '/rest/v1/guard_profiles?select=id,name,vacant&order=name.asc', {
+      headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY}
+    }).then(function(r) { return r.json(); }).catch(function(){ return []; })
+  ]).then(function(results) {
     sel.disabled = false;
-    if (!Array.isArray(data) || data.length === 0) {
-      sel.innerHTML = '<option value="">No guards currently on shift</option>';
-      return;
+    var activeData = Array.isArray(results[0]) ? results[0] : [];
+    var allProfiles = Array.isArray(results[1]) ? results[1] : [];
+
+    // Who's currently on shift, in most-recently-started-first order
+    var onShiftNames = {};
+    var onShiftOrder = [];
+    for (var i = 0; i < activeData.length; i++) {
+      var n = activeData[i].guard_name;
+      if (n && !onShiftNames[n]) { onShiftNames[n] = true; onShiftOrder.push(n); }
     }
-    // De-duplicate by guard name, keep most recent shift first (already ordered)
-    var seen = {};
-    var names = [];
-    for (var i = 0; i < data.length; i++) {
-      var n = data[i].guard_name;
-      if (n && !seen[n]) { seen[n] = true; names.push(n); }
+
+    // Everyone else (real profiles only — skip vacant/placeholder slots like "Replacement")
+    var others = [];
+    var seenOther = {};
+    for (var j = 0; j < allProfiles.length; j++) {
+      var p = allProfiles[j];
+      if (p.vacant) continue;
+      if (!p.name || onShiftNames[p.name] || seenOther[p.name]) continue;
+      seenOther[p.name] = true;
+      others.push(p.name);
     }
-    sel.innerHTML = names.map(function(n) { return '<option value="'+n.replace(/"/g,'&quot;')+'">'+n+'</option>'; }).join('');
+
+    var html = '';
+    if (onShiftOrder.length) {
+      html += '<optgroup label="On shift now">';
+      onShiftOrder.forEach(function(n) {
+        html += '<option value="'+n.replace(/"/g,'&quot;')+'" style="color:#00e5a0;font-weight:700">🟢 '+n+' — On shift</option>';
+      });
+      html += '</optgroup>';
+    }
+    if (others.length) {
+      html += '<optgroup label="All guards">';
+      others.forEach(function(n) {
+        html += '<option value="'+n.replace(/"/g,'&quot;')+'">'+n+'</option>';
+      });
+      html += '</optgroup>';
+    }
+    sel.innerHTML = html || '<option value="">No guards found</option>';
   }).catch(function() {
     sel.disabled = false;
     sel.innerHTML = '<option value="">Could not load guards — check connection</option>';
