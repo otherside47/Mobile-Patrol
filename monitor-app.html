@@ -76,9 +76,6 @@ body{
   flex:1;
   min-height:0;
   max-height:56vh;
-  max-width:90%;
-  margin-left:auto;
-  margin-right:auto;
 }
 .stat-card{
   background:linear-gradient(145deg,#151c27,#111620);
@@ -132,7 +129,7 @@ body{
 .back-btn svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
 .sec-lbl{font-size:9px;font-weight:700;letter-spacing:2px;color:#4b5263;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.05);flex-shrink:0}
 
-.list-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;max-width:90%;margin-left:auto;margin-right:auto;width:100%}
+.list-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .list-scroll::-webkit-scrollbar{display:none}
 
 /* LIST ITEMS */
@@ -180,6 +177,8 @@ body{
 </style>
 </head>
 <body>
+
+<div id="app-wrap" style="width:100%;max-width:1100px;margin:0 auto;display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden">
 
 <!-- HEADER -->
 <div class="hdr">
@@ -280,6 +279,8 @@ body{
     </div>
   </div>
 </div>
+
+</div><!-- /app-wrap -->
 
 <!-- MODAL -->
 <div class="modal" id="modal">
