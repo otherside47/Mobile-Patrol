@@ -109,6 +109,12 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
 .rep-cp-item:last-child{border-bottom:none}
 .rep-dot-done{width:28px;height:28px;border-radius:50%;background:rgba(0,229,160,0.12);border:1px solid rgba(0,229,160,0.3);color:#00e5a0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
 .rep-dot-miss{width:28px;height:28px;border-radius:50%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);color:#555a6a;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0}
+.rpt-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:500;align-items:flex-end;justify-content:center}
+.rpt-modal.open{display:flex}
+.rpt-modal-box{background:#151820;border:1px solid rgba(255,255,255,0.08);border-radius:20px 20px 0 0;padding:20px 18px 44px;width:100%;max-width:520px;max-height:80vh;overflow-y:auto}
+.rpt-modal-handle{width:36px;height:3px;background:rgba(255,255,255,0.1);border-radius:2px;margin:0 auto 20px}
+.rpt-modal-title{font-size:16px;font-weight:800;margin-bottom:18px;color:#e8eaf0}
+.rpt-modal-close{width:100%;margin-top:20px;padding:14px;background:#0d0f12;border:1px solid rgba(255,255,255,0.07);border-radius:12px;color:#555a6a;font-size:13px;font-weight:600;cursor:pointer;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
 </style>
 </head>
 <body>
@@ -657,6 +663,17 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
   </div>
 </div>
 
+<!-- REPORT DETAIL MODAL (shared by incidents / help requests / surveillance notes) -->
+<div class="rpt-modal" id="rpt-modal" onclick="if(event.target===this)closeReportModal()">
+  <div class="rpt-modal-box">
+    <div class="rpt-modal-handle"></div>
+    <div class="rpt-modal-title" id="rpt-modal-title"></div>
+    <div id="rpt-modal-body"></div>
+    <a id="rpt-modal-nav-btn" href="#" target="_blank" rel="noopener" style="display:none;width:100%;margin-bottom:8px;padding:13px;background:rgba(77,163,255,0.1);border:1px solid rgba(77,163,255,0.3);border-radius:10px;color:#4da3ff;font-size:13px;font-weight:700;cursor:pointer;text-align:center;letter-spacing:1px;text-decoration:none;box-sizing:border-box">🗺 NAVIGATE</a>
+    <button type="button" class="rpt-modal-close" onclick="closeReportModal()">Close</button>
+  </div>
+</div>
+
 <script>
 var SUPABASE_URL = 'https://hzvegzkjogcjqzogxvvm.supabase.co';
 
@@ -838,6 +855,54 @@ function sbGet(table, query, cb) {
     headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
   }).then(function(r){return r.json();}).then(cb).catch(function(){cb([]);});
 }
+
+// ── REPORT DETAIL MODAL (shared: incidents / help requests / surveillance notes) ──
+function rmr(l,v){
+  if(!v) return '';
+  return '<div style="display:flex;gap:12px;margin-bottom:12px"><div style="font-family:monospace;font-size:11px;color:#555a6a;min-width:76px;padding-top:1px">'+l+'</div><div style="font-family:monospace;font-size:11px;color:#e8eaf0;flex:1;line-height:1.6">'+v+'</div></div>';
+}
+function openReportModal(title, bodyHtml, lat, lng){
+  document.getElementById('rpt-modal-title').textContent = title;
+  document.getElementById('rpt-modal-body').innerHTML = bodyHtml;
+  var navBtn = document.getElementById('rpt-modal-nav-btn');
+  if (lat && lng) { navBtn.href = 'https://maps.google.com/maps?daddr='+lat+','+lng; navBtn.style.display = 'block'; }
+  else { navBtn.style.display = 'none'; }
+  document.getElementById('rpt-modal').classList.add('open');
+}
+function closeReportModal(){ document.getElementById('rpt-modal').classList.remove('open'); }
+
+function showIncidentDetail(j){
+  var d = JSON.parse(j);
+  var sevColor = d.severity==='Critical'?'#ff4d4d':d.severity==='High'?'#ffb020':d.severity==='Medium'?'#4da3ff':'#8b90a0';
+  openReportModal(d.type||'Incident',
+    rmr('Guard', d.guard_name) +
+    rmr('Severity', '<span style="color:'+sevColor+';font-weight:700">'+(d.severity||'').toUpperCase()+'</span>') +
+    rmr('Location', d.location) + rmr('Notes', d.notes) +
+    rmr('Time', new Date(d.timestamp).toLocaleString('en-GB')),
+    d.gps_lat, d.gps_lng);
+}
+function showHelpDetail(j){
+  var d = JSON.parse(j);
+  var urgColor = d.urgency==='critical'?'#ff4d4d':d.urgency==='high'?'#ffb020':'#4da3ff';
+  openReportModal(d.type||'Help Request',
+    rmr('From', d.name) +
+    rmr('Urgency', '<span style="color:'+urgColor+';font-weight:700">'+(d.urgency||'').toUpperCase()+'</span>') +
+    rmr('Location', d.loc_desc) + rmr('Message', d.notes) +
+    rmr('Status', d.acked ? 'Acknowledged by '+d.acked_by : 'Open') +
+    rmr('Time', new Date(d.timestamp).toLocaleString('en-GB')),
+    d.gps_lat, d.gps_lng);
+}
+function showSurvDetail(j){
+  var d = JSON.parse(j);
+  var urls = Array.isArray(d.photo_urls) ? d.photo_urls : [];
+  var photosHtml = urls.length ? ('<div style="display:flex;gap:6px;flex-wrap:wrap">'+urls.map(function(u){return '<a href="'+u+'" target="_blank" rel="noopener"><img src="'+u+'" style="width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid rgba(180,0,255,0.3)"></a>';}).join('')+'</div>') : '';
+  openReportModal(d.title||'Surveillance Note',
+    rmr('Guard', d.guard_name) + rmr('Category', d.category) + rmr('Checkpoint', d.checkpoint) +
+    rmr('Note', d.body) + rmr('Time', new Date(d.timestamp).toLocaleString('en-GB')) +
+    (photosHtml ? rmr('Photos', photosHtml) : ''),
+    d.gps_lat, d.gps_lng);
+}
+
 function sbPost(table, data, cb) {
   fetch(SUPABASE_URL+'/rest/v1/'+table, {
     method:'POST',
@@ -1342,15 +1407,21 @@ function loadHelpRequests() {
         var time = new Date(req.timestamp).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
         var urgColor = req.urgency==='critical'?'#ff4d4d':req.urgency==='high'?'#ffb020':'#4da3ff';
         var div = document.createElement('div');
-        div.style.cssText = 'background:#151820;border:1px solid rgba(255,77,77,0.3);border-radius:10px;padding:14px;margin-bottom:10px';
-        div.innerHTML = '<div style="font-size:14px;font-weight:700;color:'+urgColor+';margin-bottom:6px">ALERT: '+req.type+' - '+req.urgency.toUpperCase()+'</div>'+
-          '<div style="font-family:monospace;font-size:11px;color:#8b90a0;line-height:1.8">From: '+req.name+'<br>Location: '+req.loc_desc+'<br>GPS: '+gpsText+'<br>'+(req.notes?'Notes: '+req.notes+'<br>':'')+'Time: '+time+'</div>';
+        div.style.cssText = 'background:#151820;border:1px solid rgba(255,77,77,0.3);border-radius:10px;padding:14px;margin-bottom:10px;cursor:pointer';
+        div.setAttribute('onclick', 'showHelpDetail(' + JSON.stringify(JSON.stringify(req)) + ')');
+        div.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">'+
+          '<div style="font-size:14px;font-weight:700;color:#e8eaf0">'+req.type+'</div>'+
+          '<span style="font-family:monospace;font-size:10px;font-weight:700;color:'+urgColor+';padding:2px 7px;border:1px solid '+urgColor+';border-radius:4px">'+req.urgency.toUpperCase()+'</span>'+
+          '</div>'+
+          '<div style="font-family:monospace;font-size:11px;color:#8b90a0;margin-bottom:4px">From: '+req.name+' · '+req.loc_desc+'</div>'+
+          (req.notes?'<div style="font-size:12px;color:#8b90a0;margin-bottom:8px">'+req.notes+'</div>':'')+
+          '<div style="font-family:monospace;font-size:10px;color:#555a6a">'+time+' · '+gpsText+'</div>';
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.style.cssText = 'margin-top:10px;width:100%;padding:10px;border-radius:8px;background:#00e5a0;color:#000;border:none;font-weight:700;font-size:13px;cursor:pointer';
         btn.textContent = 'Acknowledge - Responding';
         btn.setAttribute('data-id', req.id);
-        btn.addEventListener('click', function() { ackRequest(this.getAttribute('data-id')); });
+        btn.addEventListener('click', function(e) { e.stopPropagation(); ackRequest(this.getAttribute('data-id')); });
         div.appendChild(btn);
         activeEl.appendChild(div);
       }
@@ -1363,9 +1434,13 @@ function loadHelpRequests() {
       pastEl.innerHTML = past.map(function(req) {
         var gpsText = (req.gps_lat&&req.gps_lng)?req.gps_lat.toFixed(4)+' N, '+req.gps_lng.toFixed(4)+' E':'GPS unavailable';
         var time = new Date(req.timestamp).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
-        return '<div style="background:#151820;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px;margin-bottom:8px;opacity:0.7">'+
-          '<div style="font-size:13px;font-weight:600;color:#00e5a0;margin-bottom:4px">OK '+req.type+'</div>'+
-          '<div style="font-family:monospace;font-size:11px;color:#555a6a;line-height:1.7">From: '+req.name+'<br>Location: '+req.loc_desc+'<br>GPS: '+gpsText+'<br>'+(req.notes?'Message: '+req.notes+'<br>':'')+'Time: '+time+' · Acked by '+req.acked_by+'</div>'+
+        return '<div style="background:#151820;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px;margin-bottom:8px;opacity:0.85;cursor:pointer" onclick=\'showHelpDetail(' + JSON.stringify(JSON.stringify(req)) + ')\'>'+
+          '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">'+
+          '<div style="font-size:13px;font-weight:600;color:#00e5a0">'+req.type+'</div>'+
+          '<span style="font-family:monospace;font-size:10px;color:#00e5a0">ACKED</span>'+
+          '</div>'+
+          '<div style="font-family:monospace;font-size:11px;color:#555a6a;margin-bottom:4px">From: '+req.name+' · '+req.loc_desc+'</div>'+
+          '<div style="font-family:monospace;font-size:10px;color:#555a6a">'+time+' · '+gpsText+' · Acked by '+req.acked_by+'</div>'+
           '</div>';
       }).join('');
     }
@@ -2575,11 +2650,17 @@ function renderSurvList() {
     var n = sessionSurvNotes[i];
     var t = new Date(n.timestamp).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
     var d = new Date(n.timestamp).toLocaleDateString('en-GB', {day:'2-digit', month:'short'});
-    html += '<div style="background:#151820;border:1px solid rgba(180,0,255,0.2);border-radius:10px;padding:12px;margin-bottom:10px">' +
-      '<div style="font-size:13px;font-weight:700;color:#e8eaf0;margin-bottom:4px">' + (n.title || 'Untitled') + '</div>' +
+    var photoCount = Array.isArray(n.photo_urls) ? n.photo_urls.length : 0;
+    html += '<div style="background:#151820;border:1px solid rgba(180,0,255,0.2);border-radius:10px;padding:12px;margin-bottom:10px;cursor:pointer" onclick=\'showSurvDetail(' + JSON.stringify(JSON.stringify(n)) + ')\'>' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">' +
+      '<div style="font-size:13px;font-weight:700;color:#e8eaf0">' + (n.title || 'Untitled') + '</div>' +
+      '<span style="font-family:monospace;font-size:10px;font-weight:700;color:#cc66ff;padding:2px 6px;border:1px solid #cc66ff;border-radius:4px">' + (n.category||'').toUpperCase() + '</span>' +
+      '</div>' +
       '<div style="font-size:12px;color:#8b90a0;margin-bottom:8px">' + (n.body || '') + '</div>' +
-      '<div style="font-family:monospace;font-size:10px;color:#555a6a">' + (n.guard_name || 'Unknown') + ' · ' + d + ' ' + t + ' · ' + (n.category || '') + (n.checkpoint ? ' · ' + n.checkpoint : '') + '</div>' +
-      '</div>';
+      '<div style="font-family:monospace;font-size:10px;color:#555a6a;display:flex;justify-content:space-between">' +
+      '<span>' + (n.guard_name || 'Unknown') + ' · ' + d + ' ' + t + (n.checkpoint ? ' · ' + n.checkpoint : '') + '</span>' +
+      (photoCount ? '<span>📷 ' + photoCount + '</span>' : '') +
+      '</div></div>';
   }
   el.innerHTML = html;
 }
@@ -2606,7 +2687,7 @@ function renderIncidentList() {
     var inc = sessionIncidents[i];
     var t = new Date(inc.timestamp).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
     var sevColor = inc.severity === 'Critical' ? '#ff4d4d' : inc.severity === 'High' ? '#ffb020' : inc.severity === 'Medium' ? '#4da3ff' : '#8b90a0';
-    html += '<div style="background:#151820;border:1px solid rgba(255,77,77,0.2);border-radius:10px;padding:12px;margin-bottom:10px">' +
+    html += '<div style="background:#151820;border:1px solid rgba(255,77,77,0.2);border-radius:10px;padding:12px;margin-bottom:10px;cursor:pointer" onclick=\'showIncidentDetail(' + JSON.stringify(JSON.stringify(inc)) + ')\'>' +
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">' +
       '<div style="font-size:13px;font-weight:700;color:#e8eaf0">' + inc.type + '</div>' +
       '<span style="font-family:monospace;font-size:10px;font-weight:700;color:' + sevColor + ';padding:2px 6px;border:1px solid ' + sevColor + ';border-radius:4px">' + inc.severity.toUpperCase() + '</span>' +
@@ -2615,7 +2696,7 @@ function renderIncidentList() {
       '<div style="font-size:12px;color:#8b90a0;margin-bottom:8px">' + (inc.notes || '') + '</div>' +
       '<div style="display:flex;justify-content:space-between;align-items:center">' +
       '<div style="font-family:monospace;font-size:10px;color:#555a6a">' + t + (inc.updated_at && inc.updated_at !== inc.timestamp ? ' · edited' : '') + '</div>' +
-      '<button type="button" onclick="editIncident(\'' + inc.id + '\')" style="font-family:monospace;font-size:10px;color:#4da3ff;border:1px solid rgba(77,163,255,0.3);background:transparent;padding:3px 10px;border-radius:4px;cursor:pointer">Edit</button>' +
+      '<button type="button" onclick="event.stopPropagation();editIncident(\'' + inc.id + '\')" style="font-family:monospace;font-size:10px;color:#4da3ff;border:1px solid rgba(77,163,255,0.3);background:transparent;padding:3px 10px;border-radius:4px;cursor:pointer">Edit</button>' +
       '</div></div>';
   }
   el.innerHTML = html;
