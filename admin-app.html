@@ -1101,7 +1101,7 @@ function loadMPTargetGuards() {
 
     function row(value, innerHtml, extraStyle) {
       return '<label class="mp-target-row" style="display:flex;align-items:center;gap:8px;padding:8px 6px;border-radius:6px;cursor:pointer;font-family:monospace;font-size:13px'+(extraStyle?';'+extraStyle:'')+'">'+
-        '<input type="checkbox" class="mp-target-cb" value="'+value.replace(/"/g,'&quot;')+'" onchange="updateMPTargetTriggerText()" style="width:16px;height:16px;accent-color:#00e5a0;cursor:pointer;flex-shrink:0">'+
+        '<input type="checkbox" class="mp-target-cb" value="'+value.replace(/"/g,'&quot;')+'" onchange="updateMPTargetTriggerText()" style="width:16px;height:16px;min-width:16px;margin:0;padding:0;-webkit-appearance:checkbox;appearance:checkbox;accent-color:#00e5a0;cursor:pointer;flex-shrink:0">'+
         '<span>'+innerHtml+'</span></label>';
     }
 
@@ -1113,7 +1113,7 @@ function loadMPTargetGuards() {
 
     html += '<div style="border-top:1px solid rgba(255,255,255,0.08);margin:6px 2px"></div>';
     html += '<label style="display:flex;align-items:center;gap:8px;padding:8px 6px;border-radius:6px;cursor:pointer;font-family:monospace;font-size:13px">'+
-      '<input type="checkbox" id="mp-target-broadcast" onchange="onMPBroadcastToggle()" style="width:16px;height:16px;accent-color:#ffb020;cursor:pointer;flex-shrink:0">'+
+      '<input type="checkbox" id="mp-target-broadcast" onchange="onMPBroadcastToggle()" style="width:16px;height:16px;min-width:16px;margin:0;padding:0;-webkit-appearance:checkbox;appearance:checkbox;accent-color:#ffb020;cursor:pointer;flex-shrink:0">'+
       '<span style="color:#ffb020;font-weight:700">BROADCAST <span style="font-weight:400;color:#8b90a0">(everyone receives this, regardless of who is on shift today)</span></span></label>';
 
     tray.innerHTML = html || '<div style="padding:10px;color:#555a6a;font-family:monospace;font-size:12px">No guards found</div>';
