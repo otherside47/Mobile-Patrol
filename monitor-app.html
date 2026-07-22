@@ -76,9 +76,6 @@ body{
   flex:1;
   min-height:0;
   max-height:56vh;
-  max-width:90%;
-  margin-left:auto;
-  margin-right:auto;
 }
 .stat-card{
   background:linear-gradient(145deg,#151c27,#111620);
@@ -132,7 +129,7 @@ body{
 .back-btn svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
 .sec-lbl{font-size:9px;font-weight:700;letter-spacing:2px;color:#4b5263;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.05);flex-shrink:0}
 
-.list-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.list-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;max-width:90%;margin-left:auto;margin-right:auto;width:100%}
 .list-scroll::-webkit-scrollbar{display:none}
 
 /* LIST ITEMS */
@@ -194,8 +191,8 @@ body{
 </div>
 
 <!-- HOME -->
-<div id="s-duty" style="display:flex;flex-direction:column;flex:1;overflow-y:auto;padding:0 12px 12px">
-  <div id="duty-list" style="flex-shrink:0;margin-bottom:10px"></div>
+<div id="s-duty" style="display:flex;flex-direction:column;flex:1;overflow:hidden;padding:0 12px 12px">
+  <div id="duty-list" style="flex-shrink:0;margin-bottom:10px;max-height:28vh;overflow:hidden"></div>
   <div class="stats-grid">
     <div class="stat-card c-red" onclick="nav('incidents')">
       <div class="stat-icon">⚠️</div>
@@ -451,6 +448,7 @@ function loadHelp(){
     if(!data||!data.length){el.innerHTML='<div class="empty">No help requests</div>';return;}
     el.innerHTML=data.map(function(r){
       var urgColor=r.urgency==='critical'?'#ff4d4d':r.urgency==='high'?'#ffb020':'#4da3ff';
+      var gpsText=(r.gps_lat&&r.gps_lng)?parseFloat(r.gps_lat).toFixed(5)+'° N, '+parseFloat(r.gps_lng).toFixed(5)+'° E':'GPS unavailable';
       return '<div style="background:#151820;border:1px solid rgba(255,77,77,0.2);border-radius:10px;padding:14px;margin-bottom:10px;cursor:pointer'+(r.acked?';opacity:0.6':'')+'" onclick=\'showHelp('+JSON.stringify(JSON.stringify(r))+')\'>'+
         '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">'+
         '<div style="font-size:14px;font-weight:700;color:#e8eaf0">'+(r.type||'Help Request')+'</div>'+
@@ -458,8 +456,10 @@ function loadHelp(){
         '</div>'+
         '<div style="font-family:monospace;font-size:11px;color:#8b90a0;margin-bottom:4px">📍 From: '+(r.name||'Unknown')+(r.loc_desc?' · '+r.loc_desc:'')+'</div>'+
         (r.notes?'<div style="font-size:12px;color:#8b90a0;margin-bottom:8px">'+r.notes+'</div>':'')+
-        '<div style="font-family:monospace;font-size:10px;color:#555a6a">'+ft(r.timestamp)+' '+(r.acked?'· <span style="color:#00e5a0">Acked by '+r.acked_by+'</span>':'· <span style="color:#ffb020">Awaiting response</span>')+'</div>'+
-        '</div>';
+        '<div style="font-family:monospace;font-size:10px;color:#555a6a;display:flex;justify-content:space-between">'+
+        '<span>'+ft(r.timestamp)+' '+(r.acked?'· <span style="color:#00e5a0">Acked by '+r.acked_by+'</span>':'· <span style="color:#ffb020">Awaiting response</span>')+'</span>'+
+        '<span>'+gpsText+'</span>'+
+        '</div></div>';
     }).join('');
   });
 }
@@ -478,17 +478,18 @@ function loadSurv(){
     var el=document.getElementById('surv-list');
     if(!data||!data.length){el.innerHTML='<div class="empty">No surveillance notes</div>';return;}
     el.innerHTML=data.map(function(n){
-      var photoCount=Array.isArray(n.photo_urls)?n.photo_urls.length:0;
-      var txt=(n.body||'');
-      return '<div style="background:#151820;border:1px solid rgba(180,0,255,0.2);border-radius:10px;padding:14px;margin-bottom:10px;cursor:pointer" onclick=\'showSurv('+JSON.stringify(JSON.stringify(n))+')\'>'+
-        '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">'+
-        '<div style="font-size:14px;font-weight:700;color:#e8eaf0">'+(n.title||'Untitled')+'</div>'+
-        '<span style="font-family:monospace;font-size:10px;font-weight:700;color:#cc66ff;padding:2px 7px;border:1px solid #cc66ff;border-radius:4px">'+(n.category||'NOTE').toUpperCase()+'</span>'+
+      var gpsText=(n.gps_lat&&n.gps_lng)?parseFloat(n.gps_lat).toFixed(5)+'° N, '+parseFloat(n.gps_lng).toFixed(5)+'° E':'GPS unavailable';
+      var urls=Array.isArray(n.photo_urls)?n.photo_urls:[];
+      var photosHtml=urls.length?('<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'+urls.map(function(u){return '<a href="'+u+'" target="_blank" rel="noopener"><img src="'+u+'" style="width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid rgba(180,0,255,0.3)"></a>';}).join('')+'</div>'):'';
+      return '<div style="background:#151820;border:1px solid rgba(180,0,255,0.2);border-radius:12px;padding:14px;margin-bottom:12px;cursor:pointer" onclick=\'showSurv('+JSON.stringify(JSON.stringify(n))+')\'>'+
+        '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px">'+
+        '<div style="font-size:14px;font-weight:600;color:#e8eaf0;flex:1">'+(n.title||'Untitled')+'</div>'+
+        '<span style="font-family:monospace;font-size:10px;padding:2px 7px;border-radius:4px;background:rgba(255,255,255,0.06);color:#8b90a0;border:1px solid rgba(255,255,255,0.08);margin-left:8px;flex-shrink:0">'+(n.category||'')+'</span>'+
         '</div>'+
-        '<div style="font-size:12px;color:#8b90a0;margin-bottom:8px">'+txt.substring(0,100)+(txt.length>100?'...':'')+'</div>'+
-        '<div style="font-family:monospace;font-size:10px;color:#555a6a;display:flex;justify-content:space-between">'+
-        '<span>'+(n.guard_name||'')+' · '+ft(n.timestamp)+'</span>'+(photoCount?'<span>📷 '+photoCount+'</span>':'')+
-        '</div></div>';
+        '<div style="font-size:13px;color:#8b90a0;line-height:1.6;margin-bottom:8px">'+(n.body||'')+'</div>'+
+        '<div style="font-family:monospace;font-size:10px;color:#555a6a;line-height:1.8">Guard: <span style="color:#4da3ff">'+(n.guard_name||'')+'</span><br>'+ft(n.timestamp)+'<br>GPS: '+gpsText+'<br>'+(urls.length>0?'📷 '+urls.length+' photo(s)':'No photos')+'</div>'+
+        photosHtml+
+        '</div>';
     }).join('');
   });
 }
