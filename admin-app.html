@@ -418,16 +418,16 @@ select:focus,input:focus{border-color:#00e5a0}
 
     <!-- SEND MP -->
     <div class="tab-panel" id="tab-sendmp">
-      <div style="font-size:13px;color:#8b90a0;font-family:monospace;margin-bottom:12px">Sends an assignment to a specific guard. Broadcasting to everyone on shift is optional.</div>
+      <div style="font-size:13px;color:#8b90a0;font-family:monospace;margin-bottom:12px">Sends an assignment to one or more guards.</div>
 
       <label style="font-family:monospace;font-size:10px;color:#555a6a;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:5px">Send to</label>
-      <select id="mp-target-guard" style="width:100%;background:#151820;border:1px solid rgba(139,144,160,0.2);color:#e8eaf0;padding:9px 10px;border-radius:8px;font-family:monospace;font-size:13px;margin-bottom:8px">
-        <option value="">Loading guards...</option>
-      </select>
-      <label style="display:flex;align-items:center;gap:8px;font-family:monospace;font-size:12px;color:#8b90a0;margin-bottom:16px;cursor:pointer">
-        <input type="checkbox" id="mp-send-all" style="width:16px;height:16px;accent-color:#00e5a0;cursor:pointer">
-        Send to all guards currently on shift (broadcast)
-      </label>
+      <button type="button" id="mp-target-trigger" onclick="toggleMPTargetTray()" style="width:100%;background:#151820;border:1px solid rgba(139,144,160,0.2);color:#e8eaf0;padding:9px 10px;border-radius:8px;font-family:monospace;font-size:13px;margin-bottom:8px;text-align:left;display:flex;justify-content:space-between;align-items:center;cursor:pointer">
+        <span id="mp-target-trigger-text">Select recipients...</span>
+        <span style="color:#555a6a">▾</span>
+      </button>
+      <div id="mp-target-tray" style="display:none;background:#151820;border:1px solid rgba(139,144,160,0.2);border-radius:8px;padding:6px;margin-bottom:16px;max-height:280px;overflow-y:auto">
+        <div style="padding:10px;color:#555a6a;font-family:monospace;font-size:12px">Loading guards...</div>
+      </div>
 
       <label style="font-family:monospace;font-size:10px;color:#555a6a;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:5px">Location</label>
       <div id="mp-loc-grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:8px">
@@ -1030,14 +1030,46 @@ function initSendMP() {
   document.getElementById('mp-notes').value = '';
   document.getElementById('mp-gps-box').style.display = 'none';
   document.getElementById('mp-gps-toggle').style.display = 'flex';
-  document.getElementById('mp-send-all').checked = false;
+  document.getElementById('mp-target-tray').style.display = 'none';
   loadMPTargetGuards();
 }
 
+function toggleMPTargetTray() {
+  var tray = document.getElementById('mp-target-tray');
+  tray.style.display = (tray.style.display === 'none') ? 'block' : 'none';
+}
+
+function updateMPTargetTriggerText() {
+  var textEl = document.getElementById('mp-target-trigger-text');
+  var broadcastCb = document.getElementById('mp-target-broadcast');
+  if (broadcastCb && broadcastCb.checked) {
+    textEl.textContent = 'BROADCAST — all guards';
+    return;
+  }
+  var checked = document.querySelectorAll('.mp-target-cb:checked');
+  if (!checked.length) {
+    textEl.textContent = 'Select recipients...';
+  } else if (checked.length === 1) {
+    textEl.textContent = checked[0].value;
+  } else {
+    var names = [];
+    checked.forEach(function(cb){ names.push(cb.value); });
+    textEl.textContent = checked.length + ' guards: ' + names.join(', ');
+  }
+}
+
+function onMPBroadcastToggle() {
+  var broadcastCb = document.getElementById('mp-target-broadcast');
+  document.querySelectorAll('.mp-target-cb').forEach(function(cb) {
+    cb.disabled = broadcastCb.checked;
+    if (broadcastCb.checked) cb.checked = false;
+  });
+  updateMPTargetTriggerText();
+}
+
 function loadMPTargetGuards() {
-  var sel = document.getElementById('mp-target-guard');
-  sel.innerHTML = '<option value="">Loading guards...</option>';
-  sel.disabled = true;
+  var tray = document.getElementById('mp-target-tray');
+  tray.innerHTML = '<div style="padding:10px;color:#555a6a;font-family:monospace;font-size:12px">Loading guards...</div>';
   Promise.all([
     fetch(SUPABASE_URL + '/rest/v1/active_shifts?status=eq.active&order=started_at.desc&limit=50', {
       headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY}
@@ -1046,11 +1078,10 @@ function loadMPTargetGuards() {
       headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY}
     }).then(function(r) { return r.json(); }).catch(function(){ return []; })
   ]).then(function(results) {
-    sel.disabled = false;
     var activeData = Array.isArray(results[0]) ? results[0] : [];
     var allProfiles = Array.isArray(results[1]) ? results[1] : [];
 
-    // Who's currently on shift, in most-recently-started-first order
+    // Who's currently on shift, most-recently-started first
     var onShiftNames = {};
     var onShiftOrder = [];
     for (var i = 0; i < activeData.length; i++) {
@@ -1058,42 +1089,39 @@ function loadMPTargetGuards() {
       if (n && !onShiftNames[n]) { onShiftNames[n] = true; onShiftOrder.push(n); }
     }
 
-    // Everyone else (real profiles only — skip vacant/placeholder slots like "Replacement")
+    // Everyone else (skip vacant/placeholder slots like "Replacement" — not a real recipient)
     var others = [];
     var seenOther = {};
     for (var j = 0; j < allProfiles.length; j++) {
       var p = allProfiles[j];
-      if (p.vacant) continue;
-      if (!p.name || onShiftNames[p.name] || seenOther[p.name]) continue;
+      if (!p.name || onShiftNames[p.name] || seenOther[p.name] || p.vacant) continue;
       seenOther[p.name] = true;
       others.push(p.name);
     }
 
+    function row(value, innerHtml, extraStyle) {
+      return '<label class="mp-target-row" style="display:flex;align-items:center;gap:8px;padding:8px 6px;border-radius:6px;cursor:pointer;font-family:monospace;font-size:13px'+(extraStyle?';'+extraStyle:'')+'">'+
+        '<input type="checkbox" class="mp-target-cb" value="'+value.replace(/"/g,'&quot;')+'" onchange="updateMPTargetTriggerText()" style="width:16px;height:16px;accent-color:#00e5a0;cursor:pointer;flex-shrink:0">'+
+        '<span>'+innerHtml+'</span></label>';
+    }
+
     var html = '';
-    if (onShiftOrder.length) {
-      html += '<optgroup label="On shift now">';
-      onShiftOrder.forEach(function(n) {
-        html += '<option value="'+n.replace(/"/g,'&quot;')+'" style="color:#00e5a0;font-weight:700">🟢 '+n+' — On shift</option>';
-      });
-      html += '</optgroup>';
-    }
-    if (others.length) {
-      html += '<optgroup label="All guards">';
-      others.forEach(function(n) {
-        html += '<option value="'+n.replace(/"/g,'&quot;')+'">'+n+'</option>';
-      });
-      html += '</optgroup>';
-    }
-    sel.innerHTML = html || '<option value="">No guards found</option>';
+    onShiftOrder.forEach(function(n) {
+      html += row(n, '🟢 '+n+' — On shift', 'color:#00e5a0;font-weight:700');
+    });
+    others.forEach(function(n) { html += row(n, n); });
+
+    html += '<div style="border-top:1px solid rgba(255,255,255,0.08);margin:6px 2px"></div>';
+    html += '<label style="display:flex;align-items:center;gap:8px;padding:8px 6px;border-radius:6px;cursor:pointer;font-family:monospace;font-size:13px">'+
+      '<input type="checkbox" id="mp-target-broadcast" onchange="onMPBroadcastToggle()" style="width:16px;height:16px;accent-color:#ffb020;cursor:pointer;flex-shrink:0">'+
+      '<span style="color:#ffb020;font-weight:700">BROADCAST <span style="font-weight:400;color:#8b90a0">(everyone receives this, regardless of who is on shift today)</span></span></label>';
+
+    tray.innerHTML = html || '<div style="padding:10px;color:#555a6a;font-family:monospace;font-size:12px">No guards found</div>';
+    updateMPTargetTriggerText();
   }).catch(function() {
-    sel.disabled = false;
-    sel.innerHTML = '<option value="">Could not load guards — check connection</option>';
+    tray.innerHTML = '<div style="padding:10px;color:#ff6b6b;font-family:monospace;font-size:12px">Could not load guards — check connection</div>';
   });
 }
-
-document.getElementById('mp-send-all').addEventListener('change', function() {
-  document.getElementById('mp-target-guard').disabled = this.checked;
-});
 
 function acquireMPGPS() {
   var textEl = document.getElementById('mp-gps-text');
@@ -1155,9 +1183,13 @@ document.querySelectorAll('.mp-sev-btn').forEach(function(btn) {
 });
 
 document.getElementById('btn-send-mp').addEventListener('click', function() {
-  var sendToAll = document.getElementById('mp-send-all').checked;
-  var targetGuard = document.getElementById('mp-target-guard').value;
-  if (!sendToAll && !targetGuard) { showToast('Please select a guard to send to, or check "Send to all"'); return; }
+  var broadcastCb = document.getElementById('mp-target-broadcast');
+  var sendToAll = !!(broadcastCb && broadcastCb.checked);
+  var selectedGuards = [];
+  if (!sendToAll) {
+    document.querySelectorAll('.mp-target-cb:checked').forEach(function(cb) { selectedGuards.push(cb.value); });
+  }
+  if (!sendToAll && selectedGuards.length === 0) { showToast('Please select at least one recipient, or BROADCAST'); return; }
   // Live coordinates satisfy the location requirement on their own
   if (!mpSelectedLoc && !mpGPS) { showToast('Please select a location or capture live coordinates'); return; }
   var customLoc = document.getElementById('mp-custom-loc').value.trim();
@@ -1166,41 +1198,49 @@ document.getElementById('btn-send-mp').addEventListener('click', function() {
   var notes = document.getElementById('mp-notes').value.trim();
 
   var locLabelMap = {NEC:'NEC', PD:'PD', Emb:'Emb', custom: customLoc};
-  var payload = {
-    id: 'MP-' + Date.now(),
-    sent_by: (currentAdminName || 'Admin'),
-    guard_name: sendToAll ? 'ALL' : targetGuard,
-    location_type: mpGPS ? 'gps' : mpSelectedLoc,
-    location_label: mpGPS ? 'Live location' : locLabelMap[mpSelectedLoc],
-    custom_location: mpSelectedLoc === 'custom' ? customLoc : null,
-    severity: mpSelectedSev,
-    gps_lat: mpGPS ? mpGPS.lat : null,
-    gps_lng: mpGPS ? mpGPS.lng : null,
-    notes: notes,
-    acked: false,
-    timestamp: new Date().toISOString()
-  };
+  var locationType = mpGPS ? 'gps' : mpSelectedLoc;
+  var locationLabel = mpGPS ? 'Live location' : locLabelMap[mpSelectedLoc];
+  var pushLocLabel = locationLabel || customLoc || 'Assignment';
+  var pushBody = (mpSelectedSev ? mpSelectedSev + ' — ' : '') + pushLocLabel + (notes ? ': ' + notes : '');
 
   var btn = this;
   btn.disabled = true;
   btn.textContent = 'Sending...';
 
-  fetch(SUPABASE_URL + '/rest/v1/mp_assignments', {
-    method: 'POST',
-    headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
-    body: JSON.stringify(payload)
-  }).then(function() {
-    showToast('Successfully assigned');
-    // Push to guards — targeted to one guard unless broadcasting to all
-    var locLabel = payload.location_label || payload.custom_location || 'Assignment';
-    var pushBody = (payload.severity ? payload.severity + ' — ' : '') + locLabel + (payload.notes ? ': ' + payload.notes : '');
-    var pushPayload = { title: 'MP Assignment', body: pushBody, role: 'guard' };
-    if (!sendToAll) pushPayload.guard_name = targetGuard;
-    fetch(SUPABASE_URL+'/functions/v1/send-push', {
+  var targets = sendToAll ? ['ALL'] : selectedGuards;
+
+  var sendPromises = targets.map(function(guardName, idx) {
+    var payload = {
+      id: 'MP-' + Date.now() + '-' + idx,
+      sent_by: (currentAdminName || 'Admin'),
+      guard_name: guardName,
+      location_type: locationType,
+      location_label: locationLabel,
+      custom_location: mpSelectedLoc === 'custom' ? customLoc : null,
+      severity: mpSelectedSev,
+      gps_lat: mpGPS ? mpGPS.lat : null,
+      gps_lng: mpGPS ? mpGPS.lng : null,
+      notes: notes,
+      acked: false,
+      timestamp: new Date().toISOString()
+    };
+    return fetch(SUPABASE_URL + '/rest/v1/mp_assignments', {
       method: 'POST',
-      headers: {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY},
-      body: JSON.stringify(pushPayload)
-    }).catch(function(){});
+      headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+      body: JSON.stringify(payload)
+    }).then(function() {
+      var pushPayload = { title: 'MP Assignment', body: pushBody, role: 'guard' };
+      if (guardName !== 'ALL') pushPayload.guard_name = guardName;
+      return fetch(SUPABASE_URL+'/functions/v1/send-push', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY},
+        body: JSON.stringify(pushPayload)
+      }).catch(function(){});
+    });
+  });
+
+  Promise.all(sendPromises).then(function() {
+    showToast(sendToAll ? 'Broadcast sent to all guards' : ('Sent to ' + targets.length + (targets.length === 1 ? ' guard' : ' guards')));
     initSendMP();
   }).catch(function() {
     showToast('Failed to send — check connection');
