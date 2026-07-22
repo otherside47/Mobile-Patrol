@@ -991,7 +991,7 @@ function buildShiftReport() {
       var div=document.createElement('div');
       div.style.cssText='background:#151820;border:1px solid rgba(255,77,77,0.2);border-radius:10px;padding:12px;margin-bottom:10px';
       div.innerHTML='<div style="font-size:13px;font-weight:600;color:'+(req.acked?'#00e5a0':'#ff6b6b')+';margin-bottom:4px">'+(req.acked?'OK ':'! ')+req.type+'</div>'+
-        '<div style="font-family:monospace;font-size:11px;color:#555a6a;line-height:1.7">From: '+req.name+'<br>Location: '+req.loc_desc+'<br>Time: '+time+'</div>';
+        '<div style="font-family:monospace;font-size:11px;color:#555a6a;line-height:1.7">From: '+req.name+'<br>Location: '+req.loc_desc+'<br>'+(req.notes?'Message: '+req.notes+'<br>':'')+'Time: '+time+'</div>';
       el.appendChild(div);
     }
   });
@@ -1349,7 +1349,7 @@ function loadHelpRequests() {
         var time = new Date(req.timestamp).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
         return '<div style="background:#151820;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px;margin-bottom:8px;opacity:0.7">'+
           '<div style="font-size:13px;font-weight:600;color:#00e5a0;margin-bottom:4px">OK '+req.type+'</div>'+
-          '<div style="font-family:monospace;font-size:11px;color:#555a6a;line-height:1.7">From: '+req.name+'<br>Location: '+req.loc_desc+'<br>GPS: '+gpsText+'<br>Time: '+time+' · Acked by '+req.acked_by+'</div>'+
+          '<div style="font-family:monospace;font-size:11px;color:#555a6a;line-height:1.7">From: '+req.name+'<br>Location: '+req.loc_desc+'<br>GPS: '+gpsText+'<br>'+(req.notes?'Message: '+req.notes+'<br>':'')+'Time: '+time+' · Acked by '+req.acked_by+'</div>'+
           '</div>';
       }).join('');
     }
