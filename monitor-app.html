@@ -464,8 +464,9 @@ function loadSurv(){
     if(!data||!data.length){el.innerHTML='<div class="empty">No surveillance notes</div>';return;}
     el.innerHTML=data.map(function(n){
       var txt=(n.body||'');
+      var photoCount=Array.isArray(n.photo_urls)?n.photo_urls.length:0;
       return '<div class="item" onclick=\'showSurv('+JSON.stringify(JSON.stringify(n))+')\'>'+
-        '<div class="item-row"><div class="item-title"><span class="pill p-violet">'+(n.category||'NOTE').toUpperCase()+'</span>'+(n.guard_name||'')+'</div><div class="item-time">'+ft(n.timestamp)+'</div></div>'+
+        '<div class="item-row"><div class="item-title"><span class="pill p-violet">'+(n.category||'NOTE').toUpperCase()+'</span>'+(n.guard_name||'')+(photoCount?' 📷'+photoCount:'')+'</div><div class="item-time">'+ft(n.timestamp)+'</div></div>'+
         '<div class="item-sub">'+txt.substring(0,70)+(txt.length>70?'...':'')+'</div>'+
       '</div>';
     }).join('');
@@ -473,8 +474,11 @@ function loadSurv(){
 }
 function showSurv(j){
   var d=JSON.parse(j);
+  var urls=Array.isArray(d.photo_urls)?d.photo_urls:[];
+  var photosHtml=urls.length?('<div style="display:flex;gap:6px;flex-wrap:wrap">'+urls.map(function(u){return '<a href="'+u+'" target="_blank" rel="noopener"><img src="'+u+'" style="width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid rgba(180,0,255,0.3)"></a>';}).join('')+'</div>'):'';
   openModal('Surveillance Note',mr('Guard',d.guard_name)+mr('Category',d.category)+mr('Subject',d.title)+mr('Checkpoint',d.checkpoint)+mr('Note',d.body)+mr('Time',fmt(d.timestamp))+
-    (d.gps_lat&&d.gps_lng?mr('GPS',parseFloat(d.gps_lat).toFixed(5)+'N, '+parseFloat(d.gps_lng).toFixed(5)+'E'):''),
+    (d.gps_lat&&d.gps_lng?mr('GPS',parseFloat(d.gps_lat).toFixed(5)+'N, '+parseFloat(d.gps_lng).toFixed(5)+'E'):'')+
+    mr('Photos',photosHtml),
     d.gps_lat, d.gps_lng);
 }
 

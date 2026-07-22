@@ -298,6 +298,10 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
           <option>Counter-surveillance</option>
           <option>Other</option>
         </select>
+        <label class="fl">Photos (optional)</label>
+        <div id="surv-photo-thumbs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px"></div>
+        <div style="font-family:monospace;font-size:10px;color:#8b90a0;margin-bottom:10px">Tap "Start Taking Picture" below to add a photo (<span id="surv-photo-count">0/5</span>)</div>
+        <input type="file" accept="image/*" capture="environment" id="surv-photo-input" style="display:none">
         <button type="button" class="btn btn-purple" id="btn-submit-surv">Submit observation</button>
         <button type="button" class="btn" id="btn-skip-surv">Skip</button>
       </div>
@@ -932,7 +936,7 @@ function endShift() {
   }
   localStorage.removeItem('mp_current_shift_id');
   localStorage.removeItem('mp_seen_assignment_ids');
-  localStorage.removeItem('mp_timeline');
+  localStorage.removeItem(tlKey());
   buildShiftReport();
   var allScreens = document.querySelectorAll('.screen');
   for (var i = 0; i < allScreens.length; i++) {
@@ -1609,6 +1613,11 @@ function doStartShift(type, label, startDate, endDate, isContinue) {
   banner.style.display='block';
   banner.textContent=(type==='night'?'Night: ':'Day: ')+label;
   document.getElementById('tl-header').textContent=label+' · '+currentGuardName;
+  // Always start from a clean visible timeline — prevents a previous guard's
+  // entries (or a stale render) from ever being visible before we restore
+  // this specific guard's own saved entries (if continuing their own shift).
+  var tlList = document.getElementById('timeline-list');
+  if (tlList) tlList.innerHTML = '';
 
   // Reset only top-level screens (not inner app screens) — fixes empty screen bug
   var topScreens = ['screen-login','screen-shift','screen-app','screen-report'];
@@ -1671,8 +1680,8 @@ function doStartShift(type, label, startDate, endDate, isContinue) {
   });
   // Save shift to Supabase - only create new record if not continuing existing shift
   if (!isContinue) {
-    // New shift — clear the saved timeline
-    localStorage.removeItem('mp_timeline');
+    // New shift — clear this guard's own saved timeline (their previous shift's entries)
+    localStorage.removeItem(tlKey());
     var shiftId = 'SHIFT-' + Date.now();
     var shiftStartedAt = new Date().toISOString();
     window._shiftId = shiftId;
@@ -1789,7 +1798,9 @@ function checkAutoEndShift() {
   localStorage.removeItem('mp_current_shift_id');
   localStorage.removeItem('mp_shift_started_at');
   localStorage.removeItem('mp_seen_assignment_ids');
-  localStorage.removeItem('mp_timeline');
+  localStorage.removeItem(tlKey());
+  var tlListStale = document.getElementById('timeline-list');
+  if (tlListStale) tlListStale.innerHTML = '';
   window._shiftId = null;
   window._shiftStartedAt = null;
 
@@ -2033,7 +2044,12 @@ function doLogout() {
   mpUnreadCount=0;
   lastSeenRequestId=null;
   localStorage.removeItem('mp_seen_assignment_ids');
-  localStorage.removeItem('mp_timeline');
+  // NOTE: intentionally NOT clearing this guard's own timeline data here —
+  // if the same guard logs back in, their entries should still be there.
+  // The visible list is wiped regardless, so a different guard logging in
+  // next never sees a previous guard's rendered entries.
+  var tlListLogout = document.getElementById('timeline-list');
+  if (tlListLogout) tlListLogout.innerHTML = '';
   currentShift={type:'',label:'',startDate:'',endDate:''};
   document.getElementById('shift-banner').style.display='none';
   navApp('s-home'); setNav('nav-home');
@@ -2042,7 +2058,7 @@ function doLogout() {
 // NAV
 document.getElementById('btn-scan').addEventListener('click', function(){navApp('s-scan');setNav('nav-scan');updateGPS();});
 document.getElementById('btn-incident').addEventListener('click', function(){navApp('s-incident');setNav('nav-incident');resetIncidentForm();updateGPS();});
-document.getElementById('btn-scan-back').addEventListener('click', function(){stopScanner();navApp('s-home');setNav('nav-home');});
+document.getElementById('btn-scan-back').addEventListener('click', function(){stopScanner();clearSurvPhotos();setSurvPhotoMode(false);document.getElementById('surv-form').style.display='none';navApp('s-home');setNav('nav-home');});
 document.getElementById('btn-incident-back').addEventListener('click', function(){resetIncidentForm();navApp('s-home');setNav('nav-home');});
 
 // -- ASSISTANCE REQUEST --
@@ -2312,7 +2328,9 @@ document.getElementById('nav-reports').addEventListener('click', function(){navA
 document.getElementById('nav-assignments').addEventListener('click', function(){navApp('s-assignments');setNav('nav-assignments');loadMPAssignmentsList();mpUnreadCount=0;updateMPBadge();});
 
 // SCANNER
-document.getElementById('btn-start-scan').addEventListener('click', function(){startScanner();});
+document.getElementById('btn-start-scan').addEventListener('click', function(){
+  if (survPhotoMode) { triggerSurvPhotoCapture(); } else { startScanner(); }
+});
 document.getElementById('btn-stop-scan').addEventListener('click', function(){stopScanner();});
 
 function startScanner() {
@@ -2377,6 +2395,8 @@ function onScanSuccess(decodedText) {
       document.getElementById('surv-title').value='';
       document.getElementById('surv-body').value='';
       document.getElementById('surv-form').style.display='block';
+      clearSurvPhotos();
+      setSurvPhotoMode(true);
     } else {
       setTimeout(function(){navApp('s-home');setNav('nav-home');document.getElementById('scan-result').style.display='none';},2000);
     }
@@ -2390,6 +2410,100 @@ function showScanErr(msg){
   document.getElementById('scan-idle').style.display='flex';
 }
 
+// SURVEILLANCE NOTE PHOTOS
+var survPhotos = []; // {blob, previewUrl}
+var survPhotoMode = false;
+var SURV_PHOTO_MAX = 5;
+
+function setSurvPhotoMode(on) {
+  survPhotoMode = on;
+  var btn = document.getElementById('btn-start-scan');
+  if (btn) btn.textContent = on ? '📷 Start Taking Picture' : 'Start Scanner';
+}
+
+function clearSurvPhotos() {
+  survPhotos.forEach(function(p){ try { URL.revokeObjectURL(p.previewUrl); } catch(e){} });
+  survPhotos = [];
+  renderSurvPhotoThumbs();
+}
+
+function renderSurvPhotoThumbs() {
+  var wrap = document.getElementById('surv-photo-thumbs');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  survPhotos.forEach(function(p, idx) {
+    var box = document.createElement('div');
+    box.style.cssText = 'position:relative;width:64px;height:64px;border-radius:6px;overflow:hidden;border:1px solid rgba(180,0,255,0.3);flex-shrink:0';
+    var img = document.createElement('img');
+    img.src = p.previewUrl;
+    img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block';
+    box.appendChild(img);
+    var rm = document.createElement('button');
+    rm.type = 'button';
+    rm.textContent = '×';
+    rm.style.cssText = 'position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,0.75);color:#fff;border:none;font-size:12px;line-height:1;cursor:pointer;padding:0';
+    rm.onclick = function(){ survPhotos.splice(idx,1); renderSurvPhotoThumbs(); };
+    box.appendChild(rm);
+    wrap.appendChild(box);
+  });
+  var counter = document.getElementById('surv-photo-count');
+  if (counter) counter.textContent = survPhotos.length + '/' + SURV_PHOTO_MAX;
+}
+
+function triggerSurvPhotoCapture() {
+  if (survPhotos.length >= SURV_PHOTO_MAX) { showToast('Maximum ' + SURV_PHOTO_MAX + ' photos'); return; }
+  document.getElementById('surv-photo-input').click();
+}
+
+document.getElementById('surv-photo-input').addEventListener('change', function(e) {
+  var file = e.target.files && e.target.files[0];
+  e.target.value = ''; // allow capturing another photo next time
+  if (!file) return;
+  compressSurvPhoto(file, function(blob, previewUrl) {
+    survPhotos.push({ blob: blob, previewUrl: previewUrl });
+    renderSurvPhotoThumbs();
+  });
+});
+
+function compressSurvPhoto(file, cb) {
+  var img = new Image();
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    img.onload = function() {
+      var maxDim = 1280;
+      var w = img.width, h = img.height;
+      if (w > h && w > maxDim) { h = Math.round(h * maxDim / w); w = maxDim; }
+      else if (h > maxDim) { w = Math.round(w * maxDim / h); h = maxDim; }
+      var canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      canvas.toBlob(function(blob) {
+        if (!blob) return;
+        cb(blob, URL.createObjectURL(blob));
+      }, 'image/jpeg', 0.72);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function uploadSurvPhotos(cb) {
+  if (survPhotos.length === 0) { cb([]); return; }
+  var uploads = survPhotos.map(function(p, idx) {
+    var path = (currentGuardName||'guard').replace(/[^a-zA-Z0-9]/g,'_') + '/' + Date.now() + '-' + idx + '.jpg';
+    return fetch(SUPABASE_URL + '/storage/v1/object/surveillance-photos/' + path, {
+      method: 'POST',
+      headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'image/jpeg'},
+      body: p.blob
+    }).then(function(r) {
+      return r.ok ? (SUPABASE_URL + '/storage/v1/object/public/surveillance-photos/' + path) : null;
+    }).catch(function(){ return null; });
+  });
+  Promise.all(uploads).then(function(urls) {
+    cb(urls.filter(function(u){ return u; }));
+  });
+}
+
 // SURVEILLANCE NOTE
 document.getElementById('btn-submit-surv').addEventListener('click', function(){
   var title=document.getElementById('surv-title').value.trim();
@@ -2398,17 +2512,25 @@ document.getElementById('btn-submit-surv').addEventListener('click', function(){
   var category=document.getElementById('surv-category').value;
   var btn=this;
   btn.disabled=true;
-  sbPost('surveillance_notes',{id:'NOTE-'+Date.now(),guard_name:currentGuardName,checkpoint:currentScanCP?currentScanCP.name:'Unknown',title:title,body:body,category:category,photos:0,gps_lat:currentGPS?currentGPS.lat:null,gps_lng:currentGPS?currentGPS.lng:null},function(ok){
-    btn.disabled=false;
-    if(!ok){showToast('Failed to submit note — check connection and try again');return;}
-    addTL('Surveillance note submitted', category);
-    document.getElementById('surv-form').style.display='none';
-    showToast('Observation note submitted');
-    setTimeout(function(){navApp('s-home');setNav('nav-home');document.getElementById('scan-result').style.display='none';},1500);
+  btn.textContent = survPhotos.length ? 'Uploading photos...' : 'Submitting...';
+  uploadSurvPhotos(function(photoUrls) {
+    btn.textContent = 'Submit observation';
+    sbPost('surveillance_notes',{id:'NOTE-'+Date.now(),guard_name:currentGuardName,checkpoint:currentScanCP?currentScanCP.name:'Unknown',title:title,body:body,category:category,photos:photoUrls.length,photo_urls:photoUrls,gps_lat:currentGPS?currentGPS.lat:null,gps_lng:currentGPS?currentGPS.lng:null},function(ok){
+      btn.disabled=false;
+      if(!ok){showToast('Failed to submit note — check connection and try again');return;}
+      addTL('Surveillance note submitted', category);
+      document.getElementById('surv-form').style.display='none';
+      clearSurvPhotos();
+      setSurvPhotoMode(false);
+      showToast('Observation note submitted');
+      setTimeout(function(){navApp('s-home');setNav('nav-home');document.getElementById('scan-result').style.display='none';},1500);
+    });
   });
 });
 document.getElementById('btn-skip-surv').addEventListener('click', function(){
   document.getElementById('surv-form').style.display='none';
+  clearSurvPhotos();
+  setSurvPhotoMode(false);
   setTimeout(function(){navApp('s-home');setNav('nav-home');document.getElementById('scan-result').style.display='none';},500);
 });
 
@@ -2607,6 +2729,7 @@ document.getElementById('btn-submit-incident').addEventListener('click', functio
 });
 
 // TIMELINE
+function tlKey() { return 'mp_timeline_' + (currentGuardName || 'unknown'); }
 function addTL(title, meta) {
   var now = new Date();
   var timeStr = now.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
@@ -2615,17 +2738,17 @@ function addTL(title, meta) {
   item.className='tl-item';
   item.innerHTML='<div class="tl-dot"></div><div><div style="font-size:13px;font-weight:500">'+title+'</div><div style="font-family:monospace;font-size:11px;color:#555a6a">'+timeStr+(meta?' · '+meta:'')+'</div></div>';
   list.appendChild(item);
-  // Persist to localStorage so timeline survives app close/reopen
+  // Persist to localStorage (per-guard key) so timeline survives app close/reopen for the same guard only
   try {
-    var saved = JSON.parse(localStorage.getItem('mp_timeline') || '[]');
+    var saved = JSON.parse(localStorage.getItem(tlKey()) || '[]');
     saved.push({ title: title, meta: meta || '', time: timeStr });
-    localStorage.setItem('mp_timeline', JSON.stringify(saved));
+    localStorage.setItem(tlKey(), JSON.stringify(saved));
   } catch(e) {}
 }
 
 function restoreTL() {
   try {
-    var saved = JSON.parse(localStorage.getItem('mp_timeline') || '[]');
+    var saved = JSON.parse(localStorage.getItem(tlKey()) || '[]');
     var list = document.getElementById('timeline-list');
     saved.forEach(function(entry) {
       var item = document.createElement('div');
