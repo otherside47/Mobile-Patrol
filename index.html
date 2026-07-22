@@ -1087,7 +1087,7 @@ function markMPSeen(id) {
 function pollMPAssignments() {
   if (!currentGuardName) return;
   Promise.all([
-    fetch(SUPABASE_URL+'/rest/v1/mp_assignments?guard_name=eq.ALL&order=timestamp.desc&limit=20', {
+    fetch(SUPABASE_URL+'/rest/v1/mp_assignments?or=(guard_name.eq.ALL,guard_name.eq.'+encodeURIComponent(currentGuardName)+')&order=timestamp.desc&limit=20', {
       headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
     }).then(function(r){return r.json();}),
     fetch(SUPABASE_URL+'/rest/v1/mp_assignment_acks?select=assignment_id', {
@@ -1263,7 +1263,7 @@ function loadMPAssignmentsList() {
   var el = document.getElementById('mp-assignments-list');
   if (!el) return;
   el.innerHTML = '<div style="font-size:13px;color:#555a6a;font-family:monospace">Loading...</div>';
-  fetch(SUPABASE_URL+'/rest/v1/mp_assignments?guard_name=eq.ALL&order=timestamp.desc&limit=50', {
+  fetch(SUPABASE_URL+'/rest/v1/mp_assignments?or=(guard_name.eq.ALL,guard_name.eq.'+encodeURIComponent(currentGuardName)+')&order=timestamp.desc&limit=50', {
     headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
   }).then(function(r){return r.json();}).then(function(data){
     if (!Array.isArray(data) || !data.length) {
@@ -1842,7 +1842,7 @@ function guardExportPDF() {
     fetch(SUPABASE_URL+'/rest/v1/patrol_scans?order=timestamp.asc&limit=500&timestamp=gte.'+sinceDate+'&timestamp=lte.'+untilDate+'&guard_name=eq.'+encodeURIComponent(guardName), {headers:headers}).then(function(r){return r.json();}),
     fetch(SUPABASE_URL+'/rest/v1/help_requests?order=timestamp.asc&limit=200&timestamp=gte.'+sinceDate+'&timestamp=lte.'+untilDate, {headers:headers}).then(function(r){return r.json();}),
     fetch(SUPABASE_URL+'/rest/v1/incidents?order=timestamp.asc&limit=200&timestamp=gte.'+sinceDate+'&timestamp=lte.'+untilDate+'&guard_name=eq.'+encodeURIComponent(guardName), {headers:headers}).then(function(r){return r.json();}),
-    fetch(SUPABASE_URL+'/rest/v1/mp_assignments?order=timestamp.asc&limit=200&timestamp=gte.'+sinceDate+'&timestamp=lte.'+untilDate+'&guard_name=eq.ALL', {headers:headers}).then(function(r){return r.json();}),
+    fetch(SUPABASE_URL+'/rest/v1/mp_assignments?order=timestamp.asc&limit=200&timestamp=gte.'+sinceDate+'&timestamp=lte.'+untilDate+'&or=(guard_name.eq.ALL,guard_name.eq.'+encodeURIComponent(guardName)+')', {headers:headers}).then(function(r){return r.json();}),
     // Only this guard's own ack records — a report should only show assignments
     // THIS guard personally acknowledged or dismissed, not ones another guard handled.
     fetch(SUPABASE_URL+'/rest/v1/mp_assignment_acks?guard_name=eq.'+encodeURIComponent(guardName), {headers:headers}).then(function(r){return r.json();}),

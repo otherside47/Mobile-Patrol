@@ -93,7 +93,7 @@ async function loadActivityLog(shiftId) {
       fetch(SUPABASE_URL+'/rest/v1/incidents?order=timestamp.asc&shift_id=eq.'+shiftId, {headers}).then(r=>r.json()),
       fetch(SUPABASE_URL+'/rest/v1/help_requests?order=timestamp.asc&timestamp=gte.'+dateFrom+'&timestamp=lte.'+dateUntil, {headers}).then(r=>r.json()),
       fetch(SUPABASE_URL+'/rest/v1/surveillance_notes?order=timestamp.asc&timestamp=gte.'+dateFrom+'&timestamp=lte.'+dateUntil+gf, {headers}).then(r=>r.json()),
-      fetch(SUPABASE_URL+'/rest/v1/mp_assignments?order=timestamp.asc&timestamp=gte.'+dateFrom+'&timestamp=lte.'+dateUntil+'&guard_name=eq.ALL', {headers}).then(r=>r.json()),
+      fetch(SUPABASE_URL+'/rest/v1/mp_assignments?order=timestamp.asc&timestamp=gte.'+dateFrom+'&timestamp=lte.'+dateUntil+(guardName ? '&or=(guard_name.eq.ALL,guard_name.eq.'+encodeURIComponent(guardName)+')' : '&guard_name=eq.ALL'), {headers}).then(r=>r.json()),
       guardName ? fetch(SUPABASE_URL+'/rest/v1/mp_assignment_acks?guard_name=eq.'+encodeURIComponent(guardName), {headers}).then(r=>r.json()) : Promise.resolve([])
     ]);
 
@@ -415,7 +415,16 @@ select:focus,input:focus{border-color:#00e5a0}
 
     <!-- SEND MP -->
     <div class="tab-panel" id="tab-sendmp">
-      <div style="font-size:13px;color:#8b90a0;font-family:monospace;margin-bottom:12px">Broadcasts to all guards currently on shift.</div>
+      <div style="font-size:13px;color:#8b90a0;font-family:monospace;margin-bottom:12px">Sends an assignment to a specific guard. Broadcasting to everyone on shift is optional.</div>
+
+      <label style="font-family:monospace;font-size:10px;color:#555a6a;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:5px">Send to</label>
+      <select id="mp-target-guard" style="width:100%;background:#151820;border:1px solid rgba(139,144,160,0.2);color:#e8eaf0;padding:9px 10px;border-radius:8px;font-family:monospace;font-size:13px;margin-bottom:8px">
+        <option value="">Loading guards on shift...</option>
+      </select>
+      <label style="display:flex;align-items:center;gap:8px;font-family:monospace;font-size:12px;color:#8b90a0;margin-bottom:16px;cursor:pointer">
+        <input type="checkbox" id="mp-send-all" style="width:16px;height:16px;accent-color:#00e5a0;cursor:pointer">
+        Send to all guards currently on shift (broadcast)
+      </label>
 
       <label style="font-family:monospace;font-size:10px;color:#555a6a;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:5px">Location</label>
       <div id="mp-loc-grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:8px">
@@ -1018,7 +1027,39 @@ function initSendMP() {
   document.getElementById('mp-notes').value = '';
   document.getElementById('mp-gps-box').style.display = 'none';
   document.getElementById('mp-gps-toggle').style.display = 'flex';
+  document.getElementById('mp-send-all').checked = false;
+  loadMPTargetGuards();
 }
+
+function loadMPTargetGuards() {
+  var sel = document.getElementById('mp-target-guard');
+  sel.innerHTML = '<option value="">Loading guards on shift...</option>';
+  sel.disabled = true;
+  fetch(SUPABASE_URL + '/rest/v1/active_shifts?status=eq.active&order=started_at.desc&limit=50', {
+    headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY}
+  }).then(function(r) { return r.json(); }).then(function(data) {
+    sel.disabled = false;
+    if (!Array.isArray(data) || data.length === 0) {
+      sel.innerHTML = '<option value="">No guards currently on shift</option>';
+      return;
+    }
+    // De-duplicate by guard name, keep most recent shift first (already ordered)
+    var seen = {};
+    var names = [];
+    for (var i = 0; i < data.length; i++) {
+      var n = data[i].guard_name;
+      if (n && !seen[n]) { seen[n] = true; names.push(n); }
+    }
+    sel.innerHTML = names.map(function(n) { return '<option value="'+n.replace(/"/g,'&quot;')+'">'+n+'</option>'; }).join('');
+  }).catch(function() {
+    sel.disabled = false;
+    sel.innerHTML = '<option value="">Could not load guards — check connection</option>';
+  });
+}
+
+document.getElementById('mp-send-all').addEventListener('change', function() {
+  document.getElementById('mp-target-guard').disabled = this.checked;
+});
 
 function acquireMPGPS() {
   var textEl = document.getElementById('mp-gps-text');
@@ -1080,6 +1121,9 @@ document.querySelectorAll('.mp-sev-btn').forEach(function(btn) {
 });
 
 document.getElementById('btn-send-mp').addEventListener('click', function() {
+  var sendToAll = document.getElementById('mp-send-all').checked;
+  var targetGuard = document.getElementById('mp-target-guard').value;
+  if (!sendToAll && !targetGuard) { showToast('Please select a guard to send to, or check "Send to all"'); return; }
   // Live coordinates satisfy the location requirement on their own
   if (!mpSelectedLoc && !mpGPS) { showToast('Please select a location or capture live coordinates'); return; }
   var customLoc = document.getElementById('mp-custom-loc').value.trim();
@@ -1091,7 +1135,7 @@ document.getElementById('btn-send-mp').addEventListener('click', function() {
   var payload = {
     id: 'MP-' + Date.now(),
     sent_by: (currentAdminName || 'Admin'),
-    guard_name: 'ALL',
+    guard_name: sendToAll ? 'ALL' : targetGuard,
     location_type: mpGPS ? 'gps' : mpSelectedLoc,
     location_label: mpGPS ? 'Live location' : locLabelMap[mpSelectedLoc],
     custom_location: mpSelectedLoc === 'custom' ? customLoc : null,
@@ -1113,13 +1157,15 @@ document.getElementById('btn-send-mp').addEventListener('click', function() {
     body: JSON.stringify(payload)
   }).then(function() {
     showToast('Successfully assigned');
-    // Push to guards
+    // Push to guards — targeted to one guard unless broadcasting to all
     var locLabel = payload.location_label || payload.custom_location || 'Assignment';
     var pushBody = (payload.severity ? payload.severity + ' — ' : '') + locLabel + (payload.notes ? ': ' + payload.notes : '');
+    var pushPayload = { title: 'MP Assignment', body: pushBody, role: 'guard' };
+    if (!sendToAll) pushPayload.guard_name = targetGuard;
     fetch(SUPABASE_URL+'/functions/v1/send-push', {
       method: 'POST',
       headers: {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY},
-      body: JSON.stringify({ title: 'MP Assignment', body: pushBody, role: 'guard' })
+      body: JSON.stringify(pushPayload)
     }).catch(function(){});
     initSendMP();
   }).catch(function() {
@@ -1758,7 +1804,7 @@ function loadShiftReport() {
     fetch(SUPABASE_URL+'/rest/v1/incidents?order=timestamp.asc&limit=200&timestamp=gte.'+sinceDate+'&timestamp=lte.'+untilDate+'&guard_name=eq.'+encodeURIComponent(guardName), {
       headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
     }).then(function(r){return r.json();}),
-    fetch(SUPABASE_URL+'/rest/v1/mp_assignments?order=timestamp.asc&limit=200&timestamp=gte.'+sinceDate+'&timestamp=lte.'+untilDate+'&guard_name=eq.ALL', {
+    fetch(SUPABASE_URL+'/rest/v1/mp_assignments?order=timestamp.asc&limit=200&timestamp=gte.'+sinceDate+'&timestamp=lte.'+untilDate+'&or=(guard_name.eq.ALL,guard_name.eq.'+encodeURIComponent(guardName)+')', {
       headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
     }).then(function(r){return r.json();}),
     fetch(SUPABASE_URL+'/rest/v1/mp_assignment_acks?guard_name=eq.'+encodeURIComponent(guardName), {
