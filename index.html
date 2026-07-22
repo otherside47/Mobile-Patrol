@@ -2396,12 +2396,16 @@ document.getElementById('btn-submit-surv').addEventListener('click', function(){
   var body=document.getElementById('surv-body').value.trim();
   if(!title||!body){showToast('Please enter subject and observations');return;}
   var category=document.getElementById('surv-category').value;
-  var now=new Date();
-  sbPost('surveillance_notes',{id:'NOTE-'+Date.now(),guard_name:currentGuardName,checkpoint:currentScanCP?currentScanCP.name:'Unknown',title:title,body:body,category:category,photos:0,gps_lat:currentGPS?currentGPS.lat:null,gps_lng:currentGPS?currentGPS.lng:null,shift_type:currentShift.type,shift_label:currentShift.label},null);
-  addTL('Surveillance note submitted', category);
-  document.getElementById('surv-form').style.display='none';
-  showToast('Observation note submitted');
-  setTimeout(function(){navApp('s-home');setNav('nav-home');document.getElementById('scan-result').style.display='none';},1500);
+  var btn=this;
+  btn.disabled=true;
+  sbPost('surveillance_notes',{id:'NOTE-'+Date.now(),guard_name:currentGuardName,checkpoint:currentScanCP?currentScanCP.name:'Unknown',title:title,body:body,category:category,photos:0,gps_lat:currentGPS?currentGPS.lat:null,gps_lng:currentGPS?currentGPS.lng:null},function(ok){
+    btn.disabled=false;
+    if(!ok){showToast('Failed to submit note — check connection and try again');return;}
+    addTL('Surveillance note submitted', category);
+    document.getElementById('surv-form').style.display='none';
+    showToast('Observation note submitted');
+    setTimeout(function(){navApp('s-home');setNav('nav-home');document.getElementById('scan-result').style.display='none';},1500);
+  });
 });
 document.getElementById('btn-skip-surv').addEventListener('click', function(){
   document.getElementById('surv-form').style.display='none';
