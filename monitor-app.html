@@ -459,13 +459,13 @@ function showHelp(j){
 }
 
 function loadSurv(){
-  get('surveillance_notes','order=created_at.desc&limit=50',function(data){
+  get('surveillance_notes','order=timestamp.desc&limit=50',function(data){
     var el=document.getElementById('surv-list');
     if(!data||!data.length){el.innerHTML='<div class="empty">No surveillance notes</div>';return;}
     el.innerHTML=data.map(function(n){
-      var txt=(n.content||n.notes||'');
+      var txt=(n.body||'');
       return '<div class="item" onclick=\'showSurv('+JSON.stringify(JSON.stringify(n))+')\'>'+
-        '<div class="item-row"><div class="item-title"><span class="pill p-violet">'+(n.category||'NOTE').toUpperCase()+'</span>'+(n.guard_name||'')+'</div><div class="item-time">'+ft(n.created_at)+'</div></div>'+
+        '<div class="item-row"><div class="item-title"><span class="pill p-violet">'+(n.category||'NOTE').toUpperCase()+'</span>'+(n.guard_name||'')+'</div><div class="item-time">'+ft(n.timestamp)+'</div></div>'+
         '<div class="item-sub">'+txt.substring(0,70)+(txt.length>70?'...':'')+'</div>'+
       '</div>';
     }).join('');
@@ -473,7 +473,9 @@ function loadSurv(){
 }
 function showSurv(j){
   var d=JSON.parse(j);
-  openModal('Surveillance Note',mr('Guard',d.guard_name)+mr('Category',d.category)+mr('Note',d.content||d.notes)+mr('Time',fmt(d.created_at)));
+  openModal('Surveillance Note',mr('Guard',d.guard_name)+mr('Category',d.category)+mr('Subject',d.title)+mr('Checkpoint',d.checkpoint)+mr('Note',d.body)+mr('Time',fmt(d.timestamp))+
+    (d.gps_lat&&d.gps_lng?mr('GPS',parseFloat(d.gps_lat).toFixed(5)+'N, '+parseFloat(d.gps_lng).toFixed(5)+'E'):''),
+    d.gps_lat, d.gps_lng);
 }
 
 function loadAssist(){
