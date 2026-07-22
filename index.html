@@ -223,7 +223,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
           <div style="font-family:monospace;font-size:16px;font-weight:500;color:#4da3ff" id="stat-radio">0/1</div>
           <div style="font-family:monospace;font-size:9px;color:#555a6a;margin-top:2px">RADIO</div>
         </div>
-        <div style="background:#151820;border:1px solid rgba(255,77,77,0.2);border-radius:8px;padding:10px;text-align:center;cursor:pointer" onclick="navApp('s-incidents-list');setNav('nav-incident');loadSessionIncidents()">
+        <div style="background:#151820;border:1px solid rgba(255,77,77,0.2);border-radius:8px;padding:10px;text-align:center;cursor:pointer" onclick="openIncidentsList('s-home','nav-home')">
           <div style="font-family:monospace;font-size:16px;font-weight:500;color:#ff6b6b" id="stat-inc">0</div>
           <div style="font-family:monospace;font-size:9px;color:#555a6a;margin-top:2px">INCIDENTS</div>
         </div>
@@ -342,7 +342,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
   <!-- INCIDENTS LIST -->
   <div class="screen" id="s-incidents-list" style="min-height:unset;flex:1">
     <div class="topbar">
-      <button type="button" class="btn btn-back" onclick="navApp('s-home');setNav('nav-home')">Back</button>
+      <button type="button" class="btn btn-back" onclick="closeIncidentsList()">Back</button>
       <h1>Incidents</h1>
       <button type="button" class="btn btn-back" style="margin-left:auto;color:#00e5a0;border-color:rgba(0,229,160,0.3)" onclick="loadSessionIncidents();showToast('Refreshed')">Refresh</button>
     </div>
@@ -462,7 +462,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
         <div class="metric"><div class="metric-val" id="rep-cp">0/24</div><div class="metric-lbl">Checkpoints</div></div>
         <div class="metric"><div class="metric-val" style="color:#cc66ff" id="rep-surv">0/3</div><div class="metric-lbl">Surv. points</div></div>
         <div class="metric"><div class="metric-val" style="color:#4da3ff" id="rep-radio">0/1</div><div class="metric-lbl">Radio</div></div>
-        <div class="metric"><div class="metric-val" style="color:#ff4d4d" id="rep-inc">0</div><div class="metric-lbl">Incidents</div></div>
+        <div class="metric" style="cursor:pointer" onclick="openIncidentsList('s-reports','nav-reports')"><div class="metric-val" style="color:#ff4d4d" id="rep-inc">0</div><div class="metric-lbl">Incidents</div></div>
       </div>
     </div>
   </div>
@@ -2398,6 +2398,18 @@ document.getElementById('btn-skip-surv').addEventListener('click', function(){
 
 // INCIDENT
 var sessionIncidents = [];
+var incidentsListReturn = {screen:'s-home', nav:'nav-home'};
+function openIncidentsList(returnScreen, returnNav) {
+  incidentsListReturn.screen = returnScreen;
+  incidentsListReturn.nav = returnNav;
+  navApp('s-incidents-list');
+  setNav('nav-incident');
+  loadSessionIncidents();
+}
+function closeIncidentsList() {
+  navApp(incidentsListReturn.screen);
+  setNav(incidentsListReturn.nav);
+}
 
 function renderIncidentList() {
   var el = document.getElementById('inc-logged-list');
