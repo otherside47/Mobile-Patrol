@@ -490,12 +490,19 @@ function mpDateMDY(ts) {
   var dd = d.getDate(); dd = (dd < 10 ? '0' : '') + dd;
   return mm + '-' + dd + '-' + d.getFullYear();
 }
+function survInitials(name) {
+  if (!name) return '';
+  var parts = name.trim().split(/\s+/);
+  var out = '';
+  for (var i = 0; i < parts.length; i++) { out += parts[i].charAt(0).toUpperCase(); }
+  return out;
+}
 function survNoteCardHtml(n) {
   var urls=Array.isArray(n.photo_urls)?n.photo_urls:[];
   var photosHtml=urls.length?('<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'+urls.map(function(u){return '<a href="'+u+'" target="_blank" rel="noopener" onclick="event.stopPropagation()"><img src="'+u+'" style="width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,0.1)"></a>';}).join('')+'</div>'):'';
   return '<div style="background:#151820;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px;margin-bottom:12px;cursor:pointer" onclick=\'showSurv('+JSON.stringify(JSON.stringify(n))+')\'>'+
     '<div style="font-size:13px;font-weight:700;color:#e8eaf0;margin-bottom:6px">'+mpDateMDY(n.timestamp)+', '+ft(n.timestamp)+'</div>'+
-    '<div style="font-family:monospace;font-size:11px;color:#555a6a;margin-bottom:8px">'+(n.category||'')+'</div>'+
+    '<div style="font-size:14px;margin-bottom:8px"><span style="font-weight:700;color:#00e5a0">'+survInitials(n.guard_name)+'</span> <span style="color:#e8eaf0">'+(n.category||'')+'</span></div>'+
     '<div style="font-size:13px;color:#d9c26b;line-height:1.6">'+(n.body||'')+'</div>'+
     photosHtml+
     '</div>';

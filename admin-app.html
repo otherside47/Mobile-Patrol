@@ -1539,6 +1539,10 @@ function mpDateMDY(ts){
   let dd=d.getDate(); dd=(dd<10?'0':'')+dd;
   return mm+'-'+dd+'-'+d.getFullYear();
 }
+function survInitials(name){
+  if (!name) return '';
+  return name.trim().split(/\s+/).map(p => p.charAt(0).toUpperCase()).join('');
+}
 function survNoteCardHtml(note){
   const time=new Date(note.timestamp).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
   const urls=Array.isArray(note.photo_urls)?note.photo_urls:[];
@@ -1547,7 +1551,7 @@ function survNoteCardHtml(note){
     : '';
   return `<div style="background:#151820;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px;margin-bottom:12px;cursor:pointer" onclick='showSurvNoteDetail(${JSON.stringify(JSON.stringify(note))})'>
     <div style="font-size:13px;font-weight:700;color:#e8eaf0;margin-bottom:6px">${mpDateMDY(note.timestamp)}, ${time}</div>
-    <div style="font-family:monospace;font-size:11px;color:#555a6a;margin-bottom:8px">${note.category||''}</div>
+    <div style="font-size:14px;margin-bottom:8px"><span style="font-weight:700;color:#00e5a0">${survInitials(note.guard_name)}</span> <span style="color:#e8eaf0">${note.category||''}</span></div>
     <div style="font-size:13px;color:#d9c26b;line-height:1.6">${note.body||''}</div>
     ${photosHtml}
   </div>`;
