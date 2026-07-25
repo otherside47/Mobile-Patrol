@@ -379,7 +379,7 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
     <div class="content">
       <div style="font-family:monospace;font-size:11px;color:#555a6a;margin-bottom:14px" id="tl-header">Mobile Patrol</div>
       <div id="timeline-list">
-        <div id="tl-patrol-started" class="tl-item"><div class="tl-dot blue"></div><div><div style="font-size:13px;font-weight:500">Patrol started</div><div style="font-family:monospace;font-size:11px;color:#555a6a" id="tl-patrol-started-time">—</div></div></div>
+        <div style="font-size:13px;color:#555a6a;font-family:monospace;padding:8px 0">Loading...</div>
       </div>
     </div>
   </div>
@@ -1036,16 +1036,19 @@ function buildShiftReport() {
   document.getElementById('rep-surv-done').textContent = survDone+'/3';
   document.getElementById('rep-radio-done').textContent = radioDone+'/1';
   document.getElementById('rep-inc-done').textContent = incidentCount;
-  // Copy timeline
-  var tlItems = document.querySelectorAll('#timeline-list .tl-item');
+  // Timeline for this shift — fetched directly from the database so it's always
+  // complete and accurate, regardless of whether the Activity Timeline tab was opened
   var repTl = document.getElementById('rep-timeline');
-  repTl.innerHTML = '';
-  if (tlItems.length === 0) {
-    repTl.innerHTML = '<div style="font-size:13px;color:#555a6a;font-family:monospace">No activity recorded.</div>';
+  var reportStartedAt = window._shiftStartedAt || localStorage.getItem('mp_shift_started_at');
+  if (reportStartedAt) {
+    repTl.innerHTML = '<div style="font-size:13px;color:#555a6a;font-family:monospace">Loading...</div>';
+    fetchGuardTimelineEvents(reportStartedAt, new Date().toISOString()).then(function(events) {
+      renderTimelineEvents(events, 'rep-timeline');
+    }).catch(function() {
+      repTl.innerHTML = '<div style="font-size:13px;color:#555a6a;font-family:monospace">No activity recorded.</div>';
+    });
   } else {
-    for (var i = 0; i < tlItems.length; i++) {
-      repTl.appendChild(tlItems[i].cloneNode(true));
-    }
+    repTl.innerHTML = '<div style="font-size:13px;color:#555a6a;font-family:monospace">No activity recorded.</div>';
   }
   // Checkpoints list
   var cpListEl = document.getElementById('rep-cp-list');
@@ -1797,24 +1800,8 @@ function doStartShift(type, label, startDate, endDate, isContinue) {
   }
   updateGPS();
   showToast('Shift started');
-  // Timeline: restore previous entries if continuing, set start time if new shift
-  var tlTime = document.getElementById('tl-patrol-started-time');
-  if (isContinue) {
-    restoreTL();
-    if (tlTime) {
-      var origStart = window._shiftStartedAt || localStorage.getItem('mp_shift_started_at');
-      if (origStart) {
-        tlTime.textContent = new Date(origStart).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
-      } else {
-        tlTime.textContent = '--';
-      }
-    }
-  } else {
-    if (tlTime) {
-      var now = new Date();
-      tlTime.textContent = now.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
-    }
-  }
+  // Restore previously-logged entries (used by the end-of-shift report) if continuing this guard's own shift
+  if (isContinue) { restoreTL(); }
   sbGet('help_requests','order=timestamp.desc&limit=50',function(data) {
     if (data&&data.length) {
       // Only mark already-acknowledged requests as seen so they don't re-alert.
@@ -2405,7 +2392,7 @@ function pollAssistAck() {
   }).catch(function(){});
 }
 document.getElementById('nav-home').addEventListener('click', function(){navApp('s-home');setNav('nav-home');});
-document.getElementById('nav-timeline').addEventListener('click', function(){navApp('s-timeline');setNav('nav-timeline');});
+document.getElementById('nav-timeline').addEventListener('click', function(){navApp('s-timeline');setNav('nav-timeline');loadGuardTimeline();});
 document.getElementById('nav-reports').addEventListener('click', function(){navApp('s-reports');setNav('nav-reports');loadHelpRequests();});
 document.getElementById('nav-assignments').addEventListener('click', function(){navApp('s-assignments');setNav('nav-assignments');loadMPAssignmentsList();mpUnreadCount=0;updateMPBadge();});
 
@@ -2849,6 +2836,139 @@ function restoreTL() {
       list.appendChild(item);
     });
   } catch(e) {}
+}
+
+// ── RICH TIMELINE (DB-driven — mirrors admin-app's activity log so shift start
+// is always accurate and every event shows full detail, not just a title) ──
+function fetchGuardTimelineEvents(sinceISO, untilISO) {
+  var headers = {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY};
+  var dateFrom = encodeURIComponent(sinceISO);
+  var dateUntil = encodeURIComponent(untilISO);
+  var gName = encodeURIComponent(currentGuardName || '');
+  var shiftId = window._shiftId || localStorage.getItem('mp_current_shift_id') || '';
+
+  return Promise.all([
+    fetch(SUPABASE_URL+'/rest/v1/patrol_scans?order=timestamp.asc&timestamp=gte.'+dateFrom+'&timestamp=lte.'+dateUntil+'&guard_name=eq.'+gName, {headers:headers}).then(function(r){return r.json();}).catch(function(){return [];}),
+    shiftId ? fetch(SUPABASE_URL+'/rest/v1/incidents?order=timestamp.asc&shift_id=eq.'+shiftId, {headers:headers}).then(function(r){return r.json();}).catch(function(){return [];}) : Promise.resolve([]),
+    fetch(SUPABASE_URL+'/rest/v1/help_requests?order=timestamp.asc&timestamp=gte.'+dateFrom+'&timestamp=lte.'+dateUntil+'&acked_by=eq.'+gName, {headers:headers}).then(function(r){return r.json();}).catch(function(){return [];}),
+    fetch(SUPABASE_URL+'/rest/v1/surveillance_notes?order=timestamp.asc&timestamp=gte.'+dateFrom+'&timestamp=lte.'+dateUntil+'&guard_name=eq.'+gName, {headers:headers}).then(function(r){return r.json();}).catch(function(){return [];}),
+    fetch(SUPABASE_URL+'/rest/v1/mp_assignments?order=timestamp.asc&timestamp=gte.'+dateFrom+'&timestamp=lte.'+dateUntil+'&or=(guard_name.eq.ALL,guard_name.eq.'+gName+')', {headers:headers}).then(function(r){return r.json();}).catch(function(){return [];}),
+    fetch(SUPABASE_URL+'/rest/v1/mp_assignment_acks?guard_name=eq.'+gName, {headers:headers}).then(function(r){return r.json();}).catch(function(){return [];})
+  ]).then(function(results) {
+    var scans=results[0], incidents=results[1], helpReqs=results[2], notes=results[3], mpAssignments=results[4], mpAcks=results[5];
+
+    var ackByAssignment = {};
+    if (Array.isArray(mpAcks)) {
+      for (var i=0;i<mpAcks.length;i++) {
+        var a = mpAcks[i];
+        var existing = ackByAssignment[a.assignment_id];
+        if (!existing || new Date(a.acted_at) > new Date(existing.acted_at)) ackByAssignment[a.assignment_id] = a;
+      }
+    }
+
+    var events = [];
+    events.push({ts: sinceISO, type:'shift_start'});
+    if (Array.isArray(scans)) scans.forEach(function(x){ events.push({ts:x.timestamp, type:'scan', data:x}); });
+    if (Array.isArray(incidents)) incidents.forEach(function(x){ events.push({ts:x.timestamp, type:'incident', data:x}); });
+    if (Array.isArray(helpReqs)) helpReqs.forEach(function(x){ events.push({ts:x.timestamp, type:'help', data:x}); });
+    if (Array.isArray(notes)) notes.forEach(function(x){ events.push({ts:x.timestamp, type:'note', data:x}); });
+    if (Array.isArray(mpAssignments)) mpAssignments.forEach(function(x){ events.push({ts:x.timestamp, type:'mp', data:x, ack:ackByAssignment[x.id]}); });
+    events.sort(function(a,b){ return new Date(a.ts) - new Date(b.ts); });
+    return events;
+  });
+}
+
+function timelineRow(l, v) {
+  if (!v) return '';
+  return '<div style="display:flex;gap:8px;margin-bottom:5px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">'+l+'</span><span style="font-size:12px;color:#e8eaf0;line-height:1.5">'+v+'</span></div>';
+}
+
+function renderTimelineEvents(events, containerId) {
+  var tl = document.getElementById(containerId);
+  if (!tl) return;
+  if (!events || events.length === 0) {
+    tl.innerHTML = '<div style="font-size:13px;color:#555a6a;font-family:monospace;padding:8px 0">No activity recorded yet.</div>';
+    return;
+  }
+  var html = '<div style="position:relative;padding-left:32px">';
+  events.forEach(function(ev, idx) {
+    var d = new Date(ev.ts);
+    var timeStr = d.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+    var isLast = idx === events.length - 1;
+    var icon, color, titleTxt, detailHtml = '';
+
+    if (ev.type === 'shift_start') {
+      icon='▶'; color='#00e5a0'; titleTxt='Shift started';
+      detailHtml = (currentShift && currentShift.label) ? '<div style="font-size:12px;color:#8b90a0;margin-top:4px">'+currentShift.label+'</div>' : '';
+    } else if (ev.type === 'scan') {
+      icon='◉'; color='#4da3ff';
+      titleTxt = 'Checkpoint — ' + (ev.data.checkpoint_name || ev.data.checkpoint_id || '—');
+      if (ev.data.gps_verified) detailHtml = '<div style="font-size:12px;color:#00e5a0;margin-top:4px">GPS verified</div>';
+    } else if (ev.type === 'incident') {
+      icon='⚠'; color='#ff4d4d'; titleTxt='Incident Report';
+      var sev = ev.data.severity || '—';
+      var sevColor = sev==='Critical'?'#ff4d4d':sev==='High'?'#ffb020':sev==='Medium'?'#4da3ff':'#8b90a0';
+      detailHtml = '<div style="background:rgba(255,77,77,0.08);border:1px solid rgba(255,77,77,0.2);border-radius:8px;padding:10px 12px;margin-top:8px">' +
+        timelineRow('Type', ev.data.type) +
+        '<div style="display:flex;gap:8px;margin-bottom:5px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">Severity</span><span style="font-size:12px;font-weight:700;color:'+sevColor+'">'+sev+'</span></div>' +
+        timelineRow('Location', ev.data.location) + timelineRow('Notes', ev.data.notes) +
+        '</div>';
+    } else if (ev.type === 'help') {
+      icon='!'; color='#ffb020'; titleTxt='Help Request Acknowledged';
+      var hGps = (ev.data.gps_lat && ev.data.gps_lng) ? ev.data.gps_lat.toFixed(5)+'N, '+ev.data.gps_lng.toFixed(5)+'E' : null;
+      detailHtml = '<div style="background:rgba(255,176,32,0.08);border:1px solid rgba(255,176,32,0.2);border-radius:8px;padding:10px 12px;margin-top:8px">' +
+        timelineRow('Type', ev.data.type) + timelineRow('From', ev.data.name) + timelineRow('Location', ev.data.loc_desc) +
+        timelineRow('GPS', hGps) + timelineRow('Notes', ev.data.notes) +
+        '</div>';
+    } else if (ev.type === 'note') {
+      icon='✎'; color='#cc66ff'; titleTxt='Surveillance Note — ' + (ev.data.title || 'Untitled');
+      detailHtml = '<div style="font-size:12px;color:#8b90a0;margin-top:4px;line-height:1.5">' + (ev.data.body || '') + '</div>';
+    } else if (ev.type === 'mp') {
+      icon='📋'; color='#4da3ff'; titleTxt='Mobile Patrol Assignment';
+      var mSev = ev.data.severity || 'Low';
+      var mSevColor = mSev==='Critical'?'#ff4d4d':mSev==='High'?'#ffb020':mSev==='Medium'?'#4da3ff':'#8b90a0';
+      var mLoc = ev.data.location_label || ev.data.custom_location || '—';
+      var mStatus, mStatusColor;
+      if (ev.ack && ev.ack.status === 'acknowledged') { mStatus='Acknowledged'; mStatusColor='#00e5a0'; }
+      else if (ev.ack && ev.ack.status === 'dismissed') { mStatus='Dismissed'; mStatusColor='#8b90a0'; }
+      else { mStatus='Received (no response yet)'; mStatusColor='#ffb020'; }
+      detailHtml = '<div style="background:rgba(77,163,255,0.08);border:1px solid rgba(77,163,255,0.2);border-radius:8px;padding:10px 12px;margin-top:8px">' +
+        '<div style="display:flex;gap:8px;margin-bottom:5px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">Status</span><span style="font-size:12px;font-weight:700;color:'+mStatusColor+'">'+mStatus+'</span></div>' +
+        timelineRow('From', ev.data.sent_by || 'Admin') +
+        '<div style="display:flex;gap:8px;margin-bottom:5px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">Severity</span><span style="font-size:12px;font-weight:700;color:'+mSevColor+'">'+mSev+'</span></div>' +
+        timelineRow('Location', mLoc) +
+        '</div>';
+    }
+
+    html += '<div style="position:relative;margin-bottom:'+(isLast?'0':'16px')+'">';
+    html += '<div style="position:absolute;left:-32px;top:4px;width:20px;height:20px;border-radius:50%;background:'+color+'22;border:1px solid '+color+';display:flex;align-items:center;justify-content:center;font-size:9px;color:'+color+'">'+icon+'</div>';
+    if (!isLast) html += '<div style="position:absolute;left:-23px;top:24px;bottom:-16px;width:1px;background:rgba(139,144,160,0.1)"></div>';
+    html += '<div class="tl-item" style="background:#151820;border:1px solid rgba(139,144,160,0.12);border-radius:10px;padding:12px 14px">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:flex-start">';
+    html += '<div style="font-size:13px;font-weight:700;color:#e8eaf0">'+titleTxt+'</div>';
+    html += '<div style="font-family:monospace;font-size:11px;color:#555a6a;white-space:nowrap;margin-left:10px">'+timeStr+'</div>';
+    html += '</div>';
+    if (detailHtml) html += detailHtml;
+    html += '</div></div>';
+  });
+  html += '</div>';
+  tl.innerHTML = html;
+}
+
+function loadGuardTimeline() {
+  var tl = document.getElementById('timeline-list');
+  if (!tl) return;
+  var startedAt = window._shiftStartedAt || localStorage.getItem('mp_shift_started_at');
+  if (!startedAt) {
+    tl.innerHTML = '<div style="font-size:13px;color:#555a6a;font-family:monospace;padding:8px 0">No active shift.</div>';
+    return;
+  }
+  tl.innerHTML = '<div style="font-size:13px;color:#555a6a;font-family:monospace;padding:8px 0">Loading...</div>';
+  fetchGuardTimelineEvents(startedAt, new Date().toISOString()).then(function(events) {
+    renderTimelineEvents(events, 'timeline-list');
+  }).catch(function() {
+    tl.innerHTML = '<div style="font-size:13px;color:#ff4d4d;font-family:monospace">Failed to load activity.</div>';
+  });
 }
 
 // NAV HELPERS
