@@ -439,10 +439,13 @@ function loadIncidents(){
 function showInc(j){
   var d=JSON.parse(j);
   var pc=d.severity==='High'?'p-red':d.severity==='Medium'?'p-amber':'p-green';
+  var urls = Array.isArray(d.photo_urls) ? d.photo_urls : [];
+  var photosHtml = urls.length ? ('<div style="display:flex;gap:6px;flex-wrap:wrap">'+urls.map(function(u){return '<a href="'+u+'" target="_blank" rel="noopener"><img src="'+u+'" style="width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,77,77,0.3)"></a>';}).join('')+'</div>') : '';
   openModal(d.type||'Incident',mr('Guard',d.guard_name)+mr('Type',d.type)+
     '<div class="modal-row"><div class="modal-lbl">Severity</div><div class="modal-val"><span class="pill '+pc+'">'+(d.severity||'').toUpperCase()+'</span></div></div>'+
     mr('Location',d.location)+mr('Notes',d.notes)+mr('Time',fmt(d.timestamp))+
-    (d.gps_lat&&d.gps_lng?mr('GPS',parseFloat(d.gps_lat).toFixed(5)+'N, '+parseFloat(d.gps_lng).toFixed(5)+'E'):''),
+    (d.gps_lat&&d.gps_lng?mr('GPS',parseFloat(d.gps_lat).toFixed(5)+'N, '+parseFloat(d.gps_lng).toFixed(5)+'E'):'')+
+    (photosHtml?mr('Photos',photosHtml):''),
     d.gps_lat, d.gps_lng);
 }
 

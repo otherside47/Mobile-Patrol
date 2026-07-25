@@ -344,6 +344,10 @@ textarea{width:100%;background:#1c2030;border:1px solid rgba(255,255,255,0.08);b
         </div>
         <button type="button" id="inc-gps-refresh" style="background:none;border:1px solid rgba(139,144,160,0.2);color:#8b90a0;border-radius:6px;padding:5px 9px;font-family:monospace;font-size:11px;cursor:pointer">Refresh</button>
       </div>
+      <div id="inc-photo-thumbs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px"></div>
+      <div id="inc-photo-count-wrap" style="display:none;font-family:monospace;font-size:10px;color:#8b90a0;margin-bottom:10px">Photos attached: <span id="inc-photo-count">0/5</span></div>
+      <input type="file" accept="image/*" capture="environment" id="inc-photo-input" style="display:none">
+      <button type="button" class="btn btn-p" id="btn-inc-add-photo">📷 Add Photos</button>
       <button type="button" class="btn btn-d" id="btn-submit-incident">Submit incident report</button>
       <button type="button" class="btn" id="btn-cancel-edit-incident" style="display:none;margin-top:8px;color:#8b90a0;border-color:rgba(139,144,160,0.3)">Cancel edit</button>
     </div>
@@ -874,11 +878,14 @@ function closeReportModal(){ document.getElementById('rpt-modal').classList.remo
 function showIncidentDetail(j){
   var d = JSON.parse(j);
   var sevColor = d.severity==='Critical'?'#ff4d4d':d.severity==='High'?'#ffb020':d.severity==='Medium'?'#4da3ff':'#8b90a0';
+  var urls = Array.isArray(d.photo_urls) ? d.photo_urls : [];
+  var photosHtml = urls.length ? ('<div style="display:flex;gap:6px;flex-wrap:wrap">'+urls.map(function(u){return '<a href="'+u+'" target="_blank" rel="noopener"><img src="'+u+'" style="width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,77,77,0.3)"></a>';}).join('')+'</div>') : '';
   openReportModal(d.type||'Incident',
     rmr('Guard', d.guard_name) +
     rmr('Severity', '<span style="color:'+sevColor+';font-weight:700">'+(d.severity||'').toUpperCase()+'</span>') +
     rmr('Location', d.location) + rmr('Notes', d.notes) +
-    rmr('Time', new Date(d.timestamp).toLocaleString('en-US')),
+    rmr('Time', new Date(d.timestamp).toLocaleString('en-US')) +
+    (photosHtml ? rmr('Photos', photosHtml) : ''),
     d.gps_lat, d.gps_lng);
 }
 function showHelpDetail(j){
@@ -2737,6 +2744,7 @@ function resetIncidentForm() {
   incidentGPSLat = null; incidentGPSLng = null;
   document.getElementById('inc-gps-toggle').style.display = 'flex';
   document.getElementById('inc-gps-box').style.display = 'none';
+  clearIncPhotos();
 }
 
 function loadSessionIncidents() {
@@ -2757,6 +2765,73 @@ function loadSessionIncidents() {
 document.getElementById('btn-cancel-edit-incident').addEventListener('click', function() {
   resetIncidentForm();
 });
+
+// INCIDENT REPORT PHOTOS
+var incPhotos = []; // {blob, previewUrl}
+var INC_PHOTO_MAX = 5;
+
+function clearIncPhotos() {
+  incPhotos.forEach(function(p){ try { URL.revokeObjectURL(p.previewUrl); } catch(e){} });
+  incPhotos = [];
+  renderIncPhotoThumbs();
+}
+
+function renderIncPhotoThumbs() {
+  var wrap = document.getElementById('inc-photo-thumbs');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  incPhotos.forEach(function(p, idx) {
+    var box = document.createElement('div');
+    box.style.cssText = 'position:relative;width:64px;height:64px;border-radius:6px;overflow:hidden;border:1px solid rgba(0,229,160,0.3);flex-shrink:0';
+    var img = document.createElement('img');
+    img.src = p.previewUrl;
+    img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block';
+    box.appendChild(img);
+    var rm = document.createElement('button');
+    rm.type = 'button';
+    rm.textContent = '×';
+    rm.style.cssText = 'position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,0.75);color:#fff;border:none;font-size:12px;line-height:1;cursor:pointer;padding:0';
+    rm.onclick = function(){ incPhotos.splice(idx,1); renderIncPhotoThumbs(); };
+    box.appendChild(rm);
+    wrap.appendChild(box);
+  });
+  var countWrap = document.getElementById('inc-photo-count-wrap');
+  var counter = document.getElementById('inc-photo-count');
+  if (counter) counter.textContent = incPhotos.length + '/' + INC_PHOTO_MAX;
+  if (countWrap) countWrap.style.display = incPhotos.length ? 'block' : 'none';
+}
+
+document.getElementById('btn-inc-add-photo').addEventListener('click', function() {
+  if (incPhotos.length >= INC_PHOTO_MAX) { showToast('Maximum ' + INC_PHOTO_MAX + ' photos'); return; }
+  document.getElementById('inc-photo-input').click();
+});
+
+document.getElementById('inc-photo-input').addEventListener('change', function(e) {
+  var file = e.target.files && e.target.files[0];
+  e.target.value = ''; // allow capturing another photo next time
+  if (!file) return;
+  compressSurvPhoto(file, function(blob, previewUrl) {
+    incPhotos.push({ blob: blob, previewUrl: previewUrl });
+    renderIncPhotoThumbs();
+  });
+});
+
+function uploadIncPhotos(cb) {
+  if (incPhotos.length === 0) { cb([]); return; }
+  var uploads = incPhotos.map(function(p, idx) {
+    var path = 'incidents/' + (currentGuardName||'guard').replace(/[^a-zA-Z0-9]/g,'_') + '/' + Date.now() + '-' + idx + '.jpg';
+    return fetch(SUPABASE_URL + '/storage/v1/object/surveillance-photos/' + path, {
+      method: 'POST',
+      headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'image/jpeg'},
+      body: p.blob
+    }).then(function(r) {
+      return r.ok ? (SUPABASE_URL + '/storage/v1/object/public/surveillance-photos/' + path) : null;
+    }).catch(function(){ return null; });
+  });
+  Promise.all(uploads).then(function(urls) {
+    cb(urls.filter(function(u){ return u; }));
+  });
+}
 
 document.getElementById('btn-submit-incident').addEventListener('click', function(){
   var type = document.getElementById('inc-type').value;
@@ -2789,28 +2864,35 @@ document.getElementById('btn-submit-incident').addEventListener('click', functio
     }).catch(function() { showToast('Update failed'); });
   } else {
     var id = 'INC-' + Date.now();
-    var record = {id:id, guard_name:currentGuardName, shift_id:window._shiftId||'', type:type, severity:sev, location:loc, notes:notes, gps_lat:lat, gps_lng:lng, timestamp:now, updated_at:now};
-    fetch(SUPABASE_URL + '/rest/v1/incidents', {
-      method: 'POST',
-      headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal'},
-      body: JSON.stringify(record)
-    }).then(function() {
-      sessionIncidents.push(record);
-      incidentCount++;
-      sessionStorage.setItem('mp_incidents', incidentCount);
-      renderIncidentList();
-      renderLists();
-      addTL('Incident: ' + type, '');
-      resetIncidentForm();
-      showToast('Incident logged');
-      // Notify monitor
-      fetch(SUPABASE_URL+'/functions/v1/send-push', {
-        method:'POST',
-        headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY},
-        body:JSON.stringify({title:'Incident Reported',body:currentGuardName+' — '+type+' ('+sev+')'+(loc?' · '+loc:''),role:'monitor'})
-      }).catch(function(){});
-      setTimeout(function(){ navApp('s-incidents-list'); setNav('nav-incident'); }, 800);
-    }).catch(function() { showToast('Save failed'); });
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = incPhotos.length ? 'Uploading photos...' : 'Submitting...';
+    uploadIncPhotos(function(photoUrls) {
+      btn.disabled = false;
+      btn.textContent = 'Submit incident report';
+      var record = {id:id, guard_name:currentGuardName, shift_id:window._shiftId||'', type:type, severity:sev, location:loc, notes:notes, gps_lat:lat, gps_lng:lng, timestamp:now, updated_at:now, photo_urls:photoUrls};
+      fetch(SUPABASE_URL + '/rest/v1/incidents', {
+        method: 'POST',
+        headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal'},
+        body: JSON.stringify(record)
+      }).then(function() {
+        sessionIncidents.push(record);
+        incidentCount++;
+        sessionStorage.setItem('mp_incidents', incidentCount);
+        renderIncidentList();
+        renderLists();
+        addTL('Incident: ' + type, '');
+        resetIncidentForm();
+        showToast('Incident logged');
+        // Notify monitor
+        fetch(SUPABASE_URL+'/functions/v1/send-push', {
+          method:'POST',
+          headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY},
+          body:JSON.stringify({title:'Incident Reported',body:currentGuardName+' — '+type+' ('+sev+')'+(loc?' · '+loc:''),role:'monitor'})
+        }).catch(function(){});
+        setTimeout(function(){ navApp('s-incidents-list'); setNav('nav-incident'); }, 800);
+      }).catch(function() { showToast('Save failed'); btn.disabled = false; btn.textContent = 'Submit incident report'; });
+    });
   }
 });
 
