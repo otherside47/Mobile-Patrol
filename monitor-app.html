@@ -423,6 +423,8 @@ function loadIncidents(){
     el.innerHTML=data.map(function(i){
       var sevColor=i.severity==='Critical'?'#ff4d4d':i.severity==='High'?'#ffb020':i.severity==='Medium'?'#4da3ff':'#8b90a0';
       var gpsText=(i.gps_lat&&i.gps_lng)?parseFloat(i.gps_lat).toFixed(4)+'°N '+parseFloat(i.gps_lng).toFixed(4)+'°E':'GPS n/a';
+      var incUrls=Array.isArray(i.photo_urls)?i.photo_urls:[];
+      var incPhotosHtml=incUrls.length?('<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">'+incUrls.map(function(u){return '<a href="'+u+'" target="_blank" rel="noopener" onclick="event.stopPropagation()"><img src="'+u+'" style="width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,0.1)"></a>';}).join('')+'</div>'):'';
       return '<div style="background:#151820;border:1px solid rgba(255,77,77,0.2);border-radius:10px;padding:14px;margin-bottom:10px;cursor:pointer" onclick=\'showInc('+JSON.stringify(JSON.stringify(i))+')\'>'+
         '<div style="font-size:13px;font-weight:700;color:#e8eaf0;margin-bottom:8px">'+mpDateMDY(i.timestamp)+', '+ft(i.timestamp)+' · <span style="color:#00e5a0">'+survInitials(i.guard_name)+'</span></div>'+
         '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">'+
@@ -431,6 +433,7 @@ function loadIncidents(){
         '</div>'+
         (i.location?'<div style="font-family:monospace;font-size:11px;color:#8b90a0;margin-bottom:4px">📍 '+i.location+'</div>':'')+
         (i.notes?'<div style="font-size:12px;color:#d9c26b;margin-bottom:8px">'+i.notes+'</div>':'')+
+        incPhotosHtml+
         '<div style="font-family:monospace;font-size:10px;color:#555a6a">'+gpsText+'</div>'+
         '</div>';
     }).join('');
@@ -503,7 +506,8 @@ function survNoteCardHtml(n) {
   var photosHtml=urls.length?('<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'+urls.map(function(u){return '<a href="'+u+'" target="_blank" rel="noopener" onclick="event.stopPropagation()"><img src="'+u+'" style="width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,0.1)"></a>';}).join('')+'</div>'):'';
   return '<div style="background:#151820;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px;margin-bottom:12px;cursor:pointer" onclick=\'showSurv('+JSON.stringify(JSON.stringify(n))+')\'>'+
     '<div style="font-size:13px;font-weight:700;color:#e8eaf0;margin-bottom:6px">'+mpDateMDY(n.timestamp)+', '+ft(n.timestamp)+'</div>'+
-    '<div style="font-size:14px;margin-bottom:8px"><span style="font-weight:700;color:#00e5a0">'+survInitials(n.guard_name)+'</span> <span style="color:#e8eaf0">'+(n.category||'')+'</span></div>'+
+    '<div style="font-size:14px;margin-bottom:6px"><span style="font-weight:700;color:#00e5a0">'+survInitials(n.guard_name)+'</span> <span style="color:#e8eaf0">'+(n.category||'')+'</span></div>'+
+    '<div style="font-family:monospace;font-size:11px;color:#8b90a0;margin-bottom:8px">📍 '+(n.checkpoint||'—')+'</div>'+
     '<div style="font-size:13px;color:#d9c26b;line-height:1.6">'+(n.body||'')+'</div>'+
     photosHtml+
     '</div>';

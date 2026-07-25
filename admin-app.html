@@ -1570,6 +1570,10 @@ function loadIncidents() {
       var t = new Date(inc.timestamp).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
       var sevColor = inc.severity === 'Critical' ? '#ff4d4d' : inc.severity === 'High' ? '#ffb020' : inc.severity === 'Medium' ? '#4da3ff' : '#8b90a0';
       var edited = inc.updated_at && inc.updated_at !== inc.timestamp ? ' · edited' : '';
+      var incUrls = Array.isArray(inc.photo_urls) ? inc.photo_urls : [];
+      var incPhotosHtml = incUrls.length
+        ? '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">' + incUrls.map(function(u){ return '<a href="'+u+'" target="_blank" rel="noopener" onclick="event.stopPropagation()"><img src="'+u+'" style="width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,0.1)"></a>'; }).join('') + '</div>'
+        : '';
       html += '<div style="background:#151820;border:1px solid rgba(255,77,77,0.2);border-radius:10px;padding:14px;margin-bottom:10px;cursor:pointer" onclick=\'showIncidentDetail(' + JSON.stringify(JSON.stringify(inc)) + ')\'>' +
         '<div style="font-size:13px;font-weight:700;color:#e8eaf0;margin-bottom:8px">' + mpDateMDY(inc.timestamp) + ', ' + t + ' · <span style="color:#00e5a0">' + survInitials(inc.guard_name) + '</span>' + edited + '</div>' +
         '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">' +
@@ -1578,6 +1582,7 @@ function loadIncidents() {
         '</div>' +
         '<div style="font-family:monospace;font-size:11px;color:#8b90a0;margin-bottom:4px">📍 ' + (inc.location || '—') + '</div>' +
         (inc.notes ? '<div style="font-size:12px;color:#d9c26b;margin-bottom:8px">' + inc.notes + '</div>' : '') +
+        incPhotosHtml +
         '<div style="font-family:monospace;font-size:10px;color:#555a6a">' + (inc.gps_lat && inc.gps_lng ? inc.gps_lat.toFixed(4) + '° N ' + inc.gps_lng.toFixed(4) + '° E' : 'GPS n/a') + '</div>' +
         '</div>';
     }
@@ -1620,7 +1625,8 @@ function survNoteCardHtml(note){
     : '';
   return `<div style="background:#151820;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px;margin-bottom:12px;cursor:pointer" onclick='showSurvNoteDetail(${JSON.stringify(JSON.stringify(note))})'>
     <div style="font-size:13px;font-weight:700;color:#e8eaf0;margin-bottom:6px">${mpDateMDY(note.timestamp)}, ${time}</div>
-    <div style="font-size:14px;margin-bottom:8px"><span style="font-weight:700;color:#00e5a0">${survInitials(note.guard_name)}</span> <span style="color:#e8eaf0">${note.category||''}</span></div>
+    <div style="font-size:14px;margin-bottom:6px"><span style="font-weight:700;color:#00e5a0">${survInitials(note.guard_name)}</span> <span style="color:#e8eaf0">${note.category||''}</span></div>
+    <div style="font-family:monospace;font-size:11px;color:#8b90a0;margin-bottom:8px">📍 ${note.checkpoint||'—'}</div>
     <div style="font-size:13px;color:#d9c26b;line-height:1.6">${note.body||''}</div>
     ${photosHtml}
   </div>`;
