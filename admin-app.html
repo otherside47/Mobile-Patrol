@@ -193,8 +193,8 @@ async function loadActivityLog(shiftId) {
           detailHtml += '</div>';
         }
         else if (ev.type==='note') {
-          icon='✎'; color='#8b90a0'; titleTxt='Surveillance Note';
-          detailHtml='<div style="font-size:12px;color:#8b90a0;margin-top:4px;line-height:1.5">'+(ev.data.note||ev.data.content||'')+'</div>';
+          icon='✎'; color='#cc66ff'; titleTxt='Surveillance Note';
+          detailHtml='<div style="font-size:12px;color:#8b90a0;margin-top:4px;line-height:1.5">'+(ev.data.body||'—')+'</div>';
         }
 
         html += '<div style="position:relative;margin-bottom:'+(isLast?'0':'16px')+'">';

@@ -2973,11 +2973,6 @@ function fetchGuardTimelineEvents(sinceISO, untilISO) {
   });
 }
 
-function timelineRow(l, v) {
-  if (!v) return '';
-  return '<div style="display:flex;gap:8px;margin-bottom:5px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">'+l+'</span><span style="font-size:12px;color:#e8eaf0;line-height:1.5">'+v+'</span></div>';
-}
-
 function renderTimelineEvents(events, containerId) {
   var tl = document.getElementById(containerId);
   if (!tl) return;
@@ -2989,12 +2984,15 @@ function renderTimelineEvents(events, containerId) {
   events.forEach(function(ev, idx) {
     var d = new Date(ev.ts);
     var timeStr = d.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+    var dateStr = d.toLocaleDateString('en-US');
     var isLast = idx === events.length - 1;
     var icon, color, titleTxt, detailHtml = '';
 
     if (ev.type === 'shift_start') {
       icon='▶'; color='#00e5a0'; titleTxt='Shift started';
       detailHtml = (currentShift && currentShift.label) ? '<div style="font-size:12px;color:#8b90a0;margin-top:4px">'+currentShift.label+'</div>' : '';
+    } else if (ev.type === 'shift_end') {
+      icon='■'; color='#555a6a'; titleTxt='Shift ended';
     } else if (ev.type === 'scan') {
       icon='◉'; color='#4da3ff';
       titleTxt = 'Checkpoint — ' + (ev.data.checkpoint_name || ev.data.checkpoint_id || '—');
@@ -3003,36 +3001,46 @@ function renderTimelineEvents(events, containerId) {
       icon='⚠'; color='#ff4d4d'; titleTxt='Incident Report';
       var sev = ev.data.severity || '—';
       var sevColor = sev==='Critical'?'#ff4d4d':sev==='High'?'#ffb020':sev==='Medium'?'#4da3ff':'#8b90a0';
-      detailHtml = '<div style="background:rgba(255,77,77,0.08);border:1px solid rgba(255,77,77,0.2);border-radius:8px;padding:10px 12px;margin-top:8px">' +
-        timelineRow('Type', ev.data.type) +
-        '<div style="display:flex;gap:8px;margin-bottom:5px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">Severity</span><span style="font-size:12px;font-weight:700;color:'+sevColor+'">'+sev+'</span></div>' +
-        timelineRow('Location', ev.data.location) + timelineRow('Notes', ev.data.notes) +
-        '</div>';
+      detailHtml = '<div style="background:rgba(255,77,77,0.08);border:1px solid rgba(255,77,77,0.2);border-radius:8px;padding:10px 12px;margin-top:8px">';
+      detailHtml += '<div style="display:flex;gap:8px;margin-bottom:5px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">Type</span><span style="font-size:12px;color:#e8eaf0">'+(ev.data.type||'—')+'</span></div>';
+      detailHtml += '<div style="display:flex;gap:8px;margin-bottom:5px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">Severity</span><span style="font-size:12px;font-weight:700;color:'+sevColor+'">'+sev+'</span></div>';
+      detailHtml += '<div style="display:flex;gap:8px;margin-bottom:5px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">Location</span><span style="font-size:12px;color:#e8eaf0">'+(ev.data.location||'—')+'</span></div>';
+      detailHtml += '<div style="display:flex;gap:8px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">Notes</span><span style="font-size:12px;color:#e8eaf0;line-height:1.5">'+(ev.data.notes||'—')+'</span></div>';
+      detailHtml += '</div>';
     } else if (ev.type === 'help') {
-      icon='!'; color='#ffb020'; titleTxt='Help Request Acknowledged';
-      var hGps = (ev.data.gps_lat && ev.data.gps_lng) ? ev.data.gps_lat.toFixed(5)+'N, '+ev.data.gps_lng.toFixed(5)+'E' : null;
-      detailHtml = '<div style="background:rgba(255,176,32,0.08);border:1px solid rgba(255,176,32,0.2);border-radius:8px;padding:10px 12px;margin-top:8px">' +
-        timelineRow('Type', ev.data.type) + timelineRow('From', ev.data.name) + timelineRow('Location', ev.data.loc_desc) +
-        timelineRow('GPS', hGps) + timelineRow('Notes', ev.data.notes) +
-        '</div>';
+      icon='!'; color='#ffb020'; titleTxt='Help Request';
+      var hStatus = ev.data.acked ? 'Acknowledged' : 'Received';
+      var hStatusColor = ev.data.acked ? '#00e5a0' : '#ffb020';
+      var hGps = (ev.data.gps_lat && ev.data.gps_lng) ? ev.data.gps_lat.toFixed(5)+'N, '+ev.data.gps_lng.toFixed(5)+'E' : '—';
+      detailHtml = '<div style="background:rgba(255,176,32,0.08);border:1px solid rgba(255,176,32,0.2);border-radius:8px;padding:10px 12px;margin-top:8px">';
+      detailHtml += '<div style="display:flex;gap:8px;margin-bottom:5px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">Status</span><span style="font-size:12px;font-weight:700;color:'+hStatusColor+'">'+hStatus+(ev.data.acked_by?' by '+ev.data.acked_by:'')+'</span></div>';
+      detailHtml += '<div style="display:flex;gap:8px;margin-bottom:5px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">Type</span><span style="font-size:12px;color:#e8eaf0">'+(ev.data.type||'—')+'</span></div>';
+      detailHtml += '<div style="display:flex;gap:8px;margin-bottom:5px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">Urgency</span><span style="font-size:12px;color:#e8eaf0">'+(ev.data.urgency||'—')+'</span></div>';
+      detailHtml += '<div style="display:flex;gap:8px;margin-bottom:5px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">Location</span><span style="font-size:12px;color:#e8eaf0">'+(ev.data.loc_desc||'—')+'</span></div>';
+      detailHtml += '<div style="display:flex;gap:8px;margin-bottom:5px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">GPS</span><span style="font-size:12px;color:#e8eaf0">'+hGps+'</span></div>';
+      detailHtml += '<div style="display:flex;gap:8px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">Notes</span><span style="font-size:12px;color:#e8eaf0;line-height:1.5">'+(ev.data.notes||'—')+'</span></div>';
+      detailHtml += '</div>';
     } else if (ev.type === 'note') {
-      icon='✎'; color='#cc66ff'; titleTxt='Surveillance Note — ' + (ev.data.title || 'Untitled');
-      detailHtml = '<div style="font-size:12px;color:#8b90a0;margin-top:4px;line-height:1.5">' + (ev.data.body || '') + '</div>';
+      icon='✎'; color='#cc66ff'; titleTxt='Surveillance Note';
+      detailHtml = '<div style="font-size:12px;color:#8b90a0;margin-top:4px;line-height:1.5">' + (ev.data.body || '—') + '</div>';
     } else if (ev.type === 'mp') {
       icon='📋'; color='#4da3ff'; titleTxt='Mobile Patrol Assignment';
       var mSev = ev.data.severity || 'Low';
       var mSevColor = mSev==='Critical'?'#ff4d4d':mSev==='High'?'#ffb020':mSev==='Medium'?'#4da3ff':'#8b90a0';
       var mLoc = ev.data.location_label || ev.data.custom_location || '—';
+      var mGps = (ev.data.gps_lat && ev.data.gps_lng) ? ev.data.gps_lat.toFixed(5)+'N, '+ev.data.gps_lng.toFixed(5)+'E' : null;
       var mStatus, mStatusColor;
       if (ev.ack && ev.ack.status === 'acknowledged') { mStatus='Acknowledged'; mStatusColor='#00e5a0'; }
       else if (ev.ack && ev.ack.status === 'dismissed') { mStatus='Dismissed'; mStatusColor='#8b90a0'; }
       else { mStatus='Received (no response yet)'; mStatusColor='#ffb020'; }
-      detailHtml = '<div style="background:rgba(77,163,255,0.08);border:1px solid rgba(77,163,255,0.2);border-radius:8px;padding:10px 12px;margin-top:8px">' +
-        '<div style="display:flex;gap:8px;margin-bottom:5px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">Status</span><span style="font-size:12px;font-weight:700;color:'+mStatusColor+'">'+mStatus+'</span></div>' +
-        timelineRow('From', ev.data.sent_by || 'Admin') +
-        '<div style="display:flex;gap:8px;margin-bottom:5px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">Severity</span><span style="font-size:12px;font-weight:700;color:'+mSevColor+'">'+mSev+'</span></div>' +
-        timelineRow('Location', mLoc) +
-        '</div>';
+      detailHtml = '<div style="background:rgba(77,163,255,0.08);border:1px solid rgba(77,163,255,0.2);border-radius:8px;padding:10px 12px;margin-top:8px">';
+      detailHtml += '<div style="display:flex;gap:8px;margin-bottom:5px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">Status</span><span style="font-size:12px;font-weight:700;color:'+mStatusColor+'">'+mStatus+'</span></div>';
+      detailHtml += '<div style="display:flex;gap:8px;margin-bottom:5px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">From</span><span style="font-size:12px;color:#e8eaf0">'+(ev.data.sent_by||'Admin')+'</span></div>';
+      detailHtml += '<div style="display:flex;gap:8px;margin-bottom:5px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">Severity</span><span style="font-size:12px;font-weight:700;color:'+mSevColor+'">'+mSev+'</span></div>';
+      detailHtml += '<div style="display:flex;gap:8px;margin-bottom:5px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">Location</span><span style="font-size:12px;color:#e8eaf0">'+mLoc+'</span></div>';
+      if (mGps) detailHtml += '<div style="display:flex;gap:8px;margin-bottom:5px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">GPS</span><span style="font-size:12px;color:#e8eaf0">'+mGps+'</span></div>';
+      detailHtml += '<div style="display:flex;gap:8px"><span style="font-family:monospace;font-size:10px;color:#555a6a;min-width:70px;text-transform:uppercase">Notes</span><span style="font-size:12px;color:#e8eaf0;line-height:1.5">'+(ev.data.notes||'—')+'</span></div>';
+      detailHtml += '</div>';
     }
 
     html += '<div style="position:relative;margin-bottom:'+(isLast?'0':'16px')+'">';
@@ -3041,7 +3049,7 @@ function renderTimelineEvents(events, containerId) {
     html += '<div class="tl-item" style="background:#151820;border:1px solid rgba(139,144,160,0.12);border-radius:10px;padding:12px 14px">';
     html += '<div style="display:flex;justify-content:space-between;align-items:flex-start">';
     html += '<div style="font-size:13px;font-weight:700;color:#e8eaf0">'+titleTxt+'</div>';
-    html += '<div style="font-family:monospace;font-size:11px;color:#555a6a;white-space:nowrap;margin-left:10px">'+timeStr+'</div>';
+    html += '<div style="font-family:monospace;font-size:11px;color:#555a6a;white-space:nowrap;margin-left:10px">'+dateStr+' '+timeStr+'</div>';
     html += '</div>';
     if (detailHtml) html += detailHtml;
     html += '</div></div>';
