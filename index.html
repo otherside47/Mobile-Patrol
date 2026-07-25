@@ -878,7 +878,7 @@ function showIncidentDetail(j){
     rmr('Guard', d.guard_name) +
     rmr('Severity', '<span style="color:'+sevColor+';font-weight:700">'+(d.severity||'').toUpperCase()+'</span>') +
     rmr('Location', d.location) + rmr('Notes', d.notes) +
-    rmr('Time', new Date(d.timestamp).toLocaleString('en-GB')),
+    rmr('Time', new Date(d.timestamp).toLocaleString('en-US')),
     d.gps_lat, d.gps_lng);
 }
 function showHelpDetail(j){
@@ -889,7 +889,7 @@ function showHelpDetail(j){
     rmr('Urgency', '<span style="color:'+urgColor+';font-weight:700">'+(d.urgency||'').toUpperCase()+'</span>') +
     rmr('Location', d.loc_desc) + rmr('Message', d.notes) +
     rmr('Status', d.acked ? 'Acknowledged by '+d.acked_by : 'Open') +
-    rmr('Time', new Date(d.timestamp).toLocaleString('en-GB')),
+    rmr('Time', new Date(d.timestamp).toLocaleString('en-US')),
     d.gps_lat, d.gps_lng);
 }
 function showSurvDetail(j){
@@ -898,7 +898,7 @@ function showSurvDetail(j){
   var photosHtml = urls.length ? ('<div style="display:flex;gap:6px;flex-wrap:wrap">'+urls.map(function(u){return '<a href="'+u+'" target="_blank" rel="noopener"><img src="'+u+'" style="width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid rgba(180,0,255,0.3)"></a>';}).join('')+'</div>') : '';
   openReportModal(d.title||'Surveillance Note',
     rmr('Guard', d.guard_name) + rmr('Category', d.category) + rmr('Checkpoint', d.checkpoint) +
-    rmr('Note', d.body) + rmr('Time', new Date(d.timestamp).toLocaleString('en-GB')) +
+    rmr('Note', d.body) + rmr('Time', new Date(d.timestamp).toLocaleString('en-US')) +
     (photosHtml ? rmr('Photos', photosHtml) : ''),
     d.gps_lat, d.gps_lng);
 }
@@ -1359,7 +1359,7 @@ function loadMPAssignmentsList() {
     data.forEach(function(mp) {
       var locText = mp.location_label || mp.custom_location || '—';
       var gpsText = (mp.gps_lat && mp.gps_lng) ? mp.gps_lat.toFixed(5)+'N, '+mp.gps_lng.toFixed(5)+'E' : null;
-      var time = new Date(mp.timestamp).toLocaleString('en-GB',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+      var time = new Date(mp.timestamp).toLocaleString('en-US',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
       var isUnread = !seen[mp.id];
       var sev = mp.severity || 'Low';
       var sevColor = sev==='Critical'?'#ff4d4d':sev==='High'?'#ffb020':sev==='Medium'?'#4da3ff':'#8b90a0';
@@ -1967,9 +1967,9 @@ function guardExportPDF() {
       })
       .map(function(mp){ return Object.assign({}, mp, {ack: ackByAssignment[mp.id]}); });
 
-    var now = new Date().toLocaleString('en-GB');
-    var startedStr = shiftRow && shiftRow.started_at ? new Date(shiftRow.started_at).toLocaleString('en-GB') : '—';
-    var endedStr = shiftRow && shiftRow.ended_at ? new Date(shiftRow.ended_at).toLocaleString('en-GB') : (shiftRow && shiftRow.status==='active' ? 'Still active' : '—');
+    var now = new Date().toLocaleString('en-US');
+    var startedStr = shiftRow && shiftRow.started_at ? new Date(shiftRow.started_at).toLocaleString('en-US') : '—';
+    var endedStr = shiftRow && shiftRow.ended_at ? new Date(shiftRow.ended_at).toLocaleString('en-US') : (shiftRow && shiftRow.status==='active' ? 'Still active' : '—');
 
     var css = [
       'body{font-family:Arial,sans-serif;font-size:12px;padding:24px;color:#111;margin:0}',
@@ -2003,7 +2003,7 @@ function guardExportPDF() {
     } else {
       html += '<table><tr><th>Time</th><th>Checkpoint</th><th>GPS</th></tr>';
       scans.forEach(function(s){
-        var t = new Date(s.timestamp).toLocaleString('en-GB');
+        var t = new Date(s.timestamp).toLocaleString('en-US');
         var gps = (s.gps_lat&&s.gps_lng) ? s.gps_lat.toFixed(4)+'N '+s.gps_lng.toFixed(4)+'E' : 'n/a';
         html += '<tr><td>'+t+'</td><td>'+(s.checkpoint_id||'—')+'</td><td>'+gps+'</td></tr>';
       });
@@ -2017,7 +2017,7 @@ function guardExportPDF() {
     } else {
       html += '<table><tr><th>Time</th><th>Type</th><th>Severity</th><th>Location</th><th>Notes</th></tr>';
       incidents.forEach(function(inc){
-        var t = new Date(inc.timestamp).toLocaleString('en-GB');
+        var t = new Date(inc.timestamp).toLocaleString('en-US');
         var sevClass = 'sev-'+(inc.severity||'').toLowerCase();
         html += '<tr><td>'+t+'</td><td>'+(inc.type||'—')+'</td><td class="'+sevClass+'">'+(inc.severity||'—')+'</td><td>'+(inc.location||'—')+'</td><td>'+(inc.notes||'—')+'</td></tr>';
       });
@@ -2031,7 +2031,7 @@ function guardExportPDF() {
     } else {
       html += '<table><tr><th>Time</th><th>Type</th><th>Location</th><th>Status</th></tr>';
       reqs.forEach(function(r){
-        var t = new Date(r.timestamp).toLocaleString('en-GB');
+        var t = new Date(r.timestamp).toLocaleString('en-US');
         var status = r.acked ? '<span class="ok">Acknowledged'+(r.acked_by?' by '+r.acked_by:'')+'</span>' : '<span class="red">Pending</span>';
         html += '<tr><td>'+t+'</td><td>'+(r.type||'—')+'</td><td>'+(r.loc_desc||'—')+'</td><td>'+status+'</td></tr>';
       });
@@ -2045,7 +2045,7 @@ function guardExportPDF() {
     } else {
       html += '<table><tr><th>Time</th><th>From</th><th>Severity</th><th>Location</th><th>Status</th><th>Notes</th></tr>';
       mpAssignments.forEach(function(mp){
-        var t = new Date(mp.timestamp).toLocaleString('en-GB');
+        var t = new Date(mp.timestamp).toLocaleString('en-US');
         var sevClass = 'sev-'+(mp.severity||'low').toLowerCase();
         var loc = mp.location_label || mp.custom_location || '—';
         var status = (mp.ack && mp.ack.status === 'dismissed')
@@ -2078,7 +2078,7 @@ function guardExportExcel() {
     if (!Array.isArray(scans)) scans=[];
     var csv = 'Guard,Shift,Time,Checkpoint,GPS Lat,GPS Lng\n';
     scans.forEach(function(s){
-      var t = new Date(s.timestamp).toLocaleString('en-GB');
+      var t = new Date(s.timestamp).toLocaleString('en-US');
       csv += '"'+guardName+'","'+shiftLabel+'","'+t+'","'+(s.checkpoint_id||'')+'","'+(s.gps_lat||'')+'","'+(s.gps_lng||'')+'"\n';
     });
     var blob = new Blob([csv],{type:'text/csv'});
@@ -2158,7 +2158,7 @@ function loadAssistList() {
     el.innerHTML = '';
     data.forEach(function(r) {
       var sevColor = r.severity==='Critical'||r.severity==='High' ? '#ff4d4d' : r.severity==='Medium' ? '#ffb020' : '#00e5a0';
-      var time = new Date(r.timestamp).toLocaleString('en-GB',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).replace(',',' ');
+      var time = new Date(r.timestamp).toLocaleString('en-US',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).replace(',',' ');
       var card = document.createElement('div');
       card.style.cssText = 'background:#131720;border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:14px;margin-bottom:10px;cursor:pointer';
       var statusHtml = r.acked

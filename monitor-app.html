@@ -348,7 +348,7 @@ function get(t,q,cb){
 function fmt(ts){
   if(!ts)return '--';
   var d=new Date(ts);
-  return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})+' '+
+  return d.toLocaleDateString('en-US',{day:'2-digit',month:'short'})+' '+
          d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
 }
 function ft(ts){
