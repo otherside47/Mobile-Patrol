@@ -454,7 +454,7 @@ function loadHelp(){
       var urgColor=r.urgency==='critical'?'#ff4d4d':r.urgency==='high'?'#ffb020':'#4da3ff';
       var gpsText=(r.gps_lat&&r.gps_lng)?parseFloat(r.gps_lat).toFixed(5)+'° N, '+parseFloat(r.gps_lng).toFixed(5)+'° E':'GPS unavailable';
       return '<div style="background:#151820;border:1px solid rgba(255,77,77,0.2);border-radius:10px;padding:14px;margin-bottom:10px;cursor:pointer'+(r.acked?';opacity:0.6':'')+'" onclick=\'showHelp('+JSON.stringify(JSON.stringify(r))+')\'>'+
-        '<div style="font-size:13px;font-weight:700;color:#e8eaf0;margin-bottom:8px">'+mpDateMDY(r.timestamp)+', '+ft(r.timestamp)+' · <span style="color:#00e5a0">'+survInitials(r.name)+'</span></div>'+
+        '<div style="font-size:13px;font-weight:700;color:#e8eaf0;margin-bottom:8px">'+mpDateMDY(r.timestamp)+', '+ft(r.timestamp)+' · <span style="color:#00e5a0">'+r.name+'</span></div>'+
         '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">'+
         '<div style="font-size:14px;font-weight:700;color:#e8eaf0">'+(r.type||'Help Request')+'</div>'+
         '<span style="font-family:monospace;font-size:10px;font-weight:700;color:'+urgColor+';padding:2px 7px;border:1px solid '+urgColor+';border-radius:4px">'+(r.urgency||'').toUpperCase()+'</span>'+

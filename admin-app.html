@@ -1466,7 +1466,7 @@ async function loadRequests(){
     const time=new Date(req.timestamp).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
     const urgColor=req.urgency==='critical'?'#ff4d4d':req.urgency==='high'?'#ffb020':'#4da3ff';
     return `<div style="background:#151820;border:1px solid rgba(255,77,77,0.2);border-radius:10px;padding:14px;margin-bottom:10px;cursor:pointer${req.acked?';opacity:0.6':''}" onclick='showHelpDetail(${JSON.stringify(JSON.stringify(req))})'>
-      <div style="font-size:13px;font-weight:700;color:#e8eaf0;margin-bottom:8px">${mpDateMDY(req.timestamp)}, ${time} · <span style="color:#00e5a0">${survInitials(req.name)}</span></div>
+      <div style="font-size:13px;font-weight:700;color:#e8eaf0;margin-bottom:8px">${mpDateMDY(req.timestamp)}, ${time} · <span style="color:#00e5a0">${req.name}</span></div>
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
         <div style="font-size:14px;font-weight:700;color:#e8eaf0">${req.type}</div>
         <span style="font-family:monospace;font-size:10px;font-weight:700;color:${urgColor};padding:2px 7px;border:1px solid ${urgColor};border-radius:4px">${req.urgency.toUpperCase()}</span>
