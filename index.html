@@ -2667,7 +2667,7 @@ function survNoteCardHtml(n) {
   var t = new Date(n.timestamp).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
   var urls = Array.isArray(n.photo_urls) ? n.photo_urls : [];
   var photosHtml = urls.length
-    ? '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">' + urls.map(function(u){ return '<a href="'+u+'" target="_blank" rel="noopener" onclick="event.stopPropagation()"><img src="'+u+'" style="width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,0.1)"></a>'; }).join('') + '</div>'
+    ? '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">' + urls.map(function(u){ return '<img src="'+u+'" style="width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,0.1)">'; }).join('') + '</div>'
     : '';
   return '<div style="background:#151820;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px;margin-bottom:12px;cursor:pointer" onclick=\'showSurvDetail(' + JSON.stringify(JSON.stringify(n)) + ')\'>' +
     '<div style="font-size:13px;font-weight:700;color:#e8eaf0;margin-bottom:6px">' + mpDateMDY(n.timestamp) + ', ' + t + '</div>' +
@@ -2702,7 +2702,7 @@ function renderIncidentList() {
     var sevColor = inc.severity === 'Critical' ? '#ff4d4d' : inc.severity === 'High' ? '#ffb020' : inc.severity === 'Medium' ? '#4da3ff' : '#8b90a0';
     var incUrls = Array.isArray(inc.photo_urls) ? inc.photo_urls : [];
     var incPhotosHtml = incUrls.length
-      ? '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">' + incUrls.map(function(u){ return '<a href="'+u+'" target="_blank" rel="noopener" onclick="event.stopPropagation()"><img src="'+u+'" style="width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,0.1)"></a>'; }).join('') + '</div>'
+      ? '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">' + incUrls.map(function(u){ return '<img src="'+u+'" style="width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,0.1)">'; }).join('') + '</div>'
       : '';
     html += '<div style="background:#151820;border:1px solid rgba(255,77,77,0.2);border-radius:10px;padding:14px;margin-bottom:10px;cursor:pointer" onclick=\'showIncidentDetail(' + JSON.stringify(JSON.stringify(inc)) + ')\'>' +
       '<div style="font-size:13px;font-weight:700;color:#e8eaf0;margin-bottom:8px">' + mpDateMDY(inc.timestamp) + ', ' + t + ' · <span style="color:#00e5a0">' + survInitials(inc.guard_name) + '</span>' + (inc.updated_at && inc.updated_at !== inc.timestamp ? ' · edited' : '') + '</div>' +
