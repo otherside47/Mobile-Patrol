@@ -424,13 +424,14 @@ function loadIncidents(){
       var sevColor=i.severity==='Critical'?'#ff4d4d':i.severity==='High'?'#ffb020':i.severity==='Medium'?'#4da3ff':'#8b90a0';
       var gpsText=(i.gps_lat&&i.gps_lng)?parseFloat(i.gps_lat).toFixed(4)+'°N '+parseFloat(i.gps_lng).toFixed(4)+'°E':'GPS n/a';
       return '<div style="background:#151820;border:1px solid rgba(255,77,77,0.2);border-radius:10px;padding:14px;margin-bottom:10px;cursor:pointer" onclick=\'showInc('+JSON.stringify(JSON.stringify(i))+')\'>'+
-        '<div style="font-size:13px;font-weight:700;color:#e8eaf0;margin-bottom:8px">'+mpDateMDY(i.timestamp)+', '+ft(i.timestamp)+' · '+survInitials(i.guard_name)+' · '+gpsText+'</div>'+
+        '<div style="font-size:13px;font-weight:700;color:#e8eaf0;margin-bottom:8px">'+mpDateMDY(i.timestamp)+', '+ft(i.timestamp)+' · <span style="color:#00e5a0">'+survInitials(i.guard_name)+'</span></div>'+
         '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">'+
         '<div style="font-size:14px;font-weight:700;color:#e8eaf0">'+(i.type||'Incident')+'</div>'+
         '<span style="font-family:monospace;font-size:10px;font-weight:700;color:'+sevColor+';padding:2px 7px;border:1px solid '+sevColor+';border-radius:4px">'+(i.severity||'').toUpperCase()+'</span>'+
         '</div>'+
         (i.location?'<div style="font-family:monospace;font-size:11px;color:#8b90a0;margin-bottom:4px">📍 '+i.location+'</div>':'')+
-        (i.notes?'<div style="font-size:12px;color:#8b90a0;margin-bottom:8px">'+i.notes+'</div>':'')+
+        (i.notes?'<div style="font-size:12px;color:#d9c26b;margin-bottom:8px">'+i.notes+'</div>':'')+
+        '<div style="font-family:monospace;font-size:10px;color:#555a6a">'+gpsText+'</div>'+
         '</div>';
     }).join('');
   });
@@ -453,14 +454,15 @@ function loadHelp(){
       var urgColor=r.urgency==='critical'?'#ff4d4d':r.urgency==='high'?'#ffb020':'#4da3ff';
       var gpsText=(r.gps_lat&&r.gps_lng)?parseFloat(r.gps_lat).toFixed(5)+'° N, '+parseFloat(r.gps_lng).toFixed(5)+'° E':'GPS unavailable';
       return '<div style="background:#151820;border:1px solid rgba(255,77,77,0.2);border-radius:10px;padding:14px;margin-bottom:10px;cursor:pointer'+(r.acked?';opacity:0.6':'')+'" onclick=\'showHelp('+JSON.stringify(JSON.stringify(r))+')\'>'+
-        '<div style="font-size:13px;font-weight:700;color:#e8eaf0;margin-bottom:8px">'+mpDateMDY(r.timestamp)+', '+ft(r.timestamp)+' · '+survInitials(r.name)+' · '+gpsText+'</div>'+
+        '<div style="font-size:13px;font-weight:700;color:#e8eaf0;margin-bottom:8px">'+mpDateMDY(r.timestamp)+', '+ft(r.timestamp)+' · <span style="color:#00e5a0">'+survInitials(r.name)+'</span></div>'+
         '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">'+
         '<div style="font-size:14px;font-weight:700;color:#e8eaf0">'+(r.type||'Help Request')+'</div>'+
         '<span style="font-family:monospace;font-size:10px;font-weight:700;color:'+urgColor+';padding:2px 7px;border:1px solid '+urgColor+';border-radius:4px">'+(r.urgency||'').toUpperCase()+'</span>'+
         '</div>'+
         '<div style="font-family:monospace;font-size:11px;color:#8b90a0;margin-bottom:4px">📍 From: '+(r.name||'Unknown')+(r.loc_desc?' · '+r.loc_desc:'')+'</div>'+
-        (r.notes?'<div style="font-size:12px;color:#8b90a0;margin-bottom:8px">'+r.notes+'</div>':'')+
-        '<div style="font-family:monospace;font-size:10px;'+(r.acked?'color:#00e5a0':'color:#ffb020')+'">'+(r.acked?'Acked by '+r.acked_by:'Awaiting response')+'</div></div>';
+        (r.notes?'<div style="font-size:12px;color:#d9c26b;margin-bottom:8px">'+r.notes+'</div>':'')+
+        '<div style="font-family:monospace;font-size:10px;'+(r.acked?'color:#00e5a0':'color:#ffb020')+';margin-bottom:4px">'+(r.acked?'Acked by '+r.acked_by:'Awaiting response')+'</div>'+
+        '<div style="font-family:monospace;font-size:10px;color:#555a6a">'+gpsText+'</div></div>';
     }).join('');
   });
 }

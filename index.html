@@ -1412,14 +1412,15 @@ function loadHelpRequests() {
         var div = document.createElement('div');
         div.style.cssText = 'background:#151820;border:1px solid rgba(255,77,77,0.2);border-radius:10px;padding:14px;margin-bottom:10px;cursor:pointer';
         div.setAttribute('onclick', 'showHelpDetail(' + JSON.stringify(JSON.stringify(req)) + ')');
-        div.innerHTML = '<div style="font-size:13px;font-weight:700;color:#e8eaf0;margin-bottom:8px">'+mpDateMDY(req.timestamp)+', '+time+' · '+survInitials(req.name)+' · '+gpsText+'</div>'+
+        div.innerHTML = '<div style="font-size:13px;font-weight:700;color:#e8eaf0;margin-bottom:8px">'+mpDateMDY(req.timestamp)+', '+time+' · <span style="color:#00e5a0">'+survInitials(req.name)+'</span></div>'+
           '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">'+
           '<div style="font-size:14px;font-weight:700;color:#e8eaf0">'+req.type+'</div>'+
           '<span style="font-family:monospace;font-size:10px;font-weight:700;color:'+urgColor+';padding:2px 7px;border:1px solid '+urgColor+';border-radius:4px">'+req.urgency.toUpperCase()+'</span>'+
           '</div>'+
           '<div style="font-family:monospace;font-size:11px;color:#8b90a0;margin-bottom:4px">📍 From: '+req.name+' · '+req.loc_desc+'</div>'+
-          (req.notes?'<div style="font-size:12px;color:#8b90a0;margin-bottom:8px">'+req.notes+'</div>':'')+
-          '<div style="font-family:monospace;font-size:10px;color:#ffb020">Awaiting response</div>';
+          (req.notes?'<div style="font-size:12px;color:#d9c26b;margin-bottom:8px">'+req.notes+'</div>':'')+
+          '<div style="font-family:monospace;font-size:10px;color:#ffb020;margin-bottom:4px">Awaiting response</div>'+
+          '<div style="font-family:monospace;font-size:10px;color:#555a6a">'+gpsText+'</div>';
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.style.cssText = 'margin-top:10px;width:100%;padding:10px;border-radius:8px;background:#00e5a0;color:#000;border:none;font-weight:700;font-size:13px;cursor:pointer';
@@ -1440,14 +1441,15 @@ function loadHelpRequests() {
         var time = new Date(req.timestamp).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
         var urgColor = req.urgency==='critical'?'#ff4d4d':req.urgency==='high'?'#ffb020':'#4da3ff';
         return '<div style="background:#151820;border:1px solid rgba(255,77,77,0.2);border-radius:10px;padding:14px;margin-bottom:10px;cursor:pointer;opacity:0.6" onclick=\'showHelpDetail(' + JSON.stringify(JSON.stringify(req)) + ')\'>'+
-          '<div style="font-size:13px;font-weight:700;color:#e8eaf0;margin-bottom:8px">'+mpDateMDY(req.timestamp)+', '+time+' · '+survInitials(req.name)+' · '+gpsText+'</div>'+
+          '<div style="font-size:13px;font-weight:700;color:#e8eaf0;margin-bottom:8px">'+mpDateMDY(req.timestamp)+', '+time+' · <span style="color:#00e5a0">'+survInitials(req.name)+'</span></div>'+
           '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">'+
           '<div style="font-size:14px;font-weight:700;color:#e8eaf0">'+req.type+'</div>'+
           '<span style="font-family:monospace;font-size:10px;font-weight:700;color:'+urgColor+';padding:2px 7px;border:1px solid '+urgColor+';border-radius:4px">'+req.urgency.toUpperCase()+'</span>'+
           '</div>'+
           '<div style="font-family:monospace;font-size:11px;color:#8b90a0;margin-bottom:4px">📍 From: '+req.name+' · '+req.loc_desc+'</div>'+
-          (req.notes?'<div style="font-size:12px;color:#8b90a0;margin-bottom:8px">'+req.notes+'</div>':'')+
-          '<div style="font-family:monospace;font-size:10px;color:#00e5a0">Acked by '+req.acked_by+'</div></div>';
+          (req.notes?'<div style="font-size:12px;color:#d9c26b;margin-bottom:8px">'+req.notes+'</div>':'')+
+          '<div style="font-family:monospace;font-size:10px;color:#00e5a0;margin-bottom:4px">Acked by '+req.acked_by+'</div>'+
+          '<div style="font-family:monospace;font-size:10px;color:#555a6a">'+gpsText+'</div></div>';
       }).join('');
     }
     // Also update old help-list
@@ -2691,14 +2693,15 @@ function renderIncidentList() {
     var t = new Date(inc.timestamp).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
     var sevColor = inc.severity === 'Critical' ? '#ff4d4d' : inc.severity === 'High' ? '#ffb020' : inc.severity === 'Medium' ? '#4da3ff' : '#8b90a0';
     html += '<div style="background:#151820;border:1px solid rgba(255,77,77,0.2);border-radius:10px;padding:14px;margin-bottom:10px;cursor:pointer" onclick=\'showIncidentDetail(' + JSON.stringify(JSON.stringify(inc)) + ')\'>' +
-      '<div style="font-size:13px;font-weight:700;color:#e8eaf0;margin-bottom:8px">' + mpDateMDY(inc.timestamp) + ', ' + t + ' · ' + survInitials(inc.guard_name) + ' · ' + (inc.gps_lat && inc.gps_lng ? inc.gps_lat.toFixed(4) + '° N ' + inc.gps_lng.toFixed(4) + '° E' : 'GPS n/a') + (inc.updated_at && inc.updated_at !== inc.timestamp ? ' · edited' : '') + '</div>' +
+      '<div style="font-size:13px;font-weight:700;color:#e8eaf0;margin-bottom:8px">' + mpDateMDY(inc.timestamp) + ', ' + t + ' · <span style="color:#00e5a0">' + survInitials(inc.guard_name) + '</span>' + (inc.updated_at && inc.updated_at !== inc.timestamp ? ' · edited' : '') + '</div>' +
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">' +
       '<div style="font-size:14px;font-weight:700;color:#e8eaf0">' + inc.type + '</div>' +
       '<span style="font-family:monospace;font-size:10px;font-weight:700;color:' + sevColor + ';padding:2px 7px;border:1px solid ' + sevColor + ';border-radius:4px">' + inc.severity.toUpperCase() + '</span>' +
       '</div>' +
       '<div style="font-family:monospace;font-size:11px;color:#8b90a0;margin-bottom:4px">📍 ' + (inc.location || '—') + '</div>' +
-      (inc.notes ? '<div style="font-size:12px;color:#8b90a0;margin-bottom:8px">' + inc.notes + '</div>' : '') +
+      (inc.notes ? '<div style="font-size:12px;color:#d9c26b;margin-bottom:8px">' + inc.notes + '</div>' : '') +
       '<button type="button" onclick="event.stopPropagation();editIncident(\'' + inc.id + '\')" style="margin-top:4px;font-family:monospace;font-size:10px;color:#4da3ff;border:1px solid rgba(77,163,255,0.3);background:transparent;padding:3px 10px;border-radius:4px;cursor:pointer">Edit</button>' +
+      '<div style="font-family:monospace;font-size:10px;color:#555a6a;margin-top:6px">' + (inc.gps_lat && inc.gps_lng ? inc.gps_lat.toFixed(4) + '° N ' + inc.gps_lng.toFixed(4) + '° E' : 'GPS n/a') + '</div>' +
       '</div>';
   }
   el.innerHTML = html;
