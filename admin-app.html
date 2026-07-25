@@ -1531,24 +1531,32 @@ async function loadNotes(){
   const data=await sbGet('surveillance_notes','order=timestamp.desc&limit=50');
   const el=document.getElementById('admin-notes-list');
   if(!Array.isArray(data)||data.length===0){el.innerHTML='<div style="font-size:13px;color:#555a6a;font-family:monospace">No notes yet.</div>';return;}
-  el.innerHTML=data.map(note=>{
-    const gpsText=(note.gps_lat&&note.gps_lng)?note.gps_lat.toFixed(5)+'° N, '+note.gps_lng.toFixed(5)+'° E':'GPS unavailable';
-    const time=new Date(note.timestamp).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
-    const dateStr=new Date(note.timestamp).toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
-    const urls=Array.isArray(note.photo_urls)?note.photo_urls:[];
-    const photosHtml=urls.length
-      ? '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'+urls.map(u=>`<a href="${u}" target="_blank" rel="noopener"><img src="${u}" style="width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid rgba(180,0,255,0.3)"></a>`).join('')+'</div>'
-      : '';
-    return `<div style="background:#151820;border:1px solid rgba(180,0,255,0.2);border-radius:12px;padding:14px;margin-bottom:12px;cursor:pointer" onclick='showSurvNoteDetail(${JSON.stringify(JSON.stringify(note))})'>
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px">
-        <div style="font-size:14px;font-weight:600;color:#e8eaf0;flex:1">${note.title}</div>
-        <span style="font-family:monospace;font-size:10px;padding:2px 7px;border-radius:4px;background:rgba(255,255,255,0.06);color:#8b90a0;border:1px solid rgba(255,255,255,0.08);margin-left:8px;flex-shrink:0">${note.category}</span>
-      </div>
-      <div style="font-size:13px;color:#8b90a0;line-height:1.6;margin-bottom:8px">${note.body}</div>
-      <div style="font-family:monospace;font-size:10px;color:#555a6a;line-height:1.8">Guard: <span style="color:#4da3ff">${note.guard_name}</span><br>${dateStr} ${time}<br>GPS: ${gpsText}<br>${urls.length>0?'📷 '+urls.length+' photo(s)':'No photos'}</div>
-      ${photosHtml}
-    </div>`;
-  }).join('');
+  el.innerHTML=data.map(note=>survNoteCardHtml(note)).join('');
+}
+function mpDateMDY(ts){
+  const d=new Date(ts);
+  let mm=d.getMonth()+1; mm=(mm<10?'0':'')+mm;
+  let dd=d.getDate(); dd=(dd<10?'0':'')+dd;
+  return mm+'-'+dd+'-'+d.getFullYear();
+}
+function survNoteCardHtml(note){
+  const gpsText=(note.gps_lat&&note.gps_lng)?note.gps_lat.toFixed(5)+'° N, '+note.gps_lng.toFixed(5)+'° E':'GPS unavailable';
+  const time=new Date(note.timestamp).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  const urls=Array.isArray(note.photo_urls)?note.photo_urls:[];
+  const photosHtml=urls.length
+    ? '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'+urls.map(u=>`<a href="${u}" target="_blank" rel="noopener" onclick="event.stopPropagation()"><img src="${u}" style="width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid rgba(180,0,255,0.3)"></a>`).join('')+'</div>'
+    : '';
+  return `<div style="background:#151820;border:1px solid rgba(180,0,255,0.2);border-radius:12px;padding:14px;margin-bottom:12px;cursor:pointer" onclick='showSurvNoteDetail(${JSON.stringify(JSON.stringify(note))})'>
+    <div style="font-family:monospace;font-size:11px;font-weight:700;color:#e8eaf0;margin-bottom:6px">${mpDateMDY(note.timestamp)}</div>
+    <div style="font-size:14px;font-weight:600;color:#e8eaf0;margin-bottom:4px">${note.title||'Untitled'}</div>
+    <div style="font-size:12px;color:#4da3ff;margin-bottom:2px">Guard: ${note.guard_name||'Unknown'}</div>
+    <div style="font-size:12px;color:#cc66ff;margin-bottom:2px">Category: ${note.category||''}</div>
+    <div style="font-size:12px;color:#8b90a0;margin-bottom:8px">Checkpoint: ${note.checkpoint||'—'}</div>
+    <div style="font-size:13px;color:#e8eaf0;line-height:1.6;margin-bottom:8px">${note.body||''}</div>
+    <div style="font-family:monospace;font-size:10px;color:#555a6a;margin-bottom:4px">${time}</div>
+    <div style="font-family:monospace;font-size:10px;color:#555a6a">GPS: ${gpsText}</div>
+    ${photosHtml}
+  </div>`;
 }
 
 // ── PROFILES ──
