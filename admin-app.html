@@ -1325,43 +1325,65 @@ function loadLiveData(){
     document.getElementById('live-unacked').textContent = '—';
   }, 8000);
 
-  // Fetch scans
-  fetch(SUPABASE_URL+'/rest/v1/patrol_scans?order=timestamp.desc&limit=10', {
+  // Fetch active shifts first, so scans can be filtered to "since shift started"
+  fetch(SUPABASE_URL+'/rest/v1/active_shifts?status=eq.active&order=started_at.desc&limit=50', {
     headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
-  }).then(function(r){ return r.json(); }).then(function(scans) {
-    clearTimeout(timeout);
-    if (!Array.isArray(scans)) scans = [];
-    document.getElementById('live-scans').textContent = scans.length;
-
-    // Update live guard list (only if element exists)
-    var liveEl = document.getElementById('live-guard-list');
-    var guardKeys = Object.keys(guardProfiles);
-    if (liveEl) liveEl.innerHTML = guardKeys.map(function(k) {
-      var g = guardProfiles[k];
-      var initials = g.name.split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase();
-      var guardScans = scans.filter(function(s){return s.guard_name===g.name;}).length;
-      var shiftInfo = null;
-      for (var si=0; si<scans.length; si++) {
-        if (scans[si].guard_name===g.name && scans[si].shift_label) {
-          shiftInfo = {label:scans[si].shift_label, type:scans[si].shift_type};
-          break;
-        }
+  }).then(function(r){ return r.json(); }).then(function(activeShifts) {
+    if (!Array.isArray(activeShifts)) activeShifts = [];
+    var shiftStart = {};
+    activeShifts.forEach(function(s) {
+      if (!s.guard_name || !s.started_at) return;
+      if (!shiftStart[s.guard_name] || new Date(s.started_at) > new Date(shiftStart[s.guard_name])) {
+        shiftStart[s.guard_name] = s.started_at;
       }
-      var shiftBadge = shiftInfo ? '<div style="font-family:monospace;font-size:10px;color:'+(shiftInfo.type==='night'?'#4da3ff':'#ffb020')+';margin-top:2px">'+(shiftInfo.type==='night'?'🌙':'☀️')+' '+shiftInfo.label+'</div>' : '';
-      var status = guardScans > 0 ? 'Active' : 'Standby';
-      var badge = guardScans > 0 ? 'bg' : 'bgr';
-      return '<div class="live-row"><div class="avatar">'+initials+'</div><div style="flex:1"><div style="display:flex;align-items:center;justify-content:space-between"><div style="font-size:13px;font-weight:500">'+g.name+'</div><span class="badge '+badge+'">'+status+'</span></div><div style="font-family:monospace;font-size:10px;color:#555a6a;margin-top:2px">'+guardScans+' scans today</div>'+shiftBadge+'</div></div>';
-    }).join('');
+    });
 
-    // Recent activity
-    if (scans.length === 0) {
-      el.innerHTML = '<div style="font-size:13px;color:#555a6a;font-family:monospace">No activity yet.</div>';
-    } else {
-      el.innerHTML = scans.slice(0,5).map(function(s){
-        var time = new Date(s.timestamp).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
-        return '<div class="rep-row"><div><div style="font-size:13px;font-weight:500">'+(s.checkpoint_name||'Unknown')+'</div><div style="font-family:monospace;font-size:11px;color:#555a6a">'+time+' · '+(s.guard_name||'Unknown')+'</div></div><span style="font-family:monospace;font-size:10px;padding:2px 7px;border-radius:4px;background:rgba(0,229,160,0.12);color:#00e5a0;border:1px solid rgba(0,229,160,0.25)">OK</span></div>';
+    // Fetch a larger pool of recent scans, then keep only ones from the guard's current shift
+    fetch(SUPABASE_URL+'/rest/v1/patrol_scans?order=timestamp.desc&limit=100', {
+      headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+    }).then(function(r){ return r.json(); }).then(function(allScans) {
+      clearTimeout(timeout);
+      if (!Array.isArray(allScans)) allScans = [];
+      var scans = allScans.filter(function(s) {
+        var start = shiftStart[s.guard_name];
+        return start && new Date(s.timestamp) >= new Date(start);
+      });
+      document.getElementById('live-scans').textContent = scans.length;
+
+      // Update live guard list (only if element exists)
+      var liveEl = document.getElementById('live-guard-list');
+      var guardKeys = Object.keys(guardProfiles);
+      if (liveEl) liveEl.innerHTML = guardKeys.map(function(k) {
+        var g = guardProfiles[k];
+        var initials = g.name.split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase();
+        var guardScans = scans.filter(function(s){return s.guard_name===g.name;}).length;
+        var shiftInfo = null;
+        for (var si=0; si<scans.length; si++) {
+          if (scans[si].guard_name===g.name && scans[si].shift_label) {
+            shiftInfo = {label:scans[si].shift_label, type:scans[si].shift_type};
+            break;
+          }
+        }
+        var shiftBadge = shiftInfo ? '<div style="font-family:monospace;font-size:10px;color:'+(shiftInfo.type==='night'?'#4da3ff':'#ffb020')+';margin-top:2px">'+(shiftInfo.type==='night'?'🌙':'☀️')+' '+shiftInfo.label+'</div>' : '';
+        var status = guardScans > 0 ? 'Active' : 'Standby';
+        var badge = guardScans > 0 ? 'bg' : 'bgr';
+        return '<div class="live-row"><div class="avatar">'+initials+'</div><div style="flex:1"><div style="display:flex;align-items:center;justify-content:space-between"><div style="font-size:13px;font-weight:500">'+g.name+'</div><span class="badge '+badge+'">'+status+'</span></div><div style="font-family:monospace;font-size:10px;color:#555a6a;margin-top:2px">'+guardScans+' scans this shift</div>'+shiftBadge+'</div></div>';
       }).join('');
-    }
+
+      // Recent activity — current shift only
+      if (scans.length === 0) {
+        el.innerHTML = '<div style="font-size:13px;color:#555a6a;font-family:monospace">No activity this shift yet.</div>';
+      } else {
+        el.innerHTML = scans.slice(0,5).map(function(s){
+          var time = new Date(s.timestamp).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+          return '<div class="rep-row"><div><div style="font-size:13px;font-weight:500">'+(s.checkpoint_name||'Unknown')+'</div><div style="font-family:monospace;font-size:11px;color:#555a6a">'+time+' · '+(s.guard_name||'Unknown')+'</div></div><span style="font-family:monospace;font-size:10px;padding:2px 7px;border-radius:4px;background:rgba(0,229,160,0.12);color:#00e5a0;border:1px solid rgba(0,229,160,0.25)">OK</span></div>';
+        }).join('');
+      }
+    }).catch(function() {
+      clearTimeout(timeout);
+      el.innerHTML = '<div style="font-size:13px;color:#555a6a;font-family:monospace">No recent activity yet.</div>';
+      document.getElementById('live-scans').textContent = '0';
+    });
   }).catch(function() {
     clearTimeout(timeout);
     el.innerHTML = '<div style="font-size:13px;color:#555a6a;font-family:monospace">No recent activity yet.</div>';
