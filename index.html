@@ -2073,24 +2073,31 @@ function guardExportPDF() {
 
     var pdfDoc = new DOMParser().parseFromString(html, 'text/html');
     var pdfStyleEl = pdfDoc.querySelector('style');
+    var pdfOverlay = document.createElement('div');
+    pdfOverlay.style.cssText = 'position:fixed;inset:0;background:#fff;z-index:99999;overflow:auto';
     var pdfContainer = document.createElement('div');
-    pdfContainer.style.cssText = 'position:fixed;top:0;left:0;width:800px;background:#fff;z-index:-1000';
+    pdfContainer.style.cssText = 'width:800px;max-width:100%;margin:0 auto';
     pdfContainer.innerHTML = (pdfStyleEl ? pdfStyleEl.outerHTML : '') + pdfDoc.body.innerHTML;
-    document.body.appendChild(pdfContainer);
+    pdfOverlay.appendChild(pdfContainer);
+    document.body.appendChild(pdfOverlay);
     var pdfDateStr = currentShift ? currentShift.startDate : new Date().toISOString().slice(0,10);
     showToast('Generating PDF...');
-    html2pdf().set({
-      margin: 10,
-      filename: 'shift-report-'+guardName+'-'+pdfDateStr+'.pdf',
-      html2canvas: { scale: 2, useCORS: true, scrollX: 0, scrollY: 0 },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak: { mode: ['css', 'legacy'] }
-    }).from(pdfContainer).save().then(function(){
-      document.body.removeChild(pdfContainer);
-      showToast('PDF downloaded');
-    }).catch(function(){
-      document.body.removeChild(pdfContainer);
-      showToast('PDF export failed');
+    requestAnimationFrame(function(){
+      requestAnimationFrame(function(){
+        html2pdf().set({
+          margin: 10,
+          filename: 'shift-report-'+guardName+'-'+pdfDateStr+'.pdf',
+          html2canvas: { scale: 2, useCORS: true, scrollX: 0, scrollY: 0 },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+          pagebreak: { mode: ['css', 'legacy'] }
+        }).from(pdfContainer).save().then(function(){
+          document.body.removeChild(pdfOverlay);
+          showToast('PDF downloaded');
+        }).catch(function(){
+          document.body.removeChild(pdfOverlay);
+          showToast('PDF export failed');
+        });
+      });
     });
   }).catch(function(){showToast('Export failed');});
 }
