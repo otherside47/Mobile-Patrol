@@ -10,6 +10,7 @@
 <meta name="theme-color" content="#0d0f12">
 <title>Mobile Patrol — Admin Dashboard</title>
 <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script>
 // ── ACTIVITY LOG ─────────────────────────────────────────────────────────────
 var logSelectedShiftId = null;
@@ -2068,7 +2069,7 @@ function buildReportHTML() {
     'h1{font-size:18px;font-weight:700;margin-bottom:6px;border-bottom:2px solid #111;padding-bottom:6px}',
     'h2{font-size:13px;font-weight:700;color:#333;margin-top:24px;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px}',
     '.info{color:#555;margin-bottom:20px;font-size:12px;line-height:1.8}',
-    'table{width:100%;border-collapse:collapse;margin-bottom:16px;page-break-inside:auto}',
+    'table{width:100%;border-collapse:collapse;margin-bottom:16px;page-break-inside:auto;table-layout:fixed}',
     'tr{page-break-inside:avoid}',
     'th{background:#222;color:#fff;padding:7px 10px;text-align:left;font-size:11px;font-weight:600}',
     'td{padding:6px 10px;border-bottom:1px solid #e0e0e0;font-size:11px;vertical-align:top}',
@@ -2112,11 +2113,11 @@ function buildReportHTML() {
   if (currentReportInc.length === 0) {
     html += '<p style="color:#888;font-size:12px">No incidents reported.</p>';
   } else {
-    html += '<table><tr><th>Time</th><th>Type</th><th>Severity</th><th>Location</th><th>Notes</th></tr>';
+    html += '<table><tr><th style="width:13%">Time</th><th style="width:10%">From</th><th style="width:13%">Type</th><th style="width:9%">Severity</th><th style="width:16%">Location</th><th style="width:10%">Status</th><th style="width:29%">Notes</th></tr>';
     currentReportInc.forEach(function(inc){
       var t = new Date(inc.timestamp).toLocaleString('en-US');
       var sevClass = 'sev-'+(inc.severity||'').toLowerCase();
-      html += '<tr><td>'+t+'</td><td>'+(inc.type||'—')+'</td><td class="'+sevClass+'">'+(inc.severity||'—')+'</td><td>'+(inc.location||'—')+'</td><td>'+(inc.notes||'—')+'</td></tr>';
+      html += '<tr><td>'+t+'</td><td>'+(inc.guard_name||'—')+'</td><td>'+(inc.type||'—')+'</td><td class="'+sevClass+'">'+(inc.severity||'—')+'</td><td>'+(inc.location||'—')+'</td><td>—</td><td>'+(inc.notes||'—')+'</td></tr>';
     });
     html += '</table>';
   }
@@ -2126,11 +2127,11 @@ function buildReportHTML() {
   if (currentReportReqs.length === 0) {
     html += '<p style="color:#888;font-size:12px">No help requests.</p>';
   } else {
-    html += '<table><tr><th>Time</th><th>From</th><th>Type</th><th>Location</th><th>Status</th><th>Notes</th></tr>';
+    html += '<table><tr><th style="width:13%">Time</th><th style="width:10%">From</th><th style="width:13%">Type</th><th style="width:9%">Severity</th><th style="width:16%">Location</th><th style="width:10%">Status</th><th style="width:29%">Notes</th></tr>';
     currentReportReqs.forEach(function(r){
       var t = new Date(r.timestamp).toLocaleString('en-US');
       var status = r.acked ? '<span class="ok">Acknowledged</span>' : '<span class="red">Pending</span>';
-      html += '<tr><td>'+t+'</td><td>'+(r.name||'—')+'</td><td>'+(r.type||'—')+'</td><td>'+(r.loc_desc||'—')+'</td><td>'+status+'</td><td>'+(r.notes||'—')+'</td></tr>';
+      html += '<tr><td>'+t+'</td><td>'+(r.name||'—')+'</td><td>'+(r.type||'—')+'</td><td>—</td><td>'+(r.loc_desc||'—')+'</td><td>'+status+'</td><td>'+(r.notes||'—')+'</td></tr>';
     });
     html += '</table>';
   }
@@ -2140,7 +2141,7 @@ function buildReportHTML() {
   if (currentReportMP.length === 0) {
     html += '<p style="color:#888;font-size:12px">No assignments handled by this guard.</p>';
   } else {
-    html += '<table><tr><th>Time</th><th>From</th><th>Severity</th><th>Location</th><th>Status</th><th>Notes</th></tr>';
+    html += '<table><tr><th style="width:13%">Time</th><th style="width:10%">From</th><th style="width:13%">Type</th><th style="width:9%">Severity</th><th style="width:16%">Location</th><th style="width:10%">Status</th><th style="width:29%">Notes</th></tr>';
     currentReportMP.forEach(function(mp){
       var t = new Date(mp.timestamp).toLocaleString('en-US');
       var sevClass = 'sev-'+(mp.severity||'low').toLowerCase();
@@ -2148,7 +2149,7 @@ function buildReportHTML() {
       var status = (mp.ack && mp.ack.status === 'dismissed')
         ? '<span style="color:#777">Dismissed</span>'
         : '<span class="ok">Acknowledged</span>';
-      html += '<tr><td>'+t+'</td><td>'+(mp.sent_by||'Admin')+'</td><td class="'+sevClass+'">'+(mp.severity||'—')+'</td><td>'+loc+'</td><td>'+status+'</td><td>'+(mp.notes||'—')+'</td></tr>';
+      html += '<tr><td>'+t+'</td><td>'+(mp.sent_by||'Admin')+'</td><td>—</td><td class="'+sevClass+'">'+(mp.severity||'—')+'</td><td>'+loc+'</td><td>'+status+'</td><td>'+(mp.notes||'—')+'</td></tr>';
     });
     html += '</table>';
   }
@@ -2160,14 +2161,28 @@ function buildReportHTML() {
 function exportPDF() {
   if (!currentReportShift) { showToast('Please load a shift first'); return; }
   var html = buildReportHTML();
-  var blob = new Blob([html], {type:'text/html'});
-  var a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
+  var doc = new DOMParser().parseFromString(html, 'text/html');
+  var styleEl = doc.querySelector('style');
+  var container = document.createElement('div');
+  container.style.cssText = 'position:fixed;left:-9999px;top:0;width:800px;background:#fff';
+  container.innerHTML = (styleEl ? styleEl.outerHTML : '') + doc.body.innerHTML;
+  document.body.appendChild(container);
   var guardName = currentReportShift.guard_name || 'guard';
   var dateStr = currentReportShift.start_date || new Date().toISOString().slice(0,10);
-  a.download = 'shift-report-'+guardName+'-'+dateStr+'.html';
-  a.click();
-  showToast('Report downloaded');
+  showToast('Generating PDF...');
+  html2pdf().set({
+    margin: 10,
+    filename: 'shift-report-'+guardName+'-'+dateStr+'.pdf',
+    html2canvas: { scale: 2, useCORS: true },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    pagebreak: { mode: ['css', 'legacy'] }
+  }).from(container).save().then(function(){
+    document.body.removeChild(container);
+    showToast('PDF downloaded');
+  }).catch(function(){
+    document.body.removeChild(container);
+    showToast('PDF export failed');
+  });
 }
 
 function exportExcel() {
