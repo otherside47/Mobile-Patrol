@@ -1945,7 +1945,8 @@ function guardExportPDF() {
     // Only this guard's own ack records — a report should only show assignments
     // THIS guard personally acknowledged or dismissed, not ones another guard handled.
     fetch(SUPABASE_URL+'/rest/v1/mp_assignment_acks?guard_name=eq.'+encodeURIComponent(guardName), {headers:headers}).then(function(r){return r.json();}),
-    shiftId ? fetch(SUPABASE_URL+'/rest/v1/active_shifts?id=eq.'+shiftId, {headers:headers}).then(function(r){return r.json();}) : Promise.resolve([])
+    shiftId ? fetch(SUPABASE_URL+'/rest/v1/active_shifts?id=eq.'+shiftId, {headers:headers}).then(function(r){return r.json();}) : Promise.resolve([]),
+    fetch(SUPABASE_URL+'/rest/v1/surveillance_notes?order=timestamp.asc&limit=200&timestamp=gte.'+sinceDate+'&timestamp=lte.'+untilDate+'&guard_name=eq.'+encodeURIComponent(guardName), {headers:headers}).then(function(r){return r.json();})
   ]).then(function(results){
     var scans = Array.isArray(results[0]) ? results[0] : [];
     var reqs = Array.isArray(results[1]) ? results[1] : [];
@@ -1954,6 +1955,7 @@ function guardExportPDF() {
     var mpAcks = Array.isArray(results[4]) ? results[4] : [];
     var shiftRows = Array.isArray(results[5]) ? results[5] : [];
     var shiftRow = shiftRows[0] || null;
+    var survNotes = Array.isArray(results[6]) ? results[6] : [];
 
     var ackByAssignment = {};
     mpAcks.forEach(function(a){
@@ -1962,12 +1964,14 @@ function guardExportPDF() {
     });
 
     // Scope to this specific shift's actual time window, and only include
-    // assignments THIS guard personally acknowledged or dismissed.
+    // assignments THIS guard personally acknowledged or dismissed, and only
+    // ones that actually had a message (empty-notes assignments are skipped).
     var shiftFrom = shiftRow && shiftRow.started_at ? new Date(shiftRow.started_at) : null;
     var shiftUntil = shiftRow && shiftRow.ended_at ? new Date(shiftRow.ended_at) : new Date();
     var mpAssignments = mpList
       .filter(function(mp){
         if (!ackByAssignment[mp.id]) return false;
+        if (!(mp.notes && mp.notes.trim())) return false;
         if (shiftFrom) {
           var ts = new Date(mp.timestamp);
           if (ts < shiftFrom || ts > shiftUntil) return false;
@@ -1988,7 +1992,7 @@ function guardExportPDF() {
       'table{width:100%;border-collapse:collapse;margin-bottom:16px;page-break-inside:auto;table-layout:fixed}',
       'tr{page-break-inside:avoid}',
       'th{background:#222;color:#fff;padding:7px 10px;text-align:left;font-size:11px;font-weight:600}',
-      'td{padding:6px 10px;border-bottom:1px solid #e0e0e0;font-size:11px;vertical-align:top}',
+      'td{padding:6px 10px;border-bottom:1px solid #e0e0e0;font-size:11px;vertical-align:top;word-wrap:break-word;overflow-wrap:break-word;white-space:normal}',
       'tr:nth-child(even) td{background:#f9f9f9}',
       '.ok{color:#1a7a1a;font-weight:600}.red{color:#cc0000;font-weight:600}',
       '.sev-critical{color:#cc0000;font-weight:700}.sev-high{color:#cc6600;font-weight:700}',
@@ -2046,12 +2050,27 @@ function guardExportPDF() {
       reqs.forEach(function(r){
         var t = new Date(r.timestamp).toLocaleString('en-US');
         var status = r.acked ? '<span class="ok">Acknowledged'+(r.acked_by?' by '+r.acked_by:'')+'</span>' : '<span class="red">Pending</span>';
-        html += '<tr><td>'+t+'</td><td>'+(r.name||'—')+'</td><td>'+(r.type||'—')+'</td><td>—</td><td>'+(r.loc_desc||'—')+'</td><td>'+status+'</td><td>'+(r.notes||'—')+'</td></tr>';
+        var urgClass = 'sev-'+(r.urgency==='critical'?'critical':r.urgency==='high'?'high':r.urgency==='medium'?'medium':'low');
+        html += '<tr><td>'+t+'</td><td>'+(r.name||'—')+'</td><td>'+(r.type||'—')+'</td><td class="'+urgClass+'">'+(r.urgency?r.urgency.charAt(0).toUpperCase()+r.urgency.slice(1):'—')+'</td><td>'+(r.loc_desc||'—')+'</td><td>'+status+'</td><td>'+(r.notes||'—')+'</td></tr>';
       });
       html += '</table>';
     }
 
-    // Mobile Patrol Assignments — only ones THIS guard personally acknowledged or dismissed
+    // Surveillance notes
+    html += '<h2>Surveillance Notes ('+survNotes.length+')</h2>';
+    if (survNotes.length === 0) {
+      html += '<p style="color:#888;font-size:12px">No surveillance notes.</p>';
+    } else {
+      html += '<table><tr><th style="width:13%">Time</th><th style="width:10%">From</th><th style="width:13%">Type</th><th style="width:9%">Severity</th><th style="width:16%">Location</th><th style="width:10%">Status</th><th style="width:29%">Notes</th></tr>';
+      survNotes.forEach(function(n){
+        var t = new Date(n.timestamp).toLocaleString('en-US');
+        html += '<tr><td>'+t+'</td><td>'+(n.guard_name||'—')+'</td><td>'+(n.category||'—')+'</td><td>—</td><td>'+(n.checkpoint||'—')+'</td><td>—</td><td>'+(n.body||'—')+'</td></tr>';
+      });
+      html += '</table>';
+    }
+
+    // Mobile Patrol Assignments — only ones THIS guard personally acknowledged or dismissed,
+    // and only ones that actually had a message (empty-notes assignments are skipped)
     html += '<h2>Mobile Patrol Assignments ('+mpAssignments.length+')</h2>';
     if (mpAssignments.length === 0) {
       html += '<p style="color:#888;font-size:12px">No assignments handled during this shift.</p>';
@@ -2064,7 +2083,8 @@ function guardExportPDF() {
         var status = (mp.ack && mp.ack.status === 'dismissed')
           ? '<span style="color:#777">Dismissed</span>'
           : '<span class="ok">Acknowledged</span>';
-        html += '<tr><td>'+t+'</td><td>'+(mp.sent_by||'Admin')+'</td><td>—</td><td class="'+sevClass+'">'+(mp.severity||'—')+'</td><td>'+loc+'</td><td>'+status+'</td><td>'+(mp.notes||'—')+'</td></tr>';
+        var mpType = mp.guard_name === 'ALL' ? 'Broadcast' : 'Personal';
+        html += '<tr><td>'+t+'</td><td>'+(mp.sent_by||'Admin')+'</td><td>'+mpType+'</td><td class="'+sevClass+'">'+(mp.severity||'—')+'</td><td>'+loc+'</td><td>'+status+'</td><td>'+(mp.notes||'—')+'</td></tr>';
       });
       html += '</table>';
     }

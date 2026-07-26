@@ -1993,6 +1993,7 @@ var currentReportScans = [];
 var currentReportReqs = [];
 var currentReportInc = [];
 var currentReportMP = [];
+var currentReportNotes = [];
 
 function loadShiftsForReport() {
   fetch(SUPABASE_URL+'/rest/v1/active_shifts?order=started_at.desc&limit=100', {
@@ -2035,6 +2036,9 @@ function loadShiftReport() {
     }).then(function(r){return r.json();}),
     fetch(SUPABASE_URL+'/rest/v1/mp_assignment_acks?guard_name=eq.'+encodeURIComponent(guardName), {
       headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+    }).then(function(r){return r.json();}),
+    fetch(SUPABASE_URL+'/rest/v1/surveillance_notes?order=timestamp.asc&limit=200&timestamp=gte.'+sinceDate+'&timestamp=lte.'+untilDate+'&guard_name=eq.'+encodeURIComponent(guardName), {
+      headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
     }).then(function(r){return r.json();})
   ]).then(function(results){
     currentReportScans = Array.isArray(results[0]) ? results[0] : [];
@@ -2042,6 +2046,7 @@ function loadShiftReport() {
     currentReportInc = Array.isArray(results[2]) ? results[2] : [];
     var mpList = Array.isArray(results[3]) ? results[3] : [];
     var mpAcks = Array.isArray(results[4]) ? results[4] : [];
+    currentReportNotes = Array.isArray(results[5]) ? results[5] : [];
     var ackByAssignment = {};
     mpAcks.forEach(function(a){
       var existing = ackByAssignment[a.assignment_id];
@@ -2049,12 +2054,13 @@ function loadShiftReport() {
     });
     // Only include assignments THIS guard personally acknowledged or dismissed —
     // not assignments handled by a different guard, and not unhandled ones.
+    // Also skip assignments that were never given any message text.
     currentReportMP = mpList
-      .filter(function(mp){ return !!ackByAssignment[mp.id]; })
+      .filter(function(mp){ return !!ackByAssignment[mp.id] && !!(mp.notes && mp.notes.trim()); })
       .map(function(mp){ return Object.assign({}, mp, {ack: ackByAssignment[mp.id]}); });
     document.getElementById('rep-total-scans').textContent = currentReportScans.length;
     document.getElementById('rep-total-req').textContent = currentReportReqs.length;
-    document.getElementById('rep-total-notes').textContent = '—';
+    document.getElementById('rep-total-notes').textContent = currentReportNotes.length;
     document.getElementById('rep-acked').textContent = currentReportReqs.filter(function(r){return r.acknowledged;}).length;
     document.getElementById('rep-shift-summary').style.display = 'block';
     showToast('Loaded: '+currentReportScans.length+' scans');
@@ -2072,7 +2078,7 @@ function buildReportHTML() {
     'table{width:100%;border-collapse:collapse;margin-bottom:16px;page-break-inside:auto;table-layout:fixed}',
     'tr{page-break-inside:avoid}',
     'th{background:#222;color:#fff;padding:7px 10px;text-align:left;font-size:11px;font-weight:600}',
-    'td{padding:6px 10px;border-bottom:1px solid #e0e0e0;font-size:11px;vertical-align:top}',
+    'td{padding:6px 10px;border-bottom:1px solid #e0e0e0;font-size:11px;vertical-align:top;word-wrap:break-word;overflow-wrap:break-word;white-space:normal}',
     'tr:nth-child(even) td{background:#f9f9f9}',
     '.ok{color:#1a7a1a;font-weight:600}.red{color:#cc0000;font-weight:600}',
     '.sev-critical{color:#cc0000;font-weight:700}.sev-high{color:#cc6600;font-weight:700}',
@@ -2131,12 +2137,27 @@ function buildReportHTML() {
     currentReportReqs.forEach(function(r){
       var t = new Date(r.timestamp).toLocaleString('en-US');
       var status = r.acked ? '<span class="ok">Acknowledged</span>' : '<span class="red">Pending</span>';
-      html += '<tr><td>'+t+'</td><td>'+(r.name||'—')+'</td><td>'+(r.type||'—')+'</td><td>—</td><td>'+(r.loc_desc||'—')+'</td><td>'+status+'</td><td>'+(r.notes||'—')+'</td></tr>';
+      var urgClass = 'sev-'+(r.urgency==='critical'?'critical':r.urgency==='high'?'high':r.urgency==='medium'?'medium':'low');
+      html += '<tr><td>'+t+'</td><td>'+(r.name||'—')+'</td><td>'+(r.type||'—')+'</td><td class="'+urgClass+'">'+(r.urgency?r.urgency.charAt(0).toUpperCase()+r.urgency.slice(1):'—')+'</td><td>'+(r.loc_desc||'—')+'</td><td>'+status+'</td><td>'+(r.notes||'—')+'</td></tr>';
     });
     html += '</table>';
   }
 
-  // Mobile Patrol Assignments — only ones this guard personally acknowledged or dismissed
+  // Surveillance notes
+  html += '<h2>Surveillance Notes ('+currentReportNotes.length+')</h2>';
+  if (currentReportNotes.length === 0) {
+    html += '<p style="color:#888;font-size:12px">No surveillance notes.</p>';
+  } else {
+    html += '<table><tr><th style="width:13%">Time</th><th style="width:10%">From</th><th style="width:13%">Type</th><th style="width:9%">Severity</th><th style="width:16%">Location</th><th style="width:10%">Status</th><th style="width:29%">Notes</th></tr>';
+    currentReportNotes.forEach(function(n){
+      var t = new Date(n.timestamp).toLocaleString('en-US');
+      html += '<tr><td>'+t+'</td><td>'+(n.guard_name||'—')+'</td><td>'+(n.category||'—')+'</td><td>—</td><td>'+(n.checkpoint||'—')+'</td><td>—</td><td>'+(n.body||'—')+'</td></tr>';
+    });
+    html += '</table>';
+  }
+
+  // Mobile Patrol Assignments — only ones this guard personally acknowledged or dismissed,
+  // and only ones that actually had a message (empty-notes assignments are skipped)
   html += '<h2>Mobile Patrol Assignments ('+currentReportMP.length+')</h2>';
   if (currentReportMP.length === 0) {
     html += '<p style="color:#888;font-size:12px">No assignments handled by this guard.</p>';
@@ -2149,7 +2170,8 @@ function buildReportHTML() {
       var status = (mp.ack && mp.ack.status === 'dismissed')
         ? '<span style="color:#777">Dismissed</span>'
         : '<span class="ok">Acknowledged</span>';
-      html += '<tr><td>'+t+'</td><td>'+(mp.sent_by||'Admin')+'</td><td>—</td><td class="'+sevClass+'">'+(mp.severity||'—')+'</td><td>'+loc+'</td><td>'+status+'</td><td>'+(mp.notes||'—')+'</td></tr>';
+      var mpType = mp.guard_name === 'ALL' ? 'Broadcast' : 'Personal';
+      html += '<tr><td>'+t+'</td><td>'+(mp.sent_by||'Admin')+'</td><td>'+mpType+'</td><td class="'+sevClass+'">'+(mp.severity||'—')+'</td><td>'+loc+'</td><td>'+status+'</td><td>'+(mp.notes||'—')+'</td></tr>';
     });
     html += '</table>';
   }
