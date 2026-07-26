@@ -1984,6 +1984,11 @@ function guardExportPDF() {
     var startedStr = shiftRow && shiftRow.started_at ? new Date(shiftRow.started_at).toLocaleString('en-US') : '—';
     var endedStr = shiftRow && shiftRow.ended_at ? new Date(shiftRow.ended_at).toLocaleString('en-US') : (shiftRow && shiftRow.status==='active' ? 'Still active' : '—');
 
+    function fmtTimeDate(ts) {
+      var d = new Date(ts);
+      return d.toLocaleTimeString('en-US') + ', ' + d.toLocaleDateString('en-US');
+    }
+
     var css = [
       'body{font-family:Arial,sans-serif;font-size:12px;padding:24px;color:#111;margin:0}',
       'h1{font-size:18px;font-weight:700;margin-bottom:6px;border-bottom:2px solid #111;padding-bottom:6px}',
@@ -2020,7 +2025,7 @@ function guardExportPDF() {
     } else {
       html += '<table><tr><th>Time</th><th>Checkpoint</th><th>Type</th><th>GPS Verified</th></tr>';
       scans.forEach(function(s){
-        var t = new Date(s.timestamp).toLocaleString('en-US');
+        var t = fmtTimeDate(s.timestamp);
         var gps = s.gps_verified ? '<span class="ok">Yes</span>' : '<span style="color:#888">No</span>';
         html += '<tr><td>'+t+'</td><td>'+(s.checkpoint_name||s.checkpoint_id||'—')+'</td><td>'+(s.checkpoint_type||'—')+'</td><td>'+gps+'</td></tr>';
       });
@@ -2034,7 +2039,7 @@ function guardExportPDF() {
     } else {
       html += '<table><tr><th style="width:13%">Time</th><th style="width:10%">From</th><th style="width:13%">Type</th><th style="width:9%">Severity</th><th style="width:16%">Location</th><th style="width:10%">Status</th><th style="width:29%">Notes</th></tr>';
       incidents.forEach(function(inc){
-        var t = new Date(inc.timestamp).toLocaleString('en-US');
+        var t = fmtTimeDate(inc.timestamp);
         var sevClass = 'sev-'+(inc.severity||'').toLowerCase();
         html += '<tr><td>'+t+'</td><td>'+(inc.guard_name||'—')+'</td><td>'+(inc.type||'—')+'</td><td class="'+sevClass+'">'+(inc.severity||'—')+'</td><td>'+(inc.location||'—')+'</td><td>—</td><td>'+(inc.notes||'—')+'</td></tr>';
       });
@@ -2048,7 +2053,7 @@ function guardExportPDF() {
     } else {
       html += '<table><tr><th style="width:13%">Time</th><th style="width:10%">From</th><th style="width:13%">Type</th><th style="width:9%">Severity</th><th style="width:16%">Location</th><th style="width:10%">Status</th><th style="width:29%">Notes</th></tr>';
       reqs.forEach(function(r){
-        var t = new Date(r.timestamp).toLocaleString('en-US');
+        var t = fmtTimeDate(r.timestamp);
         var status = r.acked ? '<span class="ok">Acknowledged'+(r.acked_by?' by '+r.acked_by:'')+'</span>' : '<span class="red">Pending</span>';
         var urgClass = 'sev-'+(r.urgency==='critical'?'critical':r.urgency==='high'?'high':r.urgency==='medium'?'medium':'low');
         html += '<tr><td>'+t+'</td><td>'+(r.name||'—')+'</td><td>'+(r.type||'—')+'</td><td class="'+urgClass+'">'+(r.urgency?r.urgency.charAt(0).toUpperCase()+r.urgency.slice(1):'—')+'</td><td>'+(r.loc_desc||'—')+'</td><td>'+status+'</td><td>'+(r.notes||'—')+'</td></tr>';
@@ -2063,7 +2068,7 @@ function guardExportPDF() {
     } else {
       html += '<table><tr><th style="width:13%">Time</th><th style="width:10%">From</th><th style="width:13%">Type</th><th style="width:9%">Severity</th><th style="width:16%">Location</th><th style="width:10%">Status</th><th style="width:29%">Notes</th></tr>';
       survNotes.forEach(function(n){
-        var t = new Date(n.timestamp).toLocaleString('en-US');
+        var t = fmtTimeDate(n.timestamp);
         html += '<tr><td>'+t+'</td><td>'+(n.guard_name||'—')+'</td><td>'+(n.category||'—')+'</td><td>—</td><td>'+(n.checkpoint||'—')+'</td><td>—</td><td>'+(n.body||'—')+'</td></tr>';
       });
       html += '</table>';
@@ -2077,7 +2082,7 @@ function guardExportPDF() {
     } else {
       html += '<table><tr><th style="width:13%">Time</th><th style="width:10%">From</th><th style="width:13%">Type</th><th style="width:9%">Severity</th><th style="width:16%">Location</th><th style="width:10%">Status</th><th style="width:29%">Notes</th></tr>';
       mpAssignments.forEach(function(mp){
-        var t = new Date(mp.timestamp).toLocaleString('en-US');
+        var t = fmtTimeDate(mp.timestamp);
         var sevClass = 'sev-'+(mp.severity||'low').toLowerCase();
         var loc = mp.location_label || mp.custom_location || '—';
         var status = (mp.ack && mp.ack.status === 'dismissed')
