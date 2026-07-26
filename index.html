@@ -2442,38 +2442,79 @@ function onScanSuccess(decodedText) {
   var timeStr=('0'+now.getHours()).slice(-2)+':'+('0'+now.getMinutes()).slice(-2);
   var gpsRange=cp.type==='checkpoint'?20:500;
   getGPS(function(gps){
-    if(!cp.anchored){
-      if(gps)cp.gps={lat:gps.lat,lng:gps.lng};
-      cp.anchored=true;
-      localStorage.setItem('mp_checkpoints',JSON.stringify(checkpoints));
-    } else if(gps&&cp.gps){
-      var dist=getDist(gps.lat,gps.lng,cp.gps.lat,cp.gps.lng);
-      if(dist>gpsRange){showScanErr('GPS mismatch — '+Math.round(dist)+'m away. Must be within '+gpsRange+'m.');return;}
-    }
-    sessionScanned[cp.id]=timeStr;
-    sessionStorage.setItem('mp_scanned',JSON.stringify(sessionScanned));
-    currentScanCP=cp;
-    fetch(SUPABASE_URL+'/rest/v1/patrol_scans',{
-      method:'POST',
-      headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
-      body:JSON.stringify({id:'SCAN-'+Date.now(),guard_name:currentGuardName,checkpoint_id:cp.id,checkpoint_name:cp.name,checkpoint_type:cp.type,gps_lat:gps?gps.lat:null,gps_lng:gps?gps.lng:null,gps_verified:!!(gps&&cp.gps),shift_type:currentShift.type,shift_label:currentShift.label})
-    }).then(function(r){
-      if(!r.ok){r.text().then(function(t){showToast('Scan save error: '+r.status);console.error('Scan error:',t);});}
-    }).catch(function(e){showToast('Scan network error');console.error(e);});
-    document.getElementById('scan-result-title').textContent=cp.name+' scanned at '+timeStr;
-    document.getElementById('scan-result-meta').textContent=cp.type+(gps&&cp.gps?' · GPS verified':' · GPS logged');
-    document.getElementById('scan-result').style.display='block';
-    addTL(cp.name+' scanned', cp.id);
-    renderLists();
-    showToast(cp.name+' scanned');
-    if(cp.type==='surveillance'){
-      document.getElementById('surv-title').value='';
-      document.getElementById('surv-body').value='';
-      document.getElementById('surv-form').style.display='block';
-      clearSurvPhotos();
-      setSurvPhotoMode(true);
-    } else {
-      setTimeout(function(){navApp('s-home');setNav('nav-home');document.getElementById('scan-result').style.display='none';},2000);
+    // Anchor state now lives server-side in anchored_checkpoints — check it fresh on every scan
+    fetch(SUPABASE_URL+'/rest/v1/anchored_checkpoints?checkpoint_id=eq.'+encodeURIComponent(cp.id)+'&select=gps_lat,gps_lng', {
+      headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+    }).then(function(r){return r.json();}).then(function(rows){
+      var existing = Array.isArray(rows) && rows.length ? rows[0] : null;
+      if (existing) {
+        // Already anchored — just verify distance against the server's anchor
+        cp.gps = {lat: existing.gps_lat, lng: existing.gps_lng};
+        cp.anchored = true;
+        finishScan();
+      } else if (gps) {
+        // Not anchored yet — try to claim it. ON CONFLICT DO NOTHING handles the
+        // rare case where another guard's scan wins the race for the same checkpoint.
+        fetch(SUPABASE_URL+'/rest/v1/anchored_checkpoints?on_conflict=checkpoint_id', {
+          method:'POST',
+          headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'resolution=ignore-duplicates,return=minimal'},
+          body:JSON.stringify({checkpoint_id:cp.id, gps_lat:gps.lat, gps_lng:gps.lng, anchored_by:currentGuardName})
+        }).then(function(){
+          // Re-read to get whichever anchor actually won (ours, or a concurrent one)
+          return fetch(SUPABASE_URL+'/rest/v1/anchored_checkpoints?checkpoint_id=eq.'+encodeURIComponent(cp.id)+'&select=gps_lat,gps_lng', {
+            headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+          }).then(function(r2){return r2.json();});
+        }).then(function(rows2){
+          var won = Array.isArray(rows2) && rows2.length ? rows2[0] : {gps_lat:gps.lat, gps_lng:gps.lng};
+          cp.gps = {lat: won.gps_lat, lng: won.gps_lng};
+          cp.anchored = true;
+          finishScan();
+        }).catch(function(){
+          // Network hiccup on the write — proceed with our own GPS as a best-effort anchor
+          cp.gps = {lat:gps.lat, lng:gps.lng};
+          cp.anchored = true;
+          finishScan();
+        });
+      } else {
+        // No GPS available and no existing anchor — proceed unverified
+        cp.anchored = false;
+        finishScan();
+      }
+    }).catch(function(){
+      // Couldn't reach Supabase — fall back to whatever this device already has cached
+      finishScan();
+    });
+
+    function finishScan() {
+      if (cp.anchored && gps && cp.gps) {
+        var dist=getDist(gps.lat,gps.lng,cp.gps.lat,cp.gps.lng);
+        if(dist>gpsRange){showScanErr('GPS mismatch — '+Math.round(dist)+'m away. Must be within '+gpsRange+'m.');return;}
+      }
+      sessionScanned[cp.id]=timeStr;
+      sessionStorage.setItem('mp_scanned',JSON.stringify(sessionScanned));
+      currentScanCP=cp;
+      fetch(SUPABASE_URL+'/rest/v1/patrol_scans',{
+        method:'POST',
+        headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+        body:JSON.stringify({id:'SCAN-'+Date.now(),guard_name:currentGuardName,checkpoint_id:cp.id,checkpoint_name:cp.name,checkpoint_type:cp.type,gps_lat:gps?gps.lat:null,gps_lng:gps?gps.lng:null,gps_verified:!!(gps&&cp.gps),shift_type:currentShift.type,shift_label:currentShift.label})
+      }).then(function(r){
+        if(!r.ok){r.text().then(function(t){showToast('Scan save error: '+r.status);console.error('Scan error:',t);});}
+      }).catch(function(e){showToast('Scan network error');console.error(e);});
+      document.getElementById('scan-result-title').textContent=cp.name+' scanned at '+timeStr;
+      document.getElementById('scan-result-meta').textContent=cp.type+(gps&&cp.gps?' · GPS verified':' · GPS logged');
+      document.getElementById('scan-result').style.display='block';
+      addTL(cp.name+' scanned', cp.id);
+      renderLists();
+      showToast(cp.name+' scanned');
+      if(cp.type==='surveillance'){
+        document.getElementById('surv-title').value='';
+        document.getElementById('surv-body').value='';
+        document.getElementById('surv-form').style.display='block';
+        clearSurvPhotos();
+        setSurvPhotoMode(true);
+      } else {
+        setTimeout(function(){navApp('s-home');setNav('nav-home');document.getElementById('scan-result').style.display='none';},2000);
+      }
     }
   });
 }
