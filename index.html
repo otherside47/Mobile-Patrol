@@ -2005,15 +2005,19 @@ function guardExportPDF() {
     html += '</div>';
 
     // Checkpoint scans
-    html += '<h2>Checkpoint Scans ('+scans.length+')</h2>';
+    var distinctCPIds = {};
+    scans.forEach(function(s){ if (s.checkpoint_id) distinctCPIds[s.checkpoint_id] = true; });
+    var cpCoveredCount = Object.keys(distinctCPIds).length;
+    var cpTotalCount = checkpoints.length || 28;
+    html += '<h2>Checkpoint Scans ('+cpCoveredCount+'/'+cpTotalCount+')</h2>';
     if (scans.length === 0) {
       html += '<p style="color:#888;font-size:12px">No scans recorded.</p>';
     } else {
-      html += '<table><tr><th>Time</th><th>Checkpoint</th><th>GPS</th></tr>';
+      html += '<table><tr><th>Time</th><th>Checkpoint</th><th>Type</th><th>GPS Verified</th></tr>';
       scans.forEach(function(s){
         var t = new Date(s.timestamp).toLocaleString('en-US');
-        var gps = (s.gps_lat&&s.gps_lng) ? s.gps_lat.toFixed(4)+'N '+s.gps_lng.toFixed(4)+'E' : 'n/a';
-        html += '<tr><td>'+t+'</td><td>'+(s.checkpoint_id||'—')+'</td><td>'+gps+'</td></tr>';
+        var gps = s.gps_verified ? '<span class="ok">Yes</span>' : '<span style="color:#888">No</span>';
+        html += '<tr><td>'+t+'</td><td>'+(s.checkpoint_name||s.checkpoint_id||'—')+'</td><td>'+(s.checkpoint_type||'—')+'</td><td>'+gps+'</td></tr>';
       });
       html += '</table>';
     }
@@ -2037,11 +2041,11 @@ function guardExportPDF() {
     if (reqs.length === 0) {
       html += '<p style="color:#888;font-size:12px">No help requests.</p>';
     } else {
-      html += '<table><tr><th>Time</th><th>Type</th><th>Location</th><th>Status</th></tr>';
+      html += '<table><tr><th>Time</th><th>From</th><th>Type</th><th>Location</th><th>Status</th><th>Notes</th></tr>';
       reqs.forEach(function(r){
         var t = new Date(r.timestamp).toLocaleString('en-US');
         var status = r.acked ? '<span class="ok">Acknowledged'+(r.acked_by?' by '+r.acked_by:'')+'</span>' : '<span class="red">Pending</span>';
-        html += '<tr><td>'+t+'</td><td>'+(r.type||'—')+'</td><td>'+(r.loc_desc||'—')+'</td><td>'+status+'</td></tr>';
+        html += '<tr><td>'+t+'</td><td>'+(r.name||'—')+'</td><td>'+(r.type||'—')+'</td><td>'+(r.loc_desc||'—')+'</td><td>'+status+'</td><td>'+(r.notes||'—')+'</td></tr>';
       });
       html += '</table>';
     }

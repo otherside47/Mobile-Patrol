@@ -2090,7 +2090,11 @@ function buildReportHTML() {
   html += '</div>';
 
   // Checkpoint scans
-  html += '<h2>Checkpoint Scans ('+currentReportScans.length+')</h2>';
+  var distinctCPIds = {};
+  currentReportScans.forEach(function(sc){ if (sc.checkpoint_id) distinctCPIds[sc.checkpoint_id] = true; });
+  var cpCoveredCount = Object.keys(distinctCPIds).length;
+  var cpTotalCount = checkpoints.length || 28;
+  html += '<h2>Checkpoint Scans ('+cpCoveredCount+'/'+cpTotalCount+')</h2>';
   if (currentReportScans.length === 0) {
     html += '<p style="color:#888;font-size:12px">No scans recorded.</p>';
   } else {
@@ -2122,11 +2126,11 @@ function buildReportHTML() {
   if (currentReportReqs.length === 0) {
     html += '<p style="color:#888;font-size:12px">No help requests.</p>';
   } else {
-    html += '<table><tr><th>Time</th><th>From</th><th>Type</th><th>Location</th><th>Status</th></tr>';
+    html += '<table><tr><th>Time</th><th>From</th><th>Type</th><th>Location</th><th>Status</th><th>Notes</th></tr>';
     currentReportReqs.forEach(function(r){
       var t = new Date(r.timestamp).toLocaleString('en-US');
       var status = r.acked ? '<span class="ok">Acknowledged</span>' : '<span class="red">Pending</span>';
-      html += '<tr><td>'+t+'</td><td>'+(r.name||'—')+'</td><td>'+(r.type||'—')+'</td><td>'+(r.loc_desc||'—')+'</td><td>'+status+'</td></tr>';
+      html += '<tr><td>'+t+'</td><td>'+(r.name||'—')+'</td><td>'+(r.type||'—')+'</td><td>'+(r.loc_desc||'—')+'</td><td>'+status+'</td><td>'+(r.notes||'—')+'</td></tr>';
     });
     html += '</table>';
   }
