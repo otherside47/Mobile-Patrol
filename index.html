@@ -1462,9 +1462,10 @@ function loadHelpRequests() {
     // Also update old help-list
     el.innerHTML = data.slice(0,10).map(function(req) {
       var time = new Date(req.timestamp).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
-      return '<div class="req-item '+(req.acked?'acked':'')+'">'+
+      return '<div class="req-item '+(req.acked?'acked':'')+'" style="cursor:pointer" onclick=\'showHelpDetail('+JSON.stringify(JSON.stringify(req))+')\'>'+
+        '<div style="font-size:13px;font-weight:700;color:#e8eaf0;margin-bottom:4px">'+mpDateMDY(req.timestamp)+', '+time+'</div>'+
         '<div style="font-size:13px;font-weight:600;color:'+(req.acked?'#00e5a0':'#ff6b6b')+';margin-bottom:4px">'+(req.acked?'OK ':'! ')+req.type+'</div>'+
-        '<div style="font-family:monospace;font-size:11px;color:#555a6a;line-height:1.6">From: '+req.name+' · '+time+(req.acked?' · <span style="color:#00e5a0">Acked</span>':'')+'</div></div>';
+        '<div style="font-family:monospace;font-size:11px;color:#555a6a;line-height:1.6">From: '+req.name+(req.acked?' · <span style="color:#00e5a0">Acked</span>':'')+'</div></div>';
     }).join('');
   });
 }
