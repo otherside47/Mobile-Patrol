@@ -1743,6 +1743,11 @@ function doStartShift(type, label, startDate, endDate, isContinue) {
   // Load existing scans for this shift from Supabase BEFORE rendering
   // For night shifts spanning two days, load from startDate to endDate+1
   document.getElementById('cp-list').innerHTML = '<div style="font-size:13px;color:#555a6a;font-family:monospace;padding:8px 0">Loading...</div>';
+  // Reset scan-progress state first — otherwise a previous shift's scans
+  // (e.g. this morning's Day Shift) would still show as "done" once a new
+  // shift (e.g. tonight's Night Shift) starts, since nothing else clears this.
+  sessionScanned = {};
+  sessionStorage.setItem('mp_scanned', '{}');
   var sinceDate = currentShift.startDate + 'T00:00:00.000Z';
   var untilDate = currentShift.endDate + 'T23:59:59.000Z';
   var shiftType = currentShift.type;
