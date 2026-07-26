@@ -2074,7 +2074,7 @@ function guardExportPDF() {
     var pdfDoc = new DOMParser().parseFromString(html, 'text/html');
     var pdfStyleEl = pdfDoc.querySelector('style');
     var pdfContainer = document.createElement('div');
-    pdfContainer.style.cssText = 'position:fixed;left:-9999px;top:0;width:800px;background:#fff';
+    pdfContainer.style.cssText = 'position:fixed;top:0;left:0;width:800px;background:#fff;z-index:-1000';
     pdfContainer.innerHTML = (pdfStyleEl ? pdfStyleEl.outerHTML : '') + pdfDoc.body.innerHTML;
     document.body.appendChild(pdfContainer);
     var pdfDateStr = currentShift ? currentShift.startDate : new Date().toISOString().slice(0,10);
@@ -2082,7 +2082,7 @@ function guardExportPDF() {
     html2pdf().set({
       margin: 10,
       filename: 'shift-report-'+guardName+'-'+pdfDateStr+'.pdf',
-      html2canvas: { scale: 2, useCORS: true },
+      html2canvas: { scale: 2, useCORS: true, scrollX: 0, scrollY: 0 },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       pagebreak: { mode: ['css', 'legacy'] }
     }).from(pdfContainer).save().then(function(){

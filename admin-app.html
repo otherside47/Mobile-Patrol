@@ -2164,7 +2164,7 @@ function exportPDF() {
   var doc = new DOMParser().parseFromString(html, 'text/html');
   var styleEl = doc.querySelector('style');
   var container = document.createElement('div');
-  container.style.cssText = 'position:fixed;left:-9999px;top:0;width:800px;background:#fff';
+  container.style.cssText = 'position:fixed;top:0;left:0;width:800px;background:#fff;z-index:-1000';
   container.innerHTML = (styleEl ? styleEl.outerHTML : '') + doc.body.innerHTML;
   document.body.appendChild(container);
   var guardName = currentReportShift.guard_name || 'guard';
@@ -2173,7 +2173,7 @@ function exportPDF() {
   html2pdf().set({
     margin: 10,
     filename: 'shift-report-'+guardName+'-'+dateStr+'.pdf',
-    html2canvas: { scale: 2, useCORS: true },
+    html2canvas: { scale: 2, useCORS: true, scrollX: 0, scrollY: 0 },
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
     pagebreak: { mode: ['css', 'legacy'] }
   }).from(container).save().then(function(){
